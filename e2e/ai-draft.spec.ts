@@ -4,7 +4,7 @@ import drafted from './fixtures/draft-meros.json' with { type: 'json' }
 /* 大問を AI に作ってもらう流れ。本物の Claude は呼ばず、/api/draft-section を固定の返答に差し替える */
 
 async function openPaper(page: Page) {
-  await page.goto('/')
+  await page.goto('/?sample=1')
   await page.waitForFunction(() => document.fonts.status === 'loaded' && document.querySelectorAll('.page').length > 0)
   await page.waitForTimeout(200)
 }
@@ -28,7 +28,7 @@ test('作った小問で大問が置き換わり、理由の一覧が出る', as
   await expect(button).toBeDisabled()
 
   release()
-  await expect(page.getByRole('region', { name: 'AI の提案の理由' })).toBeVisible()
+  await expect(page.getByRole('region', { name: /AI の提案の理由/ })).toBeVisible()
   await expect(button).toBeEnabled()
   const stems = await merosStems(page)
   expect(stems).toHaveLength(drafted.section.questions.length)

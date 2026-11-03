@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { choiceLabel, questionPoints, sectionPoints } from '../model/derive'
-import type { Item, KanbunChar, KanbunPassage, ProsePassage, Question, Section, StemSegment, Test } from '../model/schema'
+import type { Item, KanbunChar, KanbunPassage, ProsePassage, ProseSegment, Question, Section, StemSegment, Test } from '../model/schema'
 import { circled, kansuji } from './kansuji'
 
 /* 紙面の部品。番号は呼び出し側で計算した傍線部の番号を受け取って描く */
@@ -42,13 +42,21 @@ function Mark({ id, numbers, children }: { id: string; numbers: Numbers; childre
 function Prose({ passage, numbers }: { passage: ProsePassage; numbers: Numbers }) {
   const inline = (s: { kind: 'text'; text: string } | { kind: 'ruby'; base: string; reading: string }, key: number) =>
     s.kind === 'text' ? <span key={key}>{s.text}</span> : <ruby key={key}>{s.base}<rt>{s.reading}</rt></ruby>
+  // 段落の区切りで <p> を分ける（段落ごとに一字下げ）
+  const paragraphs: Array<Exclude<ProseSegment, { kind: 'break' }>[]> = [[]]
+  for (const s of passage.segments) {
+    if (s.kind === 'break') paragraphs.push([])
+    else paragraphs.at(-1)!.push(s)
+  }
   return (
     <div className="passage">
-      <p>
-        {passage.segments.map((s, i) =>
-          s.kind === 'mark' ? <Mark key={i} id={s.id} numbers={numbers}>{s.children.map(inline)}</Mark> : inline(s, i),
-        )}
-      </p>
+      {paragraphs.map((segments, pi) => (
+        <p key={pi}>
+          {segments.map((s, i) =>
+            s.kind === 'mark' ? <Mark key={i} id={s.id} numbers={numbers}>{s.children.map(inline)}</Mark> : inline(s, i),
+          )}
+        </p>
+      ))}
       <p className="src">（{passage.source}）</p>
     </div>
   )
@@ -84,12 +92,29 @@ function Kanbun({ passage, numbers }: { passage: KanbunPassage; numbers: Numbers
   )
 }
 
-export function SectionHeader({ section, index, numbers }: { section: Section; index: number; numbers: Numbers }) {
+type HeaderProps = {
+  section: Section
+  index: number
+  numbers: Numbers
+  // 本文を貼る前の大問の配点の枠と、本文欄を押したとき（画面だけ）
+  allotment?: number
+  onOpenPassage?: () => void
+}
+
+const PROSE_KINDS: Section['kind'][] = ['literary', 'expository', 'classical']
+
+export function SectionHeader({ section, index, numbers, allotment, onOpenPassage }: HeaderProps) {
   const p = section.passage
+  const points = section.questions.length === 0 && allotment !== undefined ? allotment : sectionPoints(section)
   return (
     <>
-      <p className="sec-h"><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(sectionPoints(section))}点）</span></p>
+      <p className="sec-h"><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(points)}点）</span></p>
       {p?.kind === 'prose' && <Prose passage={p} numbers={numbers} />}
+      {!p && PROSE_KINDS.includes(section.kind) && (
+        <button type="button" className="passage passage-slot" onClick={onOpenPassage} disabled={!onOpenPassage}>
+          本文欄<span>（押して本文を貼り付けてください）</span>
+        </button>
+      )}
       {p?.kind === 'kanbun' && <Kanbun passage={p} numbers={numbers} />}
     </>
   )

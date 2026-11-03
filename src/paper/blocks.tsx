@@ -14,13 +14,25 @@ export type Block = {
 
 const SHORT_KINDS: Section['kind'][] = ['kanji', 'grammar']
 
-export function buildBlocks(test: Test): Block[] {
+export type PaperActions = {
+  allotments?: Record<string, number>
+  onOpenPassage?: (sectionId: string) => void
+}
+
+export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
   const blocks: Block[] = [{ key: 'cover', node: <Cover test={test} />, newPage: false, keepWithNext: false }]
   test.sections.forEach((section, si) => {
     const numbers = markNumbers(section)
     // 漢字・文法は前のページに続けて詰める。文章を扱う大問と作文は新しいページから始める
     const newPage = !SHORT_KINDS.includes(section.kind)
-    blocks.push({ key: `${section.id}:h`, node: <SectionHeader section={section} index={si} numbers={numbers} />, newPage, keepWithNext: true })
+    const header = (
+      <SectionHeader
+        section={section} index={si} numbers={numbers}
+        allotment={actions.allotments?.[section.id]}
+        onOpenPassage={actions.onOpenPassage && (() => actions.onOpenPassage!(section.id))}
+      />
+    )
+    blocks.push({ key: `${section.id}:h`, node: header, newPage, keepWithNext: true })
     section.questions.forEach((q, qi) => {
       blocks.push({ key: `${section.id}:${q.id}`, node: <QuestionView question={q} index={qi} numbers={numbers} />, newPage: false, keepWithNext: false })
     })

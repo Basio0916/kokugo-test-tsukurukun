@@ -43,6 +43,17 @@ describe('引用から傍線部を付ける', () => {
     })
   })
 
+  it('段落の区切りは保ち、段落をまたぐ引用は不正', () => {
+    const paragraphs: ProseSegment[] = [{ kind: 'text', text: '一つ目の段落。' }, { kind: 'break' }, { kind: 'text', text: '二つ目の段落。' }]
+    expect(plainText(paragraphs)).toBe('一つ目の段落。\n二つ目の段落。')
+    const r = anchorMarks(paragraphs, [{ key: 'A', quote: '二つ目' }], ids)
+    expect(r.ok && r.segments).toEqual([
+      { kind: 'text', text: '一つ目の段落。' }, { kind: 'break' },
+      { kind: 'mark', id: 'm1', children: [{ kind: 'text', text: '二つ目' }] }, { kind: 'text', text: 'の段落。' },
+    ])
+    expect(anchorMarks(paragraphs, [{ key: 'A', quote: '段落。\n二つ目' }], ids).ok).toBe(false)
+  })
+
   it('ルビの親文字の途中で切れる引用と、重なる引用は不正', () => {
     const rubied: ProseSegment[] = [
       { kind: 'text', text: 'かの' },
@@ -85,11 +96,11 @@ describe('返答から大問を組み立てる', () => {
   }
 
   it('正しい返答は大問になり、傍線部の番号は本文の順になる', () => {
-    const r = toSection(meros, proposal, 1)
+    const r = toSection(meros, proposal, 1, 24)
     expect(r.ok).toBe(true)
     if (!r.ok) return
     expect(r.section.questions.map(x => x.points)).toEqual([8, 16])
-    // 正答の文から、選択肢の番号（0 から）を決める
+    // 小計は配点の枠（24 点）。正答の文から、選択肢の番号（0 から）を決める
     expect(r.section.questions[0].correct).toBe(1)
     const before = meros.passage?.kind === 'prose' ? meros.passage.segments : []
     expect(r.section.passage?.kind === 'prose' && plainText(r.section.passage.segments)).toBe(plainText(before))
@@ -107,7 +118,7 @@ describe('返答から大問を組み立てる', () => {
         q({ stem: '{傍線部:Z}について答えなさい。' }),
         q({ format: 'extract', choices: undefined, correctChoice: undefined, answer: '王を倒す' }),
       ],
-    }, 1)
+    }, 1, 24)
     expect(r.ok).toBe(false)
     if (r.ok) return
     expect(r.errors.join('\n')).toContain('問1: 問い文に番号や記号を文字で書いている')

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Test } from '../model/schema'
-import { buildBlocks } from './blocks'
+import { buildBlocks, type PaperActions } from './blocks'
 import { pack } from './pack'
 import './paper.css'
 
@@ -9,8 +9,14 @@ const MM = 96 / 25.4
 const PAGE_W = 364 * MM
 const INNER_W = (364 - 30) * MM
 
-export function Paper({ test }: { test: Test }) {
-  const blocks = useMemo(() => buildBlocks(test), [test])
+type Props = PaperActions & {
+  test: Test
+  // 一枚の紙面に収まらない大問（見出しと本文のブロックが紙面の内側より広い）を知らせる
+  onTooWide?: (sectionIds: string[]) => void
+}
+
+export function Paper({ test, allotments, onOpenPassage, onTooWide }: Props) {
+  const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage }), [test, allotments, onOpenPassage])
   const measureRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const [pages, setPages] = useState<number[][] | null>(null)
@@ -23,7 +29,8 @@ export function Paper({ test }: { test: Test }) {
     if (!el) return
     const widths = [...el.children].map(c => c.getBoundingClientRect().width)
     setPages(pack(blocks.map((b, i) => ({ width: widths[i], newPage: b.newPage, keepWithNext: b.keepWithNext })), INNER_W))
-  }, [blocks, fontEpoch])
+    onTooWide?.(blocks.flatMap((b, i) => (b.key.endsWith(':h') && widths[i] > INNER_W + 1 ? [b.key.slice(0, -2)] : [])))
+  }, [blocks, fontEpoch, onTooWide])
 
   // 明朝体が読み込まれると文字の幅が変わるので、測り直す
   useEffect(() => {

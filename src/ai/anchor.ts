@@ -5,11 +5,11 @@ import type { ProseSegment } from '../model/schema.js'
  * 本文の文字は変えない。ルビは割らない。
  */
 
-type Inline = Extract<ProseSegment, { kind: 'text' | 'ruby' }>
+type Inline = Extract<ProseSegment, { kind: 'text' | 'ruby' | 'break' }>
 
 export type Anchor = { key: string; quote: string; before?: string }
 
-/** 傍線部を外して、地の文とルビだけの並びに戻す（隣り合う地の文はつなぐ） */
+/** 傍線部を外して、地の文・ルビ・段落の区切りだけの並びに戻す（隣り合う地の文はつなぐ） */
 export function unmark(segments: ProseSegment[]): Inline[] {
   const out: Inline[] = []
   for (const s of segments.flatMap(s => (s.kind === 'mark' ? s.children : [s]))) {
@@ -20,9 +20,12 @@ export function unmark(segments: ProseSegment[]): Inline[] {
   return out
 }
 
-/** ルビの親文字と地の文をつないだ、本文の文字列 */
+// 本文の文字列の上での字。段落の区切りは改行一字として数える
+const charsOf = (s: Inline) => (s.kind === 'text' ? s.text : s.kind === 'ruby' ? s.base : '\n')
+
+/** ルビの親文字と地の文をつないだ、本文の文字列（段落の間は改行） */
 export function plainText(segments: ProseSegment[]): string {
-  return unmark(segments).map(s => (s.kind === 'text' ? s.text : s.base)).join('')
+  return unmark(segments).map(charsOf).join('')
 }
 
 function indexesOf(text: string, quote: string): number[] {
@@ -38,12 +41,16 @@ export type Anchored =
 /** 引用ごとに傍線部を付けた本文と、AI のキーからシステムの識別子への対応を返す */
 export function anchorMarks(segments: ProseSegment[], anchors: Anchor[], idOf: (index: number) => string): Anchored {
   const inline = unmark(segments)
-  const plain = inline.map(s => (s.kind === 'text' ? s.text : s.base)).join('')
+  const plain = inline.map(charsOf).join('')
   const errors: string[] = []
   const spans: Array<{ start: number; end: number; id: string }> = []
   const ids = new Map<string, string>()
 
   anchors.forEach((a, i) => {
+    if (a.quote.includes('\n')) {
+      errors.push(`傍線部${a.key}「${a.quote}」が段落をまたいでいる（一つの段落の中から引用する）`)
+      return
+    }
     let found = indexesOf(plain, a.quote)
     if (found.length > 1 && a.before) found = found.filter(at => plain.slice(0, at).endsWith(a.before!))
     if (found.length === 0) errors.push(`傍線部${a.key}「${a.quote}」が本文にない（本文から一字も変えずに引用する）`)
@@ -65,6 +72,11 @@ export function anchorMarks(segments: ProseSegment[], anchors: Anchor[], idOf: (
   const pieces: Array<{ start: number; seg: Inline }> = []
   let at = 0
   for (const seg of inline) {
+    if (seg.kind === 'break') {
+      pieces.push({ start: at, seg })
+      at += 1
+      continue
+    }
     if (seg.kind === 'ruby') {
       for (let c = at + 1; c < at + seg.base.length; c++) {
         if (cuts.has(c)) return { ok: false, errors: [`傍線部の端がルビの付いた「${seg.base}」の途中にかかっている`] }
@@ -91,6 +103,7 @@ export function anchorMarks(segments: ProseSegment[], anchors: Anchor[], idOf: (
       out.push(p.seg)
       continue
     }
+    if (p.seg.kind === 'break') continue // 引用は改行を含まないので、傍線部の中に段落の区切りは来ない
     const last = out.at(-1)
     if (last?.kind === 'mark' && last.id === span.id) last.children.push(p.seg)
     else out.push({ kind: 'mark', id: span.id, children: [p.seg] })

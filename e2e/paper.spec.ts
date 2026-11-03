@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
 // 明朝体の読み込みと、読み込み後の割り付け直しが終わるのを待つ
-async function openPaper(page: Page, path = '/') {
+async function openPaper(page: Page, path = '/?sample=1') {
   await page.goto(path)
   await page.waitForFunction(() => document.fonts.status === 'loaded' && document.querySelectorAll('.page').length > 0)
   await page.waitForTimeout(200)

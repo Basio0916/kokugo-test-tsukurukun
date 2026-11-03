@@ -123,3 +123,24 @@
   .page-frame:last-child { break-after: auto; }
   .page { transform: none; box-shadow: none; }
 }
+
+/* 本文を貼る前の本文欄。画面では押せて、印刷では空の枠になる */
+.passage-slot {
+  display: block;
+  inline-size: 100%;
+  block-size: 12em;
+  margin-block: 0.3em 0.2em;
+  font: inherit;
+  color: #6a7385;
+  background: #f7f9fc;
+  border: 1px dashed #8a94a8;
+  cursor: pointer;
+  writing-mode: vertical-rl;
+}
+
+.passage-slot span { font-size: 0.8em; }
+.passage-slot:hover:enabled { background: #eef3fb; }
+
+@media print {
+  .passage-slot { color: transparent; background: none; border: 1px solid #141414; }
+}

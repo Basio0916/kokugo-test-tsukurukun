@@ -42,6 +42,18 @@ describe('大問と小問の形', () => {
     expect(Test.safeParse({ info, sections: [{ ...s, passage: literary([]).passage }] }).success).toBe(false)
   })
 
+  it('本文を貼る前の文章の大問は、本文も小問も持たない。本文がないのに小問があれば不正', () => {
+    const empty: Section = { ...literary([]), passage: undefined }
+    expect(Test.safeParse({ info, sections: [empty] }).success).toBe(true)
+    expect(Test.safeParse({ info, sections: [{ ...empty, questions: [choiceQ('q1', 'あ')] }] }).success).toBe(false)
+  })
+
+  it('本文は段落の区切りを持てる', () => {
+    const s = literary([])
+    const passage = { ...s.passage!, segments: [...prose('一つ目の段落。'), { kind: 'break' as const }, ...prose('二つ目の段落。')] }
+    expect(Test.safeParse({ info, sections: [{ ...s, passage }] }).success).toBe(true)
+  })
+
   it('観点が二つ以外なら不正', () => {
     const bad = { ...choiceQ('q1', 'あ'), kanten: 'attitude' }
     expect(Test.safeParse({ info, sections: [literary([bad as unknown as Question])] }).success).toBe(false)
