@@ -91,7 +91,8 @@ export async function handleDraftRequest(request: Request): Promise<Response> {
     return Response.json(await draftSection(parsed.data))
   } catch (error) {
     console.error(error)
-    const message = error instanceof Anthropic.APIError ? `AI の呼び出しに失敗しました（${error.status ?? '接続できません'}）` : 'サーバーでエラーが起きました'
+    const detail = error instanceof Error ? `${error.name}: ${error.message.slice(0, 200)}` : String(error)
+    const message = error instanceof Anthropic.APIError ? `AI の呼び出しに失敗しました（${error.status ?? '接続できません'}）` : `サーバーでエラーが起きました（${detail}）`
     return Response.json({ ok: false, errors: [message] }, { status: 502 })
   }
 }
