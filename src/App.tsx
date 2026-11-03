@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { draftable, gradeOf, materialOf, requestChat, requestClassical, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
+import { draftable, gradeOf, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
@@ -37,7 +37,7 @@ import { kanjiCandidates } from './start/kanjiCandidates'
 import { KanjiWords } from './start/KanjiWords'
 import { PasteKanbun } from './start/PasteKanbun'
 import { PastePassage } from './start/PastePassage'
-import { GRAMMAR_SECTION_ID, instructionFor, KANJI_SECTION_ID, type Allotments, type MaterialNames } from './start/skeleton'
+import { blankComposition, GRAMMAR_SECTION_ID, instructionFor, KANJI_SECTION_ID, type Allotments, type MaterialNames } from './start/skeleton'
 import { StartScreen, type Skeleton } from './start/StartScreen'
 
 // ?sample でサンプルのテストを開く（?sample=long は小問の多いサンプル）
@@ -193,6 +193,7 @@ export function App() {
     const current = testRef.current!
     if (section.kind === 'grammar') return () => requestGrammar(current, section, subtotalOf(section), grammarBySection[section.id])
     if (section.kind === 'classical' || section.kind === 'kanbun') return () => requestClassical(current, section, subtotalOf(section), wish)
+    if (section.kind === 'composition') return () => requestComposition(current, section, subtotalOf(section), wish)
     return () => requestDraft(current, section, subtotalOf(section), wish)
   }
 
@@ -262,6 +263,16 @@ export function App() {
   function addSection(added: NewSection) {
     if (!test) return
     const sameKind = (kind: Section['kind']) => test.sections.find(s => s.kind === kind && allotments[s.id] !== undefined)
+    if (added.kind === 'composition') {
+      // 決まった条件の作文を置いてから、AI に題と条件を作ってもらう
+      const like = sameKind('composition')
+      const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
+      const section = blankComposition(newSectionId(test, 'sakubun'), allotment)
+      commit(appendSection(test, section))
+      setAllotments(a => ({ ...a, [section.id]: allotment }))
+      setAdding(false)
+      return void draft(section, requestFor(section))
+    }
     const base = { questions: [] }
     const section: Section =
       added.kind === 'kanji' ? { ...base, id: newSectionId(test, KANJI_SECTION_ID), kind: 'kanji', instruction: '次の問いに答えなさい。' }

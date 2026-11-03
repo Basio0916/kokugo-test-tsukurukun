@@ -44,6 +44,7 @@ export type NewSection =
   | { kind: 'reading'; material: Material }
   | { kind: 'kanji' }
   | { kind: 'grammar'; materials: string[] }
+  | { kind: 'composition' }
 
 export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmit: (s: NewSection) => void; onClose: () => void }) {
   const materials = materialsOf(grade)
@@ -53,6 +54,7 @@ export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmi
   const [errors, setErrors] = useState<string[]>([])
   function submit() {
     if (choice === 'kanji') return onSubmit({ kind: 'kanji' })
+    if (choice === 'composition') return onSubmit({ kind: 'composition' })
     if (choice === 'grammar') {
       if (grammarChosen.size === 0) return setErrors(['文法の教材を選んでください'])
       return onSubmit({ kind: 'grammar', materials: [...grammarChosen] })
@@ -64,9 +66,10 @@ export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmi
   return (
     <Dialog title="大問を追加する" submitLabel="この大問を加える" errors={errors} onSubmit={submit} onClose={onClose}>
       <fieldset className="kanji-candidates">
-        <legend>漢字・文法</legend>
+        <legend>漢字・文法・作文</legend>
         <label><input type="radio" name="add" checked={choice === 'kanji'} onChange={() => setChoice('kanji')} />漢字の大問</label>
         <label><input type="radio" name="add" checked={choice === 'grammar'} onChange={() => setChoice('grammar')} />文法の大問</label>
+        <label><input type="radio" name="add" checked={choice === 'composition'} onChange={() => setChoice('composition')} />作文の大問（題と条件は AI が作ります）</label>
         {choice === 'grammar' && grammar.map(g => (
           <label key={g.name}>
             <input type="checkbox" checked={grammarChosen.has(g.name)} onChange={() => setGrammarChosen(prev => {

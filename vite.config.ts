@@ -13,6 +13,7 @@ const API_ROUTES: Record<string, [string, string]> = {
   '/api/check-passage': ['/src/ai/passageCheck.ts', 'handlePassageCheckRequest'],
   '/api/draft-classical': ['/src/ai/classicalDraft.ts', 'handleClassicalDraftRequest'],
   '/api/draft-kanbun': ['/src/ai/kanbunDraft.ts', 'handleKanbunDraftRequest'],
+  '/api/draft-composition': ['/src/ai/compositionDraft.ts', 'handleCompositionDraftRequest'],
 }
 
 function devApi(): Plugin {

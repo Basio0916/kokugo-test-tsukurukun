@@ -1,6 +1,7 @@
 import type { Grade } from '../catalog/schema'
 import type { Section, Test } from '../model/schema'
 import type { ChatRequest, ChatResponse, Selection } from './chat'
+import type { CompositionDraftRequest } from './compositionDraft'
 import type { DraftRequest, DraftResponse } from './draft'
 import type { GrammarDraftRequest } from './grammarDraft'
 import type { KanjiDraftRequest } from './kanjiDraft'
@@ -24,8 +25,9 @@ export function draftable(section: Section): boolean {
   return (section.kind === 'literary' || section.kind === 'expository') && materialOf(section) !== undefined
 }
 
-/** AI に大問を作り直してもらえる大問（本文を持つ文章・古文・漢文で、教材名がわかるもの） */
+/** AI に大問を作り直してもらえる大問（本文を持つ文章・古文・漢文で教材名がわかるもの、作文） */
 export function redraftable(section: Section): boolean {
+  if (section.kind === 'composition') return true
   if (materialOf(section) === undefined) return false
   if (section.kind === 'kanbun') return section.passage?.kind === 'kanbun'
   return (section.kind === 'literary' || section.kind === 'expository' || section.kind === 'classical') && section.passage?.kind === 'prose'
@@ -50,6 +52,13 @@ export function requestDraft(test: Test, section: Section, subtotal: number, wis
 export function requestClassical(test: Test, section: Section, subtotal: number, wish?: string): Promise<DraftResponse> {
   const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, ...(wish && { wish }) }
   return post(section.kind === 'kanbun' ? '/api/draft-kanbun' : '/api/draft-classical', body)
+}
+
+/** 作文の大問の題と条件を作ってもらう。テストの教材の大問の教材名を渡す */
+export function requestComposition(test: Test, section: Section, subtotal: number, wish?: string): Promise<DraftResponse> {
+  const materials = [...new Set(test.sections.flatMap(s => (s.kind !== 'composition' && materialOf(s) ? [materialOf(s)!] : [])))]
+  const body: CompositionDraftRequest = { grade: gradeOf(test)!, materials, pointStep: test.info.pointStep, subtotal, section, ...(wish && { wish }) }
+  return post('/api/draft-composition', body)
 }
 
 /** words は先生が決めた語、candidates は本文から拾った候補 */

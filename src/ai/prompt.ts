@@ -186,7 +186,7 @@ export const CHAT_SYSTEM_PROMPT = `あなたは日本の中学校の国語の先
 - notes: 今回の頼みに関わる気づいたこと（単元の指導事項から外れる、ほかの小問と同じことを問う、など）があるときだけ。一つ一文で。これまでの会話で伝えたことは繰り返さない
 - change: 頼みに合う変更を一つだけ。相談や質問で、紙面を変えないときは none
   - reviseQuestion: 文学的文章・説明的文章の大問の小問一つの中身を直す。sectionId と questionId は、いまのテストの識別子をそのまま書く。直さないところ（問い文・選択肢・答えなど）も、いまのものをそのまま書く。小問の形と傍線部の書き方は、下の「問いの作り方」と「傍線部と記法」に従う。今ある傍線部を使うときも、その文字列を marks に本文からそのまま引用する（同じ範囲なら今の傍線部になる）。今ある傍線部と一部だけ重なる箇所は引用しない
-  - redraftSection: 本文を持つ文学的文章・説明的文章・古文・漢文の大問を丸ごと作り直す。wish に先生の希望を、問いを作る人に伝わる短い文で書く
+  - redraftSection: 本文を持つ文学的文章・説明的文章・古文・漢文の大問か、作文の大問を丸ごと作り直す。wish に先生の希望を、問いを作る人に伝わる短い文で書く
   - reorderSections: 大問の並べ替え。order に、すべての大問の識別子を新しい順にもれなく並べる
   - remove: 大問を消す（questionId を書かない）か、小問を消す
   - addSection: 大問を足したいとき。どの教材の大問にするかは先生が画面で選ぶので、返答でそう伝える
@@ -266,6 +266,34 @@ ${p.lines.join('\n')}
 
 ## 語注
 ${p.notes.length ? p.notes.join('\n') : '（なし）'}${p.wish ? `
+
+## 先生の希望
+${p.wish}
+この希望に沿って作ってください。` : ''}`
+}
+
+export const COMPOSITION_SYSTEM_PROMPT = `${COMMON}
+
+## 作文の大問の作り方
+- テストで扱う教材と、その単元の指導事項を土台に、生徒が自分の考えを書く作文の題と条件を作る。題は教材の内容とつなげる（例: 「走れメロス」で、メロスは友との約束を守るために走り続けました。「人を信じること」について…）
+- 指示文（instruction）は、題（何について書くか）を含め、「次の条件にしたがって書きなさい。」で終える
+- 条件（conditions）は二〜三つ。段落の構成（例: 二段落で書くこと。第一段落には自分の体験や見聞きしたことを、第二段落にはそれをふまえた自分の考えを書くこと。）と字数（例: 百六十字以上、二百字以内で書くこと。）を入れる。字数の数は漢数字で書き、条件に番号は付けない
+- 字数（charLimit）は、条件の字数の上限と同じにする（六十〜四百字）。定期テストの十五分ほどで書ける量にする
+- 採点の観点（rubric）は三〜四つ（条件を満たしている、考えと体験が結びついている、など）
+- 指導事項の記号（standard）は、渡した指導事項から選ぶ`
+
+export function compositionUserPrompt(p: { grade: Grade; materials: string[]; standards: Array<{ code: string; text: string }>; instruction: string; subtotal: number; wish?: string }): string {
+  return `# テストの作文の大問
+中学${p.grade}年のテストの作文の大問です。配点は${p.subtotal}点です。
+
+## テストで扱う教材
+${p.materials.length ? p.materials.map(m => `- ${m}`).join('\n') : '（なし）'}
+
+## 教材の単元の指導事項（学習指導要領）
+${p.standards.length ? p.standards.map(s => `- ${s.code}: ${s.text}`).join('\n') : '（なし）'}
+
+## 今の指示文
+${p.instruction}${p.wish ? `
 
 ## 先生の希望
 ${p.wish}
