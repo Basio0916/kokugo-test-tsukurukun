@@ -3,7 +3,7 @@ import type { ProseSegment, Question } from '../model/schema.js'
 import { Section } from '../model/schema.js'
 import { anchorMarks, plainText } from './anchor.js'
 import { allocatePoints } from './points.js'
-import { ProposedMark, ProposedQuestion } from './proposal.js'
+import { ProposedMark, ProposedQuestion, Suggestions } from './proposal.js'
 import { buildQuestion, buildStem, type Converted } from './toSection.js'
 
 /*
@@ -26,6 +26,7 @@ export const ClassicalProposal = z.object({
   })).describe('中学生が読みにくい漢字に付けるルビ'),
   marks: z.array(ProposedMark),
   questions: z.array(ClassicalQuestion).min(1),
+  suggestions: Suggestions,
 })
 export type ClassicalProposal = z.infer<typeof ClassicalProposal>
 
@@ -111,5 +112,6 @@ export function toClassicalSection(base: Section, proposal: ClassicalProposal, p
     ok: true,
     section: parsed.data,
     rationales: proposal.questions.map((p, i) => ({ questionId: questions[i].id, rationale: p.rationale, standard: p.standard })),
+    ...(proposal.suggestions?.length && { suggestions: proposal.suggestions }),
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { markNumbers, questionNumberOf, totalPoints } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
-import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, reorderSections, replaceQuestion, replaceSection, setInstruction, stepPoints } from './operations'
+import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, reorderQuestions, reorderSections, replaceQuestion, replaceSection, setInstruction, sortQuestionsByPassage, stepPoints } from './operations'
 import { rescalePoints } from './rescale'
 import { stemToText, textToStem } from './stemText'
 
@@ -130,3 +130,18 @@ describe('決まった大問の配点を残してそろえる', () => {
   })
 })
 
+
+describe('小問の並べ替えと本文の順', () => {
+  const ids = (t: typeof sampleTest) => t.sections.find(s => s.id === 'meros')!.questions.map(q => q.id)
+  it('新しい並びで並べ替える。その大問の小問の並べ替えでなければ理由を返す', () => {
+    const r = reorderQuestions(sampleTest, 'meros', ['q1', 'q3', 'q2', 'q4'])
+    expect(r.ok && ids(r.test)).toEqual(['q1', 'q3', 'q2', 'q4'])
+    expect(reorderQuestions(sampleTest, 'meros', ['q1', 'q2']).ok).toBe(false)
+    expect(reorderQuestions(sampleTest, 'meros', ['q1', 'q2', 'q3', 'k1']).ok).toBe(false)
+  })
+
+  it('傍線部の出てくる順に並べ、傍線部のない小問は後ろ', () => {
+    const shuffled = reorderQuestions(sampleTest, 'meros', ['q4', 'q3', 'q1', 'q2'])
+    expect(shuffled.ok && ids(sortQuestionsByPassage(shuffled.test, 'meros'))).toEqual(['q1', 'q2', 'q3', 'q4'])
+  })
+})

@@ -55,7 +55,7 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
           <button type="button" disabled={!aiAvailable} onClick={() => void ask({ kind: 'suggest' }, false)}>AI のおすすめから選ぶ</button>
           <button type="button" disabled={!aiAvailable} onClick={() => setState({ step: 'format', own: false })}>形式を選んで AI に作ってもらう</button>
           <button type="button" onClick={() => setState({ step: 'format', own: true })}>自分で書く</button>
-          {!aiAvailable && <p className="edit-hint">AI に作ってもらう足し方は、本文を持つ文章の大問で使えます。この大問では「自分で書く」で足せます。</p>}
+          {!aiAvailable && <p className="edit-hint">AI に作ってもらう足し方は、本文を持つ文章・古文・漢文の大問で使えます。この大問では「自分で書く」で足せます。</p>}
           <p className="edit-hint">本文に線を引いて作るときは、紙面の本文の一部を選んでください。</p>
         </div>
       </Dialog>

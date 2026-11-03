@@ -19,9 +19,11 @@ type Props = {
   alerts: string[]
   busy: boolean
   onSend: (text: string) => void
+  // 頼み方の例（押すと入力欄に入る）
+  suggestions: string[]
 }
 
-export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, chips, onChip, statuses, alerts, busy, onSend }: Props) {
+export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, chips, onChip, statuses, alerts, busy, onSend, suggestions }: Props) {
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -91,6 +93,12 @@ export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, 
             </div>
           )
           : <p className="chat-hint">紙面の大問や小問をクリックすると、それについて頼めます</p>}
+        {suggestions.length > 0 && (
+          <div className="chips" role="group" aria-label="こう伝えてみる">
+            <span className="chips-label">こう伝えてみる</span>
+            {suggestions.map(s => <button key={s} type="button" className="chip chip-sug" onClick={() => setText(s)}>{s}</button>)}
+          </div>
+        )}
         <div className="chat-input">
           <textarea
             rows={2} value={text} aria-label="AIへの相談"

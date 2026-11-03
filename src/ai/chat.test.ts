@@ -107,3 +107,24 @@ describe('本文の確かめの関門', () => {
     expect(toIssues(['q1'], { issues: [{ questionId: 'q9', issue: 'x' }] }).ok).toBe(false)
   })
 })
+
+describe('小問の並べ替え・本文の順・小問を足す・古文と漢文の直し', () => {
+  it('小問の並べ替えはその大問の小問の並びでなければ通さない。本文の順・小問を足すは大問と小問があるか', () => {
+    expect(toChatResult(sampleTest, answer({ kind: 'reorderQuestions', sectionId: 'meros', order: ['q2', 'q1', 'q3', 'q4'] })).ok).toBe(true)
+    expect(toChatResult(sampleTest, answer({ kind: 'reorderQuestions', sectionId: 'meros', order: ['q2', 'q1'] })).ok).toBe(false)
+    expect(toChatResult(sampleTest, answer({ kind: 'sortQuestions', sectionId: 'meros' })).ok).toBe(true)
+    expect(toChatResult(sampleTest, answer({ kind: 'addQuestion', sectionId: 'meros', afterQuestionId: 'q2' })).ok).toBe(true)
+    expect(toChatResult(sampleTest, answer({ kind: 'addQuestion', sectionId: 'meros', afterQuestionId: 'q9' })).ok).toBe(false)
+  })
+
+  it('漢文の項目のない小問は直せ、今ある傍線部を残す。項目のある古文の小問は直せない', () => {
+    const r = toChatResult(sampleTest, answer({ ...revised, sectionId: 'kanshi', questionId: 'h3', marks: [{ key: 'A', quote: '花落知多少' }], question: { ...revised.question, stem: '{傍線部:A}の意味を、次の{範囲}から一つ選び、記号で答えなさい。' } }))
+    expect(r.ok && r.change.kind === 'reviseQuestion' && r.change.section.questions.find(q => q.id === 'h3')!.stem[0]).toEqual({ kind: 'markRef', id: 'a', form: 'label' })
+    expect(toChatResult(sampleTest, answer({ ...revised, sectionId: 'ougi', questionId: 'o2' }))).toMatchObject({ ok: false, errors: [expect.stringContaining('項目を持つ')] })
+    expect(toChatResult(sampleTest, answer({ ...revised, sectionId: 'ougi', questionId: 'o1', marks: [{ key: 'A', quote: '揺りすゑ' }] })).ok).toBe(true)
+  })
+
+  it('AI に読ませる漢文は記法で書く', () => {
+    expect(describeTest(sampleTest)).toContain('春眠不[レ]覚(エ)[レ]暁(ヲ)')
+  })
+})

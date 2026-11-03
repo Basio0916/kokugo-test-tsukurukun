@@ -25,6 +25,17 @@ export function draftable(section: Section): boolean {
   return (section.kind === 'literary' || section.kind === 'expository') && materialOf(section) !== undefined
 }
 
+/** 会話で小問を直せる大問（本文を持つ文章・古文・漢文） */
+export function revisable(section: Section): boolean {
+  if (section.kind === 'kanbun') return section.passage?.kind === 'kanbun'
+  return (section.kind === 'literary' || section.kind === 'expository' || section.kind === 'classical') && section.passage?.kind === 'prose'
+}
+
+/** AI に小問の案を作ってもらえる大問（会話で直せる大問のうち、指導事項を引くための教材名がわかるもの） */
+export function ideasAvailable(section: Section): boolean {
+  return revisable(section) && materialOf(section) !== undefined
+}
+
 /** AI に大問を作り直してもらえる大問（本文を持つ文章・古文・漢文で教材名がわかるもの、作文） */
 export function redraftable(section: Section): boolean {
   if (section.kind === 'composition') return true

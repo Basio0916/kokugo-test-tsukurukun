@@ -25,9 +25,14 @@ export const ProposedQuestion = z.object({
   rationale: z.string().min(1).describe('この問いを入れる理由。先生に向けて一〜二文で'),
 })
 
+// 先生が次に頼みそうなことの例（会話の「こう伝えてみる」に出す）
+export const Suggestions = z.array(z.string().min(1)).optional()
+  .describe('先生がこの大問について、次にあなた（AI）へ送りそうな頼みの文の例を一つか二つ。先生の立場・口調で、授業で重視したことや直したいことを伝える頼みとして書く（例: 授業ではメロスの人物像に力を入れました。人物像は記述で聞きたいです。）。あなたからの助言や注意は書かない')
+
 export const SectionProposal = z.object({
   marks: z.array(ProposedMark),
   questions: z.array(ProposedQuestion).min(1),
+  suggestions: Suggestions,
 })
 
 export type ProposedMark = z.infer<typeof ProposedMark>

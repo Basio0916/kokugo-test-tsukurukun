@@ -145,3 +145,55 @@ export function wrapMarks(lines: KanbunChar[][], marks: Array<{ key: string; quo
   })
   return { ok: true, lines: out, ids }
 }
+
+/**
+ * 今ある傍線部を残して、句の中の引用に傍線部を付ける。引用が今ある傍線部と同じ範囲ならその識別子を使い、
+ * 一部だけ重なる引用は不正。ids は引用のキー → 傍線部の識別子
+ */
+export function addKanbunMarks(lines: KanbunToken[][], marks: Array<{ key: string; quote: string; before?: string }>, idOf: () => string): Result<{ lines: KanbunToken[][]; ids: Map<string, string> }> {
+  const errors: string[] = []
+  const ids = new Map<string, string>()
+  // 句ごとの傍線部の範囲（字の位置）
+  const spans = lines.map(line => {
+    const out: Array<{ start: number; end: number; id: string }> = []
+    let i = 0
+    for (const t of line) {
+      if (t.kind === 'mark') out.push({ start: i, end: i + t.children.length, id: t.id })
+      i += t.kind === 'mark' ? t.children.length : 1
+    }
+    return out
+  })
+  for (const m of marks) {
+    const hits: Array<{ line: number; start: number }> = []
+    lines.forEach((l, li) => {
+      const text = lineText(l)
+      for (let at = text.indexOf(m.quote); at >= 0; at = text.indexOf(m.quote, at + 1)) {
+        if (!m.before || text.slice(0, at).endsWith(m.before)) hits.push({ line: li, start: at })
+      }
+    })
+    if (hits.length === 0) { errors.push(`傍線部${m.key}「${m.quote}」が、一つの句の中に見つからない（句をまたがず、送り仮名と返り点を除いた字で引用する）`); continue }
+    if (hits.length > 1) { errors.push(`傍線部${m.key}「${m.quote}」が二か所以上にあり、決まらない（before に直前の字を書く）`); continue }
+    const { line, start } = hits[0]
+    const end = start + m.quote.length
+    const same = spans[line].find(s => s.start === start && s.end === end)
+    if (same) { ids.set(m.key, same.id); continue }
+    if (spans[line].some(s => start < s.end && s.start < end)) { errors.push(`傍線部${m.key}「${m.quote}」が今ある傍線部と一部だけ重なっている`); continue }
+    const id = idOf()
+    spans[line].push({ start, end, id })
+    ids.set(m.key, id)
+  }
+  if (errors.length) return { ok: false, errors }
+  const out = lines.map((line, li) => {
+    const chars = lineChars(line)
+    const tokens: KanbunToken[] = []
+    let i = 0
+    for (const s of [...spans[li]].sort((a, b) => a.start - b.start)) {
+      tokens.push(...chars.slice(i, s.start))
+      tokens.push({ kind: 'mark', id: s.id, children: chars.slice(s.start, s.end) })
+      i = s.end
+    }
+    tokens.push(...chars.slice(i))
+    return tokens
+  })
+  return { ok: true, lines: out, ids }
+}

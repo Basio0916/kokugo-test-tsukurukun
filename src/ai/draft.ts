@@ -24,7 +24,7 @@ export type DraftRequest = z.infer<typeof DraftRequest>
 
 export type DraftedRationale = Rationale & { inUnit: boolean }
 export type DraftResponse =
-  | { ok: true; section: Section; rationales: DraftedRationale[] }
+  | { ok: true; section: Section; rationales: DraftedRationale[]; suggestions?: string[] }
   | { ok: false; errors: string[] }
 
 type UnitJob<T> = {
@@ -48,6 +48,7 @@ export async function draftWithUnit<T>(request: DraftRequest, job: UnitJob<T>): 
     ok: true,
     section: result.section,
     rationales: result.rationales.map(r => ({ ...r, inUnit: splitStandard(r.standard).every(c => unit.has(c)) })),
+    ...(result.suggestions && { suggestions: result.suggestions }),
   }
 }
 

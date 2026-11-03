@@ -12,7 +12,7 @@ import type { ProposedQuestion, SectionProposal } from './proposal.js'
 export type Rationale = { questionId: string; rationale: string; standard: string }
 
 export type Converted =
-  | { ok: true; section: Section; rationales: Rationale[] }
+  | { ok: true; section: Section; rationales: Rationale[]; suggestions?: string[] }
   | { ok: false; errors: string[] }
 
 // 問い文に番号・記号を文字で書いた印（記法を使っていない）
@@ -49,6 +49,7 @@ export function toSection(base: Section, proposal: SectionProposal, pointStep: n
     ok: true,
     section: parsed.data,
     rationales: proposal.questions.map((p, i) => ({ questionId: questions[i].id, rationale: p.rationale, standard: p.standard })),
+    ...(proposal.suggestions?.length && { suggestions: proposal.suggestions }),
   }
 }
 
