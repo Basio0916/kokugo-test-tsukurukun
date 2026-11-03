@@ -28,6 +28,7 @@ import { markNumbers, sectionPoints, totalPoints } from './model/derive'
 import type { KanbunPassage, ProsePassage, Question, Section, Test } from './model/schema'
 import { kansuji } from './paper/kansuji'
 import { Paper } from './paper/Paper'
+import { useMediaQuery } from './useMediaQuery'
 import { AnswerKey } from './sheet/AnswerKey'
 import { AnswerSheet } from './sheet/AnswerSheet'
 import { layoutAnswerSheet } from './sheet/layout'
@@ -101,6 +102,19 @@ export function App() {
   const [sheet, setSheet] = useState<'paper' | 'answer' | 'key'>('paper')
   const sheetLayout = useMemo(() => test && layoutAnswerSheet(test), [test])
   const [checking, setChecking] = useState<Set<string>>(new Set())
+  // 幅の狭い画面では会話と紙面を切り替えて一つずつ出す。会話を見ている間に紙面が変わったら「紙面」に印を付ける
+  const narrow = useMediaQuery('(max-width: 899px)')
+  const [view, setView] = useState<'chat' | 'paper'>('chat')
+  const [paperDot, setPaperDot] = useState(false)
+  const shownTest = useRef(test)
+  useEffect(() => {
+    if (shownTest.current !== test && narrow && view === 'chat') setPaperDot(true)
+    shownTest.current = test
+  }, [test, narrow, view])
+  const showPaper = () => {
+    setView('paper')
+    setPaperDot(false)
+  }
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
   useEffect(() => {
@@ -359,8 +373,38 @@ export function App() {
     setTotalsMessage(`配点の合計を ${test.info.fullMarks} 点にそろえました`)
   }
 
+  // テストの情報を変える。刻みに合わない配点があれば満点にそろえ直し、満点・試験時間・刻みを変えたら会話で知らせる
+  function changeInfo(info: Test['info']) {
+    if (!test) return
+    const before = test.info
+    let next: Test = { ...test, info }
+    const fits = (t: Test) => t.sections.every(s => s.questions.every(q => Number.isInteger((q.points ?? q.pointsEach ?? 0) / info.pointStep)))
+    let refit = false
+    if (!fits(next)) {
+      const r = rescalePoints(next)
+      if (!r.ok) return say({ who: 'ai', text: `配点の刻みを${info.pointStep}点にできませんでした。${r.error}` })
+      next = r.test
+      refit = true
+    }
+    commit(next)
+    const changes = [
+      ...(info.fullMarks !== before.fullMarks ? [`満点を${info.fullMarks}点に`] : []),
+      ...(info.minutes !== before.minutes ? [`試験時間を${info.minutes}分に`] : []),
+      ...(info.pointStep !== before.pointStep ? [`配点の刻みを${info.pointStep === 1 ? '一点' : '〇・五点'}に`] : []),
+    ]
+    if (!changes.length) return
+    const total = totalPoints(next)
+    const off = total !== info.fullMarks
+    say({
+      who: 'ai',
+      text: `${changes.join('、')}しました。${refit ? `刻みに合わない配点があったので、合計を${info.fullMarks}点にそろえ直しています。` : ''}${off ? `配点の合計は${total}点で、満点と合っていません。` : ''}`,
+      ...(off && { buttons: [{ label: '配点を満点にそろえる', action: 'rescale' as const }] }),
+    })
+  }
+
   // 大問の一覧から、その大問を選び、問題用紙のそのブロックへ移る（ほかの紙を開いていたら問題用紙に切り替える）
   function goToSection(sectionId: string) {
+    showPaper()
     setSheet('paper')
     setTarget({ sectionId })
     const scroll = (tries: number) => {
@@ -488,7 +532,10 @@ export function App() {
     if (button.action === 'openPassage') return setPasting(button.sectionId)
     if (button.action === 'chooseKanji') return setChoosingKanji(button.sectionId)
     if (button.action === 'rescale') return rescale()
-    if (button.action === 'showSheet') return setSheet(button.sheet)
+    if (button.action === 'showSheet') {
+      showPaper()
+      return setSheet(button.sheet)
+    }
     if (button.action === 'addComposition') return addSection({ kind: 'composition' }, true)
     if (button.action === 'skipComposition') return guide('作文は入れずにおきます。')
     if (button.action === 'fixFlag' || button.action === 'keepFlag' || button.action === 'removeFlagged') {
@@ -564,7 +611,14 @@ export function App() {
         <a href="./">はじめから作る</a>
       </header>
       <div className="workspace">
-        <ChatPanel
+        {narrow && (
+          <nav className="mview" aria-label="表示の切り替え">
+            <button type="button" aria-pressed={view === 'chat'} onClick={() => setView('chat')}>会話</button>
+            <button type="button" aria-pressed={view === 'paper'} onClick={showPaper}>紙面{paperDot && <span className="mview-dot" aria-label="紙面が変わりました" />}</button>
+          </nav>
+        )}
+        {/* 狭い画面では選んだほうだけを描く（紙面は見えない状態で測ると割り付けが崩れる） */}
+        {(!narrow || view === 'chat') && <ChatPanel
           messages={messages}
           canUndo={m => !!m.undo && test === m.undo.after}
           onButton={onButton}
@@ -583,8 +637,8 @@ export function App() {
           ]}
           busy={chatBusy}
           onSend={text => void ask(text)}
-        />
-        <main className="paper-col" onScroll={() => setSelected(null)}>
+        />}
+        {(!narrow || view === 'paper') && <main className="paper-col" onScroll={() => setSelected(null)}>
           <TotalsBar test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)} />
           <Outline
             test={test} nameOf={s => nameOf(test, s)}
@@ -608,7 +662,7 @@ export function App() {
           )}
           {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} confirmed={confirmed} />}
           {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
-        </main>
+        </main>}
       </div>
       {pasting && test.sections.find(s => s.id === pasting)?.kind === 'kanbun' && (
         <PasteKanbun
@@ -692,8 +746,8 @@ export function App() {
         <TestInfoEditor
           info={test.info}
           onSubmit={info => {
-            setTest({ ...test, info })
             setEditingInfo(false)
+            changeInfo(info)
           }}
           onClose={() => setEditingInfo(false)}
         />

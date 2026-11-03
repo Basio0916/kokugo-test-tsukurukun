@@ -21,11 +21,12 @@ export function TestInfoEditor({ info, onSubmit, onClose }: { info: TestInfo; on
   const [name, setName] = useState(info.name)
   const [fullMarks, setFullMarks] = useState(info.fullMarks)
   const [minutes, setMinutes] = useState(info.minutes)
+  const [pointStep, setPointStep] = useState(info.pointStep)
   const [errors, setErrors] = useState<string[]>([])
   function submit() {
     if (!name.trim() || !year.trim()) return setErrors(['年度とテストの名前を入れてください'])
     if (!(fullMarks > 0) || !(minutes > 0)) return setErrors(['満点と試験時間を入れてください'])
-    onSubmit({ ...info, year: year.trim(), name: name.trim(), fullMarks, minutes })
+    onSubmit({ ...info, year: year.trim(), name: name.trim(), fullMarks, minutes, pointStep })
   }
   return (
     <Dialog title="テストの情報を変える" submitLabel="この情報にする" errors={errors} onSubmit={submit} onClose={onClose}>
@@ -34,8 +35,14 @@ export function TestInfoEditor({ info, onSubmit, onClose }: { info: TestInfo; on
         <label>テストの名前<input value={name} onChange={e => setName(e.target.value)} aria-label="テストの名前" /></label>
         <label>満点<input type="number" min="1" value={fullMarks} onChange={e => setFullMarks(Number(e.target.value))} aria-label="満点" />点</label>
         <label>試験時間<input type="number" min="1" value={minutes} onChange={e => setMinutes(Number(e.target.value))} aria-label="試験時間" />分</label>
+        <label>配点の刻み
+          <select value={pointStep} onChange={e => setPointStep(Number(e.target.value) as TestInfo['pointStep'])} aria-label="配点の刻み">
+            <option value={1}>一点</option>
+            <option value={0.5}>〇・五点</option>
+          </select>
+        </label>
       </div>
-      <p className="edit-hint">満点を変えたら、「配点を満点にそろえる」で配点を割り直せます。</p>
+      <p className="edit-hint">満点を変えたら、「配点を満点にそろえる」で配点を割り直せます。刻みを変えて合わない配点があれば、満点にそろえ直します。</p>
     </Dialog>
   )
 }

@@ -20,7 +20,10 @@ export function TotalsBar({ test, message, onRescale, onEditInfo }: Props) {
         配点の合計 <b>{total}</b> 点 / 満点 {test.info.fullMarks} 点
         {!matches && '（満点と合っていません）'}
       </span>
-      <span className="totals-kanten">知識・技能 {knowledge} 点・思考・判断・表現 {thinking} 点</span>
+      <span className="totals-kanten">
+        <span className="totals-meter" aria-hidden="true"><i className="m-k" style={{ flex: knowledge }} /><i className="m-t" style={{ flex: thinking }} /></span>
+        知識・技能 {knowledge} 点・思考・判断・表現 {thinking} 点
+      </span>
       <button type="button" onClick={onRescale}>配点を満点にそろえる</button>
       <button type="button" onClick={onEditInfo}>テストの情報を変える</button>
       {message && <span className="totals-message" role="status">{message}</span>}

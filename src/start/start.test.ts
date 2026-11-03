@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { catalog } from '../catalog/catalog'
 import { Test } from '../model/schema'
 import { itemPlan } from '../ai/items'
-import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, materialsOf } from './kinds'
+import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, kantenOfStandard, materialsOf } from './kinds'
 import { kanjiCandidates, splitWords } from './kanjiCandidates'
 import { pastedKanbun, pastedPassage, workOf } from './passage'
 import { blankComposition, buildSkeleton } from './skeleton'
@@ -159,5 +159,15 @@ describe('加えた直後の作文の大問', () => {
     const s = blankComposition('sakubun2', 10)
     expect(s.questions[0]).toMatchObject({ format: 'composition', charLimit: 200, points: 10, conditions: ['二段落で書くこと。', '百六十字以上、二百字以内で書くこと。'] })
     expect(Test.safeParse({ info, sections: [s] }).success).toBe(true)
+  })
+})
+
+describe('教材の時数と指導事項', () => {
+  it('教材に時数と指導事項の記号を持たせ、記号の頭で観点を分ける', () => {
+    expect(materialsOf(2).find(m => m.name === '走れメロス')).toMatchObject({ hours: 8, standards: ['(1)エ', 'C(1)イ', 'C(1)オ', 'B(1)ウ', '(1)ウ'] })
+    expect(kantenOfStandard('(1)エ')).toBe('knowledge')
+    expect(kantenOfStandard('(3)ア')).toBe('knowledge')
+    expect(kantenOfStandard('C(1)イ')).toBe('thinking')
+    expect(kantenOfStandard('B(1)ウ')).toBe('thinking')
   })
 })

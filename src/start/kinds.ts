@@ -42,6 +42,14 @@ export type Material = {
   unit: string | null
   month: number
   kind: SectionKind
+  // 時数と、単元の指導事項の記号
+  hours: number
+  standards: string[]
+}
+
+/** 指導事項の記号の観点: (1)〜(3) は知識・技能、A〜C は思考・判断・表現 */
+export function kantenOfStandard(code: string): 'knowledge' | 'thinking' {
+  return code.startsWith('(') ? 'knowledge' : 'thinking'
 }
 
 /** その学年で、文章の大問にできる教材（読むことの指導事項を持つまとまり）を年間指導計画の順に並べる */
@@ -49,9 +57,7 @@ export function materialsOf(grade: Grade): Material[] {
   return unitsOf(grade).flatMap(unit =>
     unit.groups
       .filter((g: Group) => g.standards.some(c => c.startsWith('C(1)')) && !NOT_FOR_TEST.has(g.materials[0]))
-      .map(g => {
-        return { name: g.materials[0], unit: unit.title, month: g.month, kind: kindOf(g.materials[0]) }
-      }),
+      .map(g => ({ name: g.materials[0], unit: unit.title, month: g.month, kind: kindOf(g.materials[0]), hours: g.hours, standards: g.standards })),
   )
 }
 
