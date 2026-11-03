@@ -1,12 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { MM, usePageScale } from './scale'
 import type { Test } from '../model/schema'
 import { buildBlocks, type BlockTarget, type PaperActions } from './blocks'
 import { pack } from './pack'
 import './paper.css'
 
 // B4 横（JIS）。紙面の内側の幅が、ページに詰められる量になる
-const MM = 96 / 25.4
-const PAGE_W = 364 * MM
 const INNER_W = (364 - 30) * MM
 
 type Props = PaperActions & {
@@ -27,12 +26,11 @@ const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =
 export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, flagged }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
-  const frameRef = useRef<HTMLDivElement>(null)
   // 割り付けは、測ったときのブロックの並びと組にして持つ（並びが変わったら、測り直すまで前の割り付けは使わない）
   const [layout, setLayout] = useState<{ blocks: typeof blocks; pages: number[][] } | null>(null)
   const pages = layout?.blocks === blocks ? layout.pages : null
   const [fontEpoch, setFontEpoch] = useState(0)
-  const [scale, setScale] = useState(1)
+  const [frameRef, scale] = usePageScale()
 
   // 画面外で各ブロックを描いて幅を測り、前から詰める
   useLayoutEffect(() => {
@@ -48,14 +46,6 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
     let alive = true
     document.fonts?.ready.then(() => { if (alive) setFontEpoch(e => e + 1) })
     return () => { alive = false }
-  }, [])
-
-  useEffect(() => {
-    const el = frameRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => setScale(Math.min(1, (el.clientWidth - 32) / PAGE_W)))
-    ro.observe(el)
-    return () => ro.disconnect()
   }, [])
 
   return (

@@ -39,7 +39,7 @@ export const WELCOME: NewMessage = {
   text: '紙面の本文欄に教材の本文を貼ると、AI が小問を作ります。紙面の大問や小問をクリックして選ぶと、それについて下のボタンや言葉で頼めます。',
 }
 
-const NAMES: Partial<Record<Section['kind'], string>> = { kanji: '漢字', grammar: '文法', composition: '作文' }
+const NAMES: Partial<Record<Section['kind'], string>> = { kanji: '漢字', grammar: '文法', kanbun: '漢文', composition: '作文' }
 
 /** 会話で大問を呼ぶ名前（【三】走れメロス） */
 export function sectionLabel(test: Test, section: Section, materialNames: Record<string, string>, material?: string): string {
