@@ -7,3 +7,6 @@ node_modules
 dist
 playwright-report
 test-results
+
+# 教科書会社の資料（公開されているもの）は手元にだけ置く
+docs/sources/
