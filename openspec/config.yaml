@@ -85,6 +85,8 @@ context: |
   - Vite + React + TypeScript。データの形は zod で定義する。テストは Vitest と Playwright
   - デプロイは Vercel。AI の呼び出しは Vercel Functions から Claude API（ハッカソンのクレジット）で行い、API キーはサーバー側だけに置く
   - 公開した URL にアクセス制限はかけない
+  - AI の呼び出し: モデルは claude-opus-5-5、構造化出力（messages.parse + zod）で返答の形を縛る。AI の返答は返答用の形で検証し、テストのデータに変換して既存のスキーマでもう一度検証してから紙面に入れる（通らなければ理由を添えて一度だけ作り直す）
+  - サーバー側の関数（api/）から読み込むファイルは、Node の ESM で動くよう import に .js を付け、JSON は import 属性を付ける
 
 # Per-artifact rules (optional)
 # Add custom rules for specific artifacts.
