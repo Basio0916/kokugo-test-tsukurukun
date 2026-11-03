@@ -15,11 +15,13 @@ type Props = PaperActions & {
   onTooWide?: (sectionIds: string[]) => void
 }
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, onTooWide }: Props) {
-  const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji }), [test, allotments, onOpenPassage, onOpenKanji])
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide }: Props) {
+  const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
-  const [pages, setPages] = useState<number[][] | null>(null)
+  // 割り付けは、測ったときのブロックの並びと組にして持つ（並びが変わったら、測り直すまで前の割り付けは使わない）
+  const [layout, setLayout] = useState<{ blocks: typeof blocks; pages: number[][] } | null>(null)
+  const pages = layout?.blocks === blocks ? layout.pages : null
   const [fontEpoch, setFontEpoch] = useState(0)
   const [scale, setScale] = useState(1)
 
@@ -28,7 +30,7 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, onTooWide 
     const el = measureRef.current
     if (!el) return
     const widths = [...el.children].map(c => c.getBoundingClientRect().width)
-    setPages(pack(blocks.map((b, i) => ({ width: widths[i], newPage: b.newPage, keepWithNext: b.keepWithNext })), INNER_W))
+    setLayout({ blocks, pages: pack(blocks.map((b, i) => ({ width: widths[i], newPage: b.newPage, keepWithNext: b.keepWithNext })), INNER_W) })
     onTooWide?.(blocks.flatMap((b, i) => (b.key.endsWith(':h') && widths[i] > INNER_W + 1 ? [b.key.slice(0, -2)] : [])))
   }, [blocks, fontEpoch, onTooWide])
 

@@ -9,16 +9,15 @@ type Props = {
   drafts: DraftStates
   materialNames: Record<string, string>
   tooWide: string[]
-  // 漢字・文法の大問を作り直せるか（作り始めで作ったテストだけ。サンプルは教材がわからない）
-  kanjiGrammar: boolean
+  // 漢字・文法の大問を作り直せるか（作り方の手がかりの教材がわかる大問だけ）
+  redraftable: (section: Section) => boolean
   onDraft: (section: Section) => void
 }
 
 const NAMES: Partial<Record<Section['kind'], string>> = { kanji: '漢字', grammar: '文法' }
 
-export function AiDraftPanel({ test, drafts, materialNames, tooWide, kanjiGrammar, onDraft }: Props) {
+export function AiDraftPanel({ test, drafts, materialNames, tooWide, redraftable, onDraft }: Props) {
   const label = (s: Section) => `【${kansuji(test.sections.indexOf(s) + 1)}】${materialOf(s) ?? materialNames[s.id] ?? NAMES[s.kind] ?? ''}`
-  const redraftable = (s: Section) => kanjiGrammar && (s.kind === 'kanji' || s.kind === 'grammar') && s.questions.length > 0
   return (
     <aside className="ai-panel" aria-label="AI と作る">
       {test.sections.filter(s => draftable(s) || redraftable(s)).map(s => (
