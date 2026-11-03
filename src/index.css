@@ -93,6 +93,24 @@ body {
 
 .ai-section { flex-basis: 100%; }
 
+/* 配点の合計と、テスト全体の操作 */
+.totals { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 8px 16px 0; font-size: 14px; }
+.totals b { font-size: 16px; }
+.totals-off { color: #a1281e; font-weight: 700; }
+.totals-kanten { color: #5a6375; font-size: 13px; }
+.totals button { padding: 4px 10px; font: inherit; font-size: 13px; color: #2f5fb3; background: #fff; border: 1px solid #b9c6dd; border-radius: 6px; cursor: pointer; }
+.totals-message { color: #2f5fb3; }
+
+/* 小問などを直すポップアップ */
+.edit-fields { display: grid; gap: 10px; }
+.edit-fields > label, .edit-row label { display: grid; gap: 4px; }
+.edit-fields textarea, .paste textarea { box-sizing: border-box; width: 100%; padding: 6px 8px; font: 14px/1.6 "BIZ UDMincho", serif; }
+.edit-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.edit-row input, .edit-row select { padding: 4px 6px; font: inherit; }
+.edit-row input[type="number"] { width: 5em; }
+.edit-hint { font-size: 12px; color: #6a7385; }
+.add-materials { max-height: 240px; overflow-y: auto; }
+
 .start-sub { margin: 8px 0 4px; font-size: 14px; color: #5a6375; }
 .kanji-candidates { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d2d8e1; border-radius: 6px; }
 .kanji-candidates label { display: inline-flex; gap: 4px; align-items: center; margin: 0 14px 4px 0; }
@@ -176,5 +194,5 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .ai-panel, .paste { display: none; }
+  .app-bar, .ai-panel, .paste, .totals { display: none; }
 }

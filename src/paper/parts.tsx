@@ -101,16 +101,18 @@ type HeaderProps = {
   onOpenPassage?: () => void
   // 小問のない漢字の大問の「出題する漢字を選ぶ」欄を押したとき（画面だけ）
   onOpenKanji?: () => void
+  // 見出しをダブルクリックしたとき（指示文を直す。画面だけ）
+  onEditInstruction?: () => void
 }
 
 const PROSE_KINDS: Section['kind'][] = ['literary', 'expository', 'classical']
 
-export function SectionHeader({ section, index, numbers, allotment, onOpenPassage, onOpenKanji }: HeaderProps) {
+export function SectionHeader({ section, index, numbers, allotment, onOpenPassage, onOpenKanji, onEditInstruction }: HeaderProps) {
   const p = section.passage
   const points = section.questions.length === 0 && allotment !== undefined ? allotment : sectionPoints(section)
   return (
     <>
-      <p className="sec-h"><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(points)}点）</span></p>
+      <p className="sec-h" onDoubleClick={onEditInstruction} title={onEditInstruction ? 'ダブルクリックで指示文を直す' : undefined}><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(points)}点）</span></p>
       {p?.kind === 'prose' && <Prose passage={p} numbers={numbers} />}
       {!p && PROSE_KINDS.includes(section.kind) && (
         <button type="button" className="passage passage-slot" onClick={onOpenPassage} disabled={!onOpenPassage}>
