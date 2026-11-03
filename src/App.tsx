@@ -24,6 +24,9 @@ import { markNumbers, sectionPoints, totalPoints } from './model/derive'
 import type { ProsePassage, Question, Section, Test } from './model/schema'
 import { kansuji } from './paper/kansuji'
 import { Paper } from './paper/Paper'
+import { AnswerKey } from './sheet/AnswerKey'
+import { AnswerSheet } from './sheet/AnswerSheet'
+import { layoutAnswerSheet } from './sheet/layout'
 import { longTest } from './sample/longTest'
 import { sampleTest } from './sample/sampleTest'
 import { findGroup } from './catalog/catalog'
@@ -82,6 +85,9 @@ export function App() {
   const flagsRef = useRef(flags)
   useEffect(() => { flagsRef.current = flags }, [flags])
   const [editingPassage, setEditingPassage] = useState<string | null>(null)
+  // 開いている紙（問題用紙・解答用紙・模範解答と採点基準）。解答用紙の割り付けは、収まらない知らせにも使う
+  const [sheet, setSheet] = useState<'paper' | 'answer' | 'key'>('paper')
+  const sheetLayout = useMemo(() => test && layoutAnswerSheet(test), [test])
   const [checking, setChecking] = useState<Set<string>>(new Set())
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
@@ -454,7 +460,10 @@ export function App() {
             ...[...checking].map(id => `${nameById(id)}の小問と直した本文を、AI が確かめています`),
             ...(chatBusy ? ['AI が考えています（十数秒かかります）'] : []),
           ]}
-          alerts={tooWide.map(id => `${nameById(id)}の本文が一枚に収まりません。範囲を短くして貼り直してください。`)}
+          alerts={[
+            ...tooWide.map(id => `${nameById(id)}の本文が一枚に収まりません。範囲を短くして貼り直してください。`),
+            ...(sheetLayout && !sheetLayout.fits ? ['解答用紙が一枚に収まりません。記述や作文の字数を減らしてください。'] : []),
+          ]}
           busy={chatBusy}
           onSend={text => void ask(text)}
         />
@@ -463,11 +472,21 @@ export function App() {
             test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)}
             onAddSection={gradeOf(test) ? () => setAdding(true) : undefined}
           />
-          <Paper
-            test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide}
-            selected={active} changed={changed} onSelect={setTarget}
-            flagged={new Set(Object.keys(liveFlags(test, flags)))}
-          />
+          <div className="sheet-tabs" role="tablist" aria-label="表示する紙">
+            {([['paper', '問題用紙'], ['answer', '解答用紙'], ['key', '模範解答・採点基準']] as const).map(([value, label]) => (
+              <button key={value} type="button" role="tab" aria-selected={sheet === value} onClick={() => setSheet(value)}>{label}</button>
+            ))}
+          </div>
+          {/* 開いていない紙は描かない（問題用紙は見えない状態で測ると割り付けが崩れる） */}
+          {sheet === 'paper' && (
+            <Paper
+              test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide}
+              selected={active} changed={changed} onSelect={setTarget}
+              flagged={new Set(Object.keys(liveFlags(test, flags)))}
+            />
+          )}
+          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} />}
+          {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
         </main>
       </div>
       {pasting && (

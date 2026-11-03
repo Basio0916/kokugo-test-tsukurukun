@@ -140,6 +140,12 @@ body {
   .chat { height: 60vh; }
 }
 
+/* 紙のタブ */
+.sheet-tabs { display: inline-flex; margin: 8px 16px 0; overflow: hidden; background: #fff; border: 1px solid #b9c6dd; border-radius: 8px; }
+.sheet-tabs button { padding: 6px 14px; font: inherit; font-size: 13px; color: #1b2130; background: none; border: 0; cursor: pointer; }
+.sheet-tabs button + button { border-left: 1px solid #b9c6dd; }
+.sheet-tabs button[aria-selected="true"] { color: #fff; font-weight: 700; background: #1b2130; }
+
 /* 会話 */
 .chat { display: flex; flex-direction: column; min-height: 0; margin-bottom: 12px; font-size: 14px; background: #fff; border: 1px solid #d2d8e1; border-radius: 10px; overflow: hidden; }
 .chat-h { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid #d2d8e1; }
@@ -187,7 +193,7 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .chat, .paste, .totals, .mark-float { display: none; }
+  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs { display: none; }
   .app-edit { display: block; height: auto; }
   .workspace { display: block; padding: 0; }
   .paper-col { overflow: visible; }
