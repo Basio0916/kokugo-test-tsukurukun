@@ -208,3 +208,24 @@ ${p.history.length ? p.history.join('\n') : '（なし）'}
 # 先生の新しい頼み
 ${p.message}`
 }
+
+export const PASSAGE_CHECK_PROMPT = `${COMMON}
+
+## 本文を直したあとの確かめ
+先生が大問の本文を直しました。直した本文と大問の小問を読み、小問の中身が直した本文と食い違っていないかを確かめます。決めるのは先生なので、あなたは食い違いを知らせるだけで、直し方は書きません。
+- 食い違いとは: 正答の根拠が本文からなくなった・変わった、誤りの選択肢が本文に照らして正しくなった（正答が一つに決まらない）、模範解答や採点の観点が本文の内容と合わない、など
+- 傍線部の文字が変わったか、抜き出しの答えや問い文の引用が本文にあるかは、システムが確かめるので扱わない
+- 直した箇所に関わらない小問は挙げない。食い違いがなければ issues は空にする
+- issue は先生に向けて一文で、何が本文と合わないかを具体的に書く
+- 先生が「このままでよい」とした点と同じ指摘はしない`
+
+export function passageCheckPrompt(p: { section: string; changes: Array<{ before: string; after: string }>; acked: string[] }): string {
+  return `# 直した大問（本文は直した後のもの）
+${p.section}
+
+# 先生が直した箇所（直す前 → 直した後）
+${p.changes.map(c => `- 「${c.before}」→「${c.after}」`).join('\n')}
+
+# 先生が「このままでよい」とした点
+${p.acked.length ? p.acked.join('\n') : '（なし）'}`
+}

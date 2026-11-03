@@ -3,6 +3,7 @@ import { removeQuestion, replaceQuestion } from '../edit/operations'
 import { sampleTest } from '../sample/sampleTest'
 import { applyChatChange } from './apply'
 import { chipsFor } from './chips'
+import { flagsMessage, liveFlags, mergeFlags } from './flags'
 import { liveTarget, targetLabel } from './messages'
 
 const ctx = { pointStep: 1, drafting: new Set<string>(), busy: false, grammarKnown: () => false }
@@ -25,8 +26,9 @@ describe('頼み方のボタン', () => {
   })
 
   it('大問: 作り直す・漢字を選び直す・本文欄を開く。作っている間は押せない', () => {
-    expect(labels(chipsFor(sampleTest, { sectionId: 'meros' }, ctx))).toEqual(['AIに作り直してもらう', '小問を足す'])
-    expect(chipsFor(sampleTest, { sectionId: 'meros' }, { ...ctx, drafting: new Set(['meros']) })[0].disabled).toBe(true)
+    expect(labels(chipsFor(sampleTest, { sectionId: 'meros' }, ctx))).toEqual(['本文を直す', 'AIに作り直してもらう', '小問を足す'])
+    expect(chipsFor(sampleTest, { sectionId: 'meros' }, { ...ctx, drafting: new Set(['meros']) })[1].disabled).toBe(true)
+    expect(labels(chipsFor(sampleTest, { sectionId: 'ougi' }, ctx))).toEqual(['本文を直す', '小問を足す'])
     expect(labels(chipsFor(sampleTest, { sectionId: 'kanji' }, ctx))).toEqual(['出題する漢字を選び直す', '小問を足す'])
     expect(labels(chipsFor(sampleTest, { sectionId: 'grammar' }, { ...ctx, grammarKnown: () => true }))).toEqual(['AIに作り直してもらう', '小問を足す'])
     const empty = { ...sampleTest, sections: [{ id: 's', kind: 'literary' as const, instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] }] }
@@ -73,5 +75,28 @@ describe('会話の変更を当てはめる', () => {
     expect(applyChatChange(sampleTest, removeQuestion(sampleTest, 'meros', 'q3'), { kind: 'remove', sectionId: 'meros', questionId: 'q3' }).kind).toBe('stale')
     const r = applyChatChange(sampleTest, sampleTest, { kind: 'remove', sectionId: 'meros', questionId: 'q3' })
     expect(r.kind === 'applied' && r.test.sections.find(s => s.id === 'meros')!.questions).toHaveLength(3)
+  })
+})
+
+describe('要確認', () => {
+  const issue = (key: string) => ({ key, text: `文${key}` })
+
+  it('同じ key は一つにまとめて足す', () => {
+    const flags = mergeFlags({ 'meros/q2': [issue('a')] }, 'meros', { q2: [issue('a'), issue('b')], q3: [issue('c')] })
+    expect(flags).toEqual({ 'meros/q2': [issue('a'), issue('b')], 'meros/q3': [issue('c')] })
+  })
+
+  it('消えた小問の要確認は残さない', () => {
+    expect(liveFlags(removeQuestion(sampleTest, 'meros', 'q2'), { 'meros/q2': [issue('a')], 'meros/q3': [issue('b')] })).toEqual({ 'meros/q3': [issue('b')] })
+  })
+
+  it('小問ごとに三つのボタンを、小問ごとのまとまりで付ける', () => {
+    const m = flagsMessage(sampleTest, 'meros', { 'meros/q2': [issue('a')], 'meros/q4': [issue('b')] })!
+    expect(m.notes!.items).toEqual([{ head: '問二', text: '文a' }, { head: '問四', text: '文b' }])
+    expect(m.buttons!.map(b => [b.label, b.group])).toEqual([
+      ['問二をAIに直してもらう', 'q2'], ['問二はこのままにする', 'q2'], ['問二を消す', 'q2'],
+      ['問四をAIに直してもらう', 'q4'], ['問四はこのままにする', 'q4'], ['問四を消す', 'q4'],
+    ])
+    expect(flagsMessage(sampleTest, 'meros', {})).toBeNull()
   })
 })

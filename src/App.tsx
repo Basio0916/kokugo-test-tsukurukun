@@ -1,18 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { draftable, gradeOf, materialOf, requestChat, requestDraft, requestGrammar, requestIdeas, requestKanji } from './ai/client'
+import { draftable, gradeOf, materialOf, requestChat, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
 import { chipsFor, type Chip } from './chat/chips'
+import { flagKey, flagsMessage, liveFlags, mergeFlags, type Flags } from './chat/flags'
 import { draftedMessage, failedMessage, liveTarget, sectionLabel, targetLabel, WELCOME, type ChatButton, type ChatMessage, type NewMessage, type Target } from './chat/messages'
 import { AddQuestion } from './edit/AddQuestion'
 import { blankQuestion, type OwnFormat } from './edit/addQuestionModel'
 import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from './edit/Dialogs'
 import { MarkQuestion } from './edit/MarkQuestion'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
-import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction, stepPoints } from './edit/operations'
+import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
+import { changedParts, passageIssues, passageToText, rebuildPassage, type Issue } from './edit/passageEdit'
+import { PassageEditor } from './edit/PassageEditor'
 import { QuestionEditor } from './edit/QuestionEditor'
 import { rescalePoints } from './edit/rescale'
 import type { QuestionAction, SectionAction } from './edit/Tools'
@@ -73,6 +76,13 @@ export function App() {
   // AI の返答を待つ間に紙面が変わることがあるので、返答を当てはめるときは最新のテストを読む
   const testRef = useRef(test)
   useEffect(() => { testRef.current = test }, [test])
+  // 本文を直したあとの要確認と、先生が「このままにする」とした点（どちらも「大問/小問」ごと）。本文を直す大問、AI が確かめている大問
+  const [flags, setFlags] = useState<Flags>({})
+  const [acks, setAcks] = useState<Record<string, Issue[]>>({})
+  const flagsRef = useRef(flags)
+  useEffect(() => { flagsRef.current = flags }, [flags])
+  const [editingPassage, setEditingPassage] = useState<string | null>(null)
+  const [checking, setChecking] = useState<Set<string>>(new Set())
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
   useEffect(() => {
@@ -89,6 +99,28 @@ export function App() {
   const commit = (next: Test) => {
     testRef.current = next
     setTest(next)
+  }
+
+  const putFlags = (next: Flags) => {
+    flagsRef.current = next
+    setFlags(next)
+  }
+  const bracketOf = (sectionId: string) => `【${kansuji((testRef.current?.sections.findIndex(s => s.id === sectionId) ?? -1) + 1)}】`
+
+  // 小問の要確認を外す。その小問のボタンを押せなくし、大問の要確認がなくなったら知らせる
+  function clearFlag(sectionId: string, questionId: string) {
+    const key = flagKey(sectionId, questionId)
+    if (!flagsRef.current[key]) return
+    const next = { ...flagsRef.current }
+    delete next[key]
+    putFlags(next)
+    setMessages(ms => ms.map(m => (m.buttons?.some(b => 'questionId' in b && b.questionId === questionId && b.sectionId === sectionId)
+      ? { ...m, usedGroups: [...(m.usedGroups ?? []), questionId] }
+      : m)))
+    if (!Object.keys(liveFlags(testRef.current!, next)).some(k => k.startsWith(`${sectionId}/`))) {
+      const bracket = bracketOf(sectionId)
+      say({ who: 'ai', text: `${bracket}の小問と直した本文の食い違いはなくなりました。よければ確定してください。`, buttons: [{ label: `${bracket}を確定する`, action: 'confirm', sectionId }] })
+    }
   }
 
   const openPassage = useCallback((sectionId: string) => setPasting(sectionId), [])
@@ -241,13 +273,13 @@ export function App() {
   }
 
   // 会話で頼む。AI の返答の変更は、考えている間に紙面が変わっていなければすぐ入れ、元に戻せるようにする
-  async function ask(text: string) {
+  async function ask(text: string, about = test && liveTarget(test, target)) {
     if (!test || chatBusy) return
     const sent = test
     const history = messages.slice(-10).map(m => ({ who: m.who, text: m.text }))
     say({ who: 'me', text })
     setChatBusy(true)
-    const r = await requestChat(sent, liveTarget(sent, target) ?? undefined, history, text)
+    const r = await requestChat(sent, about ?? undefined, history, text)
     setChatBusy(false)
     const failed = (errors: string[]): NewMessage => ({ who: 'ai', text: 'うまくできませんでした。紙面は元のままです。', notes: { title: '理由', label: 'うまくできなかった理由', items: errors.map(e => ({ text: e })) }, error: true })
     if (!r.ok) return say(failed(r.errors))
@@ -267,12 +299,91 @@ export function App() {
     setChanged(applied.changed)
     if (applied.unconfirm) unconfirm(applied.unconfirm)
     say({ ...reply, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: current, after: applied.test } })
+    // 直した・消した小問の要確認は外す
+    if ((change.kind === 'reviseQuestion' || change.kind === 'remove') && change.questionId) clearFlag(change.sectionId, change.questionId)
+  }
+
+  // 本文を直す。傍線とルビを付け直して紙面に入れ、続けて小問との食い違いを確かめる
+  function savePassage(sectionId: string, text: string): string[] {
+    if (!test) return []
+    const section = test.sections.find(s => s.id === sectionId)
+    const passage = section?.passage
+    if (!section || passage?.kind !== 'prose') return []
+    const rebuilt = rebuildPassage(passage.segments, text)
+    if (!rebuilt) return ['本文を入れてください']
+    const bracket = bracketOf(sectionId)
+    if (JSON.stringify(rebuilt.segments) === JSON.stringify(passage.segments)) {
+      setEditingPassage(null)
+      say({ who: 'ai', text: `${bracket}の本文は変わっていません。` })
+      return []
+    }
+    const r = replaceSection(test, { ...section, passage: { ...passage, segments: rebuilt.segments } })
+    if (!r.ok) return r.errors
+    setEditingPassage(null)
+    commit(r.test)
+    unconfirm(sectionId)
+    setChanged({ sectionId })
+    say({ who: 'me', text: `（紙面で${bracket}の本文を直しました）` })
+    const lost = rebuilt.lostRuby.length ? `「${rebuilt.lostRuby.join('」「')}」のルビは、親字を消したので外れました。` : ''
+    say({ who: 'ai', text: `${bracket}の本文を直しました。傍線は文字に付いているので、前後を直したぶんは一緒に動いています。${lost}続けて、小問と食い違っていないかを確かめます。`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test, clearFlags: sectionId } })
+    void checkPassage(section, r.test, passageToText(passage.segments), text)
+    return []
+  }
+
+  // 機械で確かめた食い違いと、AI が確かめた選択肢・模範解答の食い違いを合わせて要確認にする
+  async function checkPassage(before: Section, edited: Test, oldText: string, newText: string) {
+    const sectionId = before.id
+    const after = edited.sections.find(s => s.id === sectionId)!
+    const ackOf = (questionId: string) => acks[flagKey(sectionId, questionId)] ?? []
+    const found = passageIssues(before, after, Object.fromEntries(after.questions.map(q => [q.id, ackOf(q.id).map(i => i.key)])))
+    const changes = changedParts(oldText, newText)
+    let note = ''
+    if (changes.length) {
+      setChecking(c => new Set(c).add(sectionId))
+      const r = await requestPassageCheck({
+        test: edited, sectionId, changes,
+        acked: Object.fromEntries(after.questions.flatMap(q => (ackOf(q.id).length ? [[q.id, ackOf(q.id).map(i => i.text)]] : []))),
+      })
+      setChecking(c => {
+        const next = new Set(c)
+        next.delete(sectionId)
+        return next
+      })
+      if (r.ok) {
+        for (const { questionId, issue } of r.issues) {
+          if (ackOf(questionId).some(i => i.text === issue)) continue
+          found[questionId] = [...(found[questionId] ?? []), { key: `ai:${issue}`, text: issue }]
+        }
+      } else note = `（選択肢と模範解答は、AI に確かめてもらえませんでした: ${r.errors.join(' ')}）`
+    }
+    const bracket = bracketOf(sectionId)
+    if (testRef.current?.sections.find(s => s.id === sectionId) !== after) return say({ who: 'ai', text: `${bracket}がまた変わったので、確かめた結果は出しません。` })
+    const next = mergeFlags(flagsRef.current, sectionId, found)
+    putFlags(next)
+    const message = flagsMessage(testRef.current, sectionId, next, note)
+    say(message ?? { who: 'ai', text: `${bracket}の小問と直した本文の食い違いは見つかりませんでした。よければ確定してください。${note}`, buttons: [{ label: `${bracket}を確定する`, action: 'confirm', sectionId }] })
   }
 
   function onButton(message: ChatMessage, button: ChatButton) {
     if (!test) return
-    setMessages(ms => ms.map(m => (m.id === message.id ? { ...m, used: true } : m)))
+    // AI に直してもらうときは、直るまでボタンを押せるままにする（直ったら要確認を外すときに押せなくなる）
+    if (button.action !== 'fixFlag') setMessages(ms => ms.map(m => (m.id === message.id ? { ...m, usedGroups: [...(m.usedGroups ?? []), button.group ?? ''] } : m)))
     if (button.action === 'confirm') return setConfirmed(prev => new Set(prev).add(button.sectionId))
+    if (button.action === 'fixFlag' || button.action === 'keepFlag' || button.action === 'removeFlagged') {
+      const { sectionId, questionId } = button
+      const key = flagKey(sectionId, questionId)
+      if (button.action === 'fixFlag') {
+        const about = { sectionId, questionId }
+        setTarget(about)
+        return void ask(`${targetLabel(test, about)}を、直した本文に合わせて直してください。食い違い: ${(flags[key] ?? []).map(i => i.text).join('／')}`, about)
+      }
+      if (button.action === 'keepFlag') setAcks(a => ({ ...a, [key]: [...(a[key] ?? []), ...(flags[key] ?? [])] }))
+      else {
+        commit(removeQuestion(test, sectionId, questionId))
+        unconfirm(sectionId)
+      }
+      return clearFlag(sectionId, questionId)
+    }
     if (button.action === 'addSection') return setAdding(true)
     if (button.action === 'redraft') {
       const section = test.sections.find(s => s.id === button.sectionId)
@@ -281,6 +392,8 @@ export function App() {
     if (message.undo && test === message.undo.after) {
       commit(message.undo.before)
       setChanged(null)
+      const cleared = message.undo.clearFlags
+      if (cleared) putFlags(Object.fromEntries(Object.entries(flagsRef.current).filter(([k]) => !k.startsWith(`${cleared}/`))))
       say({ who: 'me', text: '（元に戻しました）' })
     }
   }
@@ -291,6 +404,7 @@ export function App() {
     if (chip.kind === 'addQuestion') return setAddingAt({ sectionId: chip.sectionId, at: chip.at })
     if (chip.kind === 'kanji') return setChoosingKanji(chip.sectionId)
     if (chip.kind === 'openPassage') return setPasting(chip.sectionId)
+    if (chip.kind === 'editPassage') return setEditingPassage(chip.sectionId)
     if (chip.kind === 'draft') {
       const section = test.sections.find(s => s.id === chip.sectionId)
       return section && redraft(section)
@@ -337,6 +451,7 @@ export function App() {
           onChip={onChip}
           statuses={[
             ...[...drafting].map(id => `${nameById(id)}の大問を作っています（数十秒かかります）`),
+            ...[...checking].map(id => `${nameById(id)}の小問と直した本文を、AI が確かめています`),
             ...(chatBusy ? ['AI が考えています（十数秒かかります）'] : []),
           ]}
           alerts={tooWide.map(id => `${nameById(id)}の本文が一枚に収まりません。範囲を短くして貼り直してください。`)}
@@ -351,6 +466,7 @@ export function App() {
           <Paper
             test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide}
             selected={active} changed={changed} onSelect={setTarget}
+            flagged={new Set(Object.keys(liveFlags(test, flags)))}
           />
         </main>
       </div>
@@ -380,11 +496,24 @@ export function App() {
             setTest(r.test)
             unconfirm(editedSection.id)
             setEditingQuestion(null)
+            clearFlag(editedSection.id, q.id)
             return []
           }}
           onClose={() => setEditingQuestion(null)}
         />
       )}
+      {editingPassage && (() => {
+        const section = test.sections.find(s => s.id === editingPassage)
+        return section && (
+          <PassageEditor
+            title={`${labelOf(section.id)}の本文を直す`}
+            section={section}
+            numbers={markNumbers(section)}
+            onSubmit={text => savePassage(section.id, text)}
+            onClose={() => setEditingPassage(null)}
+          />
+        )
+      })()}
       {editingInstruction && (
         <InstructionEditor
           title={`${labelOf(editingInstruction)}の指示文を直す`}

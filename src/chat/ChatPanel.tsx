@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Chip } from './chips'
-import type { ChatButton, ChatMessage } from './messages'
+import { buttonUsed, type ChatButton, type ChatMessage } from './messages'
 
 /* 「AIと相談」の会話の欄。紙面の左に置き、印刷には出さない */
 
@@ -68,7 +68,7 @@ export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, 
               {m.buttons && (
                 <div className="msg-acts">
                   {m.buttons.map(b => (
-                    <button key={b.label} type="button" disabled={m.used || (b.action === 'undo' && !canUndo(m))} onClick={() => onButton(m, b)}>{b.label}</button>
+                    <button key={b.label} type="button" disabled={buttonUsed(m, b) || (b.action === 'undo' && !canUndo(m))} onClick={() => onButton(m, b)}>{b.label}</button>
                   ))}
                 </div>
               )}

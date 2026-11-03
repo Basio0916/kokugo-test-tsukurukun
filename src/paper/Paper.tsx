@@ -17,12 +17,14 @@ type Props = PaperActions & {
   selected?: BlockTarget | null
   changed?: BlockTarget | null
   onSelect?: (target: BlockTarget) => void
+  // 本文を直したあとの要確認の小問（「大問/小問」）
+  flagged?: Set<string>
 }
 
 const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =>
   !!t && !!b && t.sectionId === b.sectionId && (!t.questionId || t.questionId === b.questionId)
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect }: Props) {
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, flagged }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -68,7 +70,8 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
               <div className="page-in">
                 {page.map(i => {
                   const b = blocks[i]
-                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}`
+                  const isFlagged = !!b.target?.questionId && !!flagged?.has(`${b.target.sectionId}/${b.target.questionId}`)
+                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}${isFlagged ? ' blk-flagged' : ''}`
                   return (
                     <div
                       className={cls} key={b.key}
@@ -77,7 +80,7 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                         if (!onSelect || !b.target || (e.target as Element).closest('button') || !getSelection()?.isCollapsed) return
                         onSelect(b.target)
                       }}
-                    >{b.node}</div>
+                    >{b.node}{isFlagged && <span className="blk-flag">要確認</span>}</div>
                   )
                 })}
               </div>
