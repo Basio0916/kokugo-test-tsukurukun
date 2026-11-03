@@ -1,6 +1,8 @@
 import type { Grade } from '../catalog/schema'
 import type { Section, Test } from '../model/schema'
 import type { DraftedRationale, DraftRequest, DraftResponse } from './draft'
+import type { GrammarDraftRequest } from './grammarDraft'
+import type { KanjiDraftRequest } from './kanjiDraft'
 
 /* ブラウザから大問の生成を頼む。サーバー側の関数（/api/draft-section）を呼ぶ */
 
@@ -26,13 +28,28 @@ export function draftable(section: Section): boolean {
   return (section.kind === 'literary' || section.kind === 'expository') && materialOf(section) !== undefined
 }
 
-/** subtotal は大問の配点の枠 */
-export async function requestDraft(test: Test, section: Section, subtotal: number): Promise<DraftResponse> {
-  const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section }
+async function post(path: string, body: unknown): Promise<DraftResponse> {
   try {
-    const res = await fetch('/api/draft-section', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
     return (await res.json()) as DraftResponse
   } catch {
     return { ok: false, errors: ['サーバーに接続できませんでした'] }
   }
+}
+
+/** subtotal は大問の配点の枠 */
+export function requestDraft(test: Test, section: Section, subtotal: number): Promise<DraftResponse> {
+  const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section }
+  return post('/api/draft-section', body)
+}
+
+/** words は先生が決めた語、candidates は本文から拾った候補 */
+export function requestKanji(test: Test, section: Section, subtotal: number, words: string[], candidates: string[]): Promise<DraftResponse> {
+  const body: KanjiDraftRequest = { grade: gradeOf(test)!, words, candidates, pointStep: test.info.pointStep, subtotal, section }
+  return post('/api/draft-kanji', body)
+}
+
+export function requestGrammar(test: Test, section: Section, subtotal: number, materials: string[]): Promise<DraftResponse> {
+  const body: GrammarDraftRequest = { grade: gradeOf(test)!, materials, pointStep: test.info.pointStep, subtotal, section }
+  return post('/api/draft-grammar', body)
 }

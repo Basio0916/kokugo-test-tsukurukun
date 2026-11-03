@@ -28,3 +28,31 @@ export function standardText(grade: Grade, code: string): string | undefined {
 export function splitStandard(standard: string): string[] {
   return standard.split('・').filter(Boolean)
 }
+
+export type GrammarMaterial = {
+  name: string
+  standards: string[]
+  earlierGradeCodes: Array<{ grade: Grade; code: string }>
+}
+
+const GRAMMAR_NAME = /^文法[0-9０-９]/
+
+/** その学年の文法の教材（「文法」と数字で始まる教材名（例: 文法２の用言の活用）を持つまとまり） */
+export function grammarMaterialsOf(grade: Grade): GrammarMaterial[] {
+  return unitsOf(grade).flatMap(unit =>
+    unit.groups.flatMap(g => {
+      const name = g.materials.find(m => GRAMMAR_NAME.test(m))
+      return name ? [{ name, standards: g.standards, earlierGradeCodes: g.earlierGradeCodes ?? [] }] : []
+    }),
+  )
+}
+
+/** その学年の漢字の指導事項の記号。漢字の教材に付いている知識及び技能 (1) の記号のうち、最も多いもの */
+export function kanjiStandardOf(grade: Grade): string {
+  const counts = new Map<string, number>()
+  for (const g of unitsOf(grade).flatMap(u => u.groups)) {
+    if (!g.materials.some(m => m.includes('漢字'))) continue
+    for (const code of g.standards.filter(c => c.startsWith('(1)'))) counts.set(code, (counts.get(code) ?? 0) + 1)
+  }
+  return [...counts].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0][0]
+}

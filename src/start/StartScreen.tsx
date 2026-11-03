@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import type { Grade } from '../catalog/schema'
 import type { TestInfo } from '../model/schema'
-import { materialsOf, type Material } from './kinds'
+import { grammarMaterialsOf, materialsOf, type Material } from './kinds'
 import { buildSkeleton } from './skeleton'
 
 /* テストを作り始める画面。学年・教材・テストの情報を入れると、骨組みと配点の枠を作る */
@@ -13,6 +13,8 @@ export type Skeleton = NonNullable<ReturnType<typeof buildSkeleton>>
 export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void }) {
   const [grade, setGrade] = useState<Grade>(2)
   const [chosen, setChosen] = useState<Set<string>>(new Set())
+  const [kanji, setKanji] = useState(true)
+  const [grammar, setGrammar] = useState<Set<string>>(new Set())
   const [year, setYear] = useState('令和八年度')
   const [name, setName] = useState('')
   const [fullMarks, setFullMarks] = useState(100)
@@ -20,6 +22,16 @@ export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void
   const [pointStep, setPointStep] = useState<TestInfo['pointStep']>(1)
   const [error, setError] = useState<string | null>(null)
   const materials = materialsOf(grade)
+  const grammarMaterials = grammarMaterialsOf(grade)
+
+  function toggleGrammar(name: string) {
+    setGrammar(prev => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
 
   function toggle(m: Material) {
     setChosen(prev => {
@@ -36,8 +48,8 @@ export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void
     if (selected.length === 0) return setError('テストに入れる教材を選んでください。')
     if (!name.trim()) return setError('テストの名前を入れてください。')
     const info: TestInfo = { year: year.trim(), name: name.trim(), grade: GRADE_NAMES[grade - 1], fullMarks, minutes, pointStep }
-    const skeleton = buildSkeleton(info, selected)
-    if (!skeleton) return setError(`満点${fullMarks}点を、${selected.length}つの大問に${pointStep}点刻みで割り振れません。`)
+    const skeleton = buildSkeleton(info, selected, { kanji, grammar: grammarMaterials.filter(g => grammar.has(g.name)) })
+    if (!skeleton) return setError(`満点${fullMarks}点を、大問に${pointStep}点刻みで割り振れません。満点を大きくするか、大問を減らしてください。`)
     onStart(skeleton)
   }
 
@@ -50,7 +62,7 @@ export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void
         <legend>学年</legend>
         {([1, 2, 3] as const).map(g => (
           <label key={g} className="start-choice">
-            <input type="radio" name="grade" checked={grade === g} onChange={() => { setGrade(g); setChosen(new Set()) }} />
+            <input type="radio" name="grade" checked={grade === g} onChange={() => { setGrade(g); setChosen(new Set()); setGrammar(new Set()) }} />
             {GRADE_NAMES[g - 1]}
           </label>
         ))}
@@ -67,6 +79,25 @@ export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void
                 {m.name}
                 {m.unit && <span className="start-unit">{m.unit}</span>}
                 {!m.selectable && <span className="start-later">{m.kind === 'kanbun' ? '漢文' : '古文'}は後で対応</span>}
+              </label>
+            </li>
+          ))}
+        </ul>
+      </fieldset>
+
+      <fieldset>
+        <legend>漢字・文法の大問</legend>
+        <label className="start-choice">
+          <input type="checkbox" checked={kanji} onChange={e => setKanji(e.target.checked)} />
+          漢字の大問を入れる（出題する語はテストを作った後に決めます）
+        </label>
+        <p className="start-sub">文法の大問に入れる教材</p>
+        <ul className="start-materials">
+          {grammarMaterials.map(g => (
+            <li key={g.name}>
+              <label>
+                <input type="checkbox" checked={grammar.has(g.name)} onChange={() => toggleGrammar(g.name)} />
+                {g.name}
               </label>
             </li>
           ))}

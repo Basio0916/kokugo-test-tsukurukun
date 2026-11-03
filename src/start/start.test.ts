@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { catalog } from '../catalog/catalog'
 import { Test } from '../model/schema'
-import { CLASSIFIED_NAMES, materialsOf } from './kinds'
+import { itemPlan } from '../ai/items'
+import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, materialsOf } from './kinds'
+import { kanjiCandidates, splitWords } from './kanjiCandidates'
 import { pastedPassage } from './passage'
 import { buildSkeleton } from './skeleton'
 
@@ -60,5 +62,65 @@ describe('本文の貼り付け', () => {
   it('作者名がなければ「「教材名」より」、本文が空なら作らない', () => {
     expect(pastedPassage('本文', '走れメロス', '')!.source).toBe('「走れメロス」より')
     expect(pastedPassage(' \n　\n', '走れメロス', '太宰治')).toBeNull()
+  })
+})
+
+describe('漢字・文法の教材と記号', () => {
+  it('二年の文法の教材は三つ', () => {
+    expect(grammarMaterialsOf(2).map(g => g.name)).toEqual(['文法１　自立語', '文法２　用言の活用', '文法３　付属語'])
+    expect(grammarMaterialsOf(2)[1].standards).toEqual(['(1)オ'])
+  })
+
+  it('漢字の指導事項の記号は学年で違う', () => {
+    expect([1, 2, 3].map(g => kanjiStandardOf(g as 1 | 2 | 3))).toEqual(['(1)イ', '(1)ウ', '(1)ア'])
+  })
+})
+
+describe('漢字・文法を入れた骨組み', () => {
+  const two = materialsOf(2).filter(m => m.name === 'アイスプラネット' || m.name === '走れメロス')
+  const katsuyo = grammarMaterialsOf(2).filter(g => g.name === '文法２　用言の活用')
+
+  it('漢字 → 文法 → 文章の順に並び、百点を 16・16・34・34 に割り振る', () => {
+    const r = buildSkeleton(info, two, { kanji: true, grammar: katsuyo })!
+    expect(r.test.sections.map(s => s.kind)).toEqual(['kanji', 'grammar', 'literary', 'literary'])
+    expect(r.test.sections.map(s => r.allotments[s.id])).toEqual([16, 16, 34, 34])
+    expect(r.grammarMaterials).toEqual(['文法２　用言の活用'])
+    expect(Test.safeParse(r.test).success).toBe(true)
+  })
+
+  it('五十点・〇・五点刻みでも合計は満点ちょうどで、漢字・文法は一点の倍数', () => {
+    const r = buildSkeleton({ ...info, fullMarks: 50, pointStep: 0.5 }, two.slice(0, 1), { kanji: true, grammar: katsuyo })!
+    const points = r.test.sections.map(s => r.allotments[s.id])
+    expect(points.reduce((a, b) => a + b, 0)).toBe(50)
+    expect(points.slice(0, 2).every(p => Number.isInteger(p))).toBe(true)
+  })
+
+  it('漢字・文法だけで満点を超えるなら作らない', () => {
+    expect(buildSkeleton({ ...info, fullMarks: 4 }, two, { kanji: true, grammar: katsuyo })).toBeNull()
+  })
+})
+
+describe('項目ごとの配点と項目の数', () => {
+  it('十六点・一点刻みは二点×八項目', () => {
+    expect(itemPlan(16, 1)).toEqual({ each: 2, count: 8 })
+  })
+
+  it('〇・五点刻みでも二点に寄せる', () => {
+    expect(itemPlan(12, 0.5)).toEqual({ each: 2, count: 6 })
+  })
+
+  it('二点で六〜十二項目にならない枠は、ほかの配点で六〜十二項目にする', () => {
+    expect(itemPlan(30, 1)).toEqual({ each: 3, count: 10 })
+    expect(itemPlan(10, 1)).toEqual({ each: 1, count: 10 })
+  })
+})
+
+describe('本文からの候補と、先生が貼った語', () => {
+  it('中学校で習う漢字を含む、漢字の続く部分を本文の順に拾う', () => {
+    expect(kanjiCandidates(['必ず、かの邪智暴虐の王を除かなければならぬと決意した。', '邪智暴虐の王は、人を欺く。'])).toEqual(['邪智暴虐', '欺'])
+  })
+
+  it('改行・読点・空白で区切り、同じ語はまとめる', () => {
+    expect(splitWords('約束、信頼　名誉\n疲労,漂う 約束')).toEqual(['約束', '信頼', '名誉', '疲労', '漂う'])
   })
 })

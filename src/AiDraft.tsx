@@ -9,16 +9,21 @@ type Props = {
   drafts: DraftStates
   materialNames: Record<string, string>
   tooWide: string[]
+  // 漢字・文法の大問を作り直せるか（作り始めで作ったテストだけ。サンプルは教材がわからない）
+  kanjiGrammar: boolean
   onDraft: (section: Section) => void
 }
 
-export function AiDraftPanel({ test, drafts, materialNames, tooWide, onDraft }: Props) {
-  const label = (s: Section) => `【${kansuji(test.sections.indexOf(s) + 1)}】${materialOf(s) ?? materialNames[s.id] ?? ''}`
+const NAMES: Partial<Record<Section['kind'], string>> = { kanji: '漢字', grammar: '文法' }
+
+export function AiDraftPanel({ test, drafts, materialNames, tooWide, kanjiGrammar, onDraft }: Props) {
+  const label = (s: Section) => `【${kansuji(test.sections.indexOf(s) + 1)}】${materialOf(s) ?? materialNames[s.id] ?? NAMES[s.kind] ?? ''}`
+  const redraftable = (s: Section) => kanjiGrammar && (s.kind === 'kanji' || s.kind === 'grammar') && s.questions.length > 0
   return (
     <aside className="ai-panel" aria-label="AI と作る">
-      {test.sections.filter(draftable).map(s => (
+      {test.sections.filter(s => draftable(s) || redraftable(s)).map(s => (
         <button key={s.id} type="button" disabled={drafts[s.id]?.status === 'drafting'} onClick={() => onDraft(s)}>
-          {label(s)}の大問を AI に作ってもらう
+          {s.kind === 'kanji' ? `${label(s)}の出題する漢字を選び直す` : `${label(s)}の大問を AI に作ってもらう`}
         </button>
       ))}
       {test.sections.map(s => {

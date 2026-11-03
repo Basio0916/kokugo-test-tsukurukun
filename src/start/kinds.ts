@@ -57,3 +57,7 @@ export function materialsOf(grade: Grade): Material[] {
       }),
   )
 }
+
+
+// 文法の教材と漢字の指導事項の記号は、サーバー側の関数も使うので単元データの側に置く
+export { grammarMaterialsOf, kanjiStandardOf, type GrammarMaterial } from '../catalog/catalog'

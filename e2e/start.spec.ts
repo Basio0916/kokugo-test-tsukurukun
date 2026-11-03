@@ -19,9 +19,11 @@ async function fakeDraft(route: Route) {
   })
 }
 
-async function startTest(page: Page) {
+async function startTest(page: Page, { kanji = false, grammar = [] as string[] } = {}) {
   await page.goto('/')
   await page.getByLabel('二年').check()
+  if (!kanji) await page.getByLabel(/漢字の大問を入れる/).uncheck()
+  for (const g of grammar) await page.getByRole('checkbox', { name: g }).check()
   await page.getByRole('checkbox', { name: /アイスプラネット/ }).check()
   await page.getByRole('checkbox', { name: /走れメロス/ }).check()
   await page.getByLabel('テストの名前').fill('前期中間テスト')
@@ -86,4 +88,66 @@ test('作り始めからサンプルを開ける', async ({ page }) => {
   await page.goto('/')
   await page.getByRole('link', { name: 'サンプルを見る' }).click()
   await expect(page.locator('.page')).toHaveCount(5)
+})
+
+// 項目を持つ問いを二つ返す（漢字・文法）。配点は送られた枠を項目数で割る
+async function fakeItems(route: Route) {
+  const req = route.request().postDataJSON()
+  const each = req.subtotal / 4
+  const q = (n: number) => ({
+    id: `${req.section.id}-q${n}`, format: 'short', kanten: 'knowledge', standard: '(1)ウ', pointsEach: each,
+    stem: [{ kind: 'text', text: n === 1 ? '次の傍線部の漢字の読みを、ひらがなで書きなさい。' : '次の各文の傍線部を書きなさい。' }],
+    items: [1, 2].map(i => ({ segments: [{ kind: 'underline', text: `語${i}` }, { kind: 'text', text: 'の例文。' }], answer: 'こたえ' })),
+  })
+  await route.fulfill({
+    json: {
+      ok: true,
+      section: { ...req.section, questions: [q(1), q(2)] },
+      rationales: [1, 2].map(n => ({ questionId: `${req.section.id}-q${n}`, rationale: `理由${n}`, standard: '(1)ウ', inUnit: true })),
+    },
+  })
+}
+
+test('文法はテストを作ったら作られ、漢字は語を決めると作られる', async ({ page }) => {
+  const kanjiRequests: Array<{ words: string[]; candidates: string[] }> = []
+  await page.route('/api/draft-section', fakeDraft)
+  await page.route('/api/draft-grammar', fakeItems)
+  await page.route('/api/draft-kanji', route => {
+    kanjiRequests.push(route.request().postDataJSON())
+    return fakeItems(route)
+  })
+  await startTest(page, { kanji: true, grammar: ['文法２　用言の活用'] })
+
+  // 漢字 → 文法 → 文章の順で、五十点を 8・8・17・17 に割り振る
+  await expect(page.locator('.page .sec-h')).toHaveText([/【一】.*（八点）/, /【二】.*（八点）/, /【三】.*（十七点）/, /【四】.*（十七点）/])
+  await expect(page.getByRole('region', { name: /【二】文法 AI の提案の理由/ })).toBeVisible()
+  await expect(page.locator('.page .kanji-slot')).toHaveCount(1)
+
+  // 本文を貼ると、本文から拾った候補が出る
+  await page.locator('.page .passage-slot:not(.kanji-slot)').nth(1).click()
+  await page.getByRole('dialog').getByLabel('本文').fill('必ず、かの邪智暴虐の王を除かなければならぬと決意した。')
+  await page.getByRole('dialog').getByRole('button', { name: /本文を入れて/ }).click()
+  await page.locator('.page .kanji-slot').click()
+  const dialog = page.getByRole('dialog', { name: '出題する漢字を選ぶ' })
+  await expect(dialog.getByRole('checkbox', { name: '邪智暴虐' })).toBeVisible()
+  await expect(dialog.getByRole('checkbox', { name: '決意' })).toHaveCount(0)
+
+  // 漢字テストの語を貼り、候補からも選んで決める
+  await dialog.getByLabel('出題する語').fill('約束、信頼\n名誉')
+  await dialog.getByRole('checkbox', { name: '邪智暴虐' }).check()
+  await dialog.getByRole('button', { name: /この語で/ }).click()
+  await expect(page.getByRole('region', { name: /【一】漢字 AI の提案の理由/ })).toBeVisible()
+  expect(kanjiRequests[0].words).toEqual(['約束', '信頼', '名誉', '邪智暴虐'])
+  await expect(page.locator('.page .kanji-slot')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /漢字の出題する漢字を選び直す/ })).toBeVisible()
+})
+
+test('語を何も決めなければ漢字の大問は作られない', async ({ page }) => {
+  await page.route('/api/draft-section', fakeDraft)
+  await startTest(page, { kanji: true })
+  await page.locator('.page .kanji-slot').click()
+  const dialog = page.getByRole('dialog', { name: '出題する漢字を選ぶ' })
+  await expect(dialog).toContainText('本文を貼ると、ここに候補が出ます')
+  await dialog.getByRole('button', { name: /この語で/ }).click()
+  await expect(dialog.getByRole('alert')).toContainText('出題する語を入れるか')
 })
