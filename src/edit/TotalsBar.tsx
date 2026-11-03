@@ -8,10 +8,9 @@ type Props = {
   message: string | null
   onRescale: () => void
   onEditInfo: () => void
-  onAddSection?: () => void
 }
 
-export function TotalsBar({ test, message, onRescale, onEditInfo, onAddSection }: Props) {
+export function TotalsBar({ test, message, onRescale, onEditInfo }: Props) {
   const total = totalPoints(test)
   const { knowledge, thinking } = kantenTotals(test)
   const matches = total === test.info.fullMarks
@@ -24,7 +23,6 @@ export function TotalsBar({ test, message, onRescale, onEditInfo, onAddSection }
       <span className="totals-kanten">知識・技能 {knowledge} 点・思考・判断・表現 {thinking} 点</span>
       <button type="button" onClick={onRescale}>配点を満点にそろえる</button>
       <button type="button" onClick={onEditInfo}>テストの情報を変える</button>
-      {onAddSection && <button type="button" onClick={onAddSection}>＋ 大問を追加</button>}
       {message && <span className="totals-message" role="status">{message}</span>}
     </div>
   )

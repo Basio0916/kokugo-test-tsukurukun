@@ -22,7 +22,8 @@ function UnitView({ unit, top }: { unit: Unit; top: number }) {
   )
 }
 
-export function AnswerSheet({ test, layout }: { test: Test; layout: SheetLayout }) {
+// confirmed: 確定した大問。確定していない大問は、画面では破線で描く
+export function AnswerSheet({ test, layout, confirmed }: { test: Test; layout: SheetLayout; confirmed: Set<string> }) {
   const [ref, scale] = usePageScale()
   const { info } = test
   const totals = kantenTotals(test)
@@ -45,7 +46,7 @@ export function AnswerSheet({ test, layout }: { test: Test; layout: SheetLayout 
             </div>
             <div className="sheet-area" style={{ top: mm(SHEET.top), right: mm(SHEET.right + SHEET.side), width: mm(AREA.width), height: mm(AREA.height) }}>
               {layout.sections.map(s => (
-                <div key={s.id} className="sheet-sec" style={{ right: mm(s.x), width: mm(s.w) }} aria-label={`解答用紙の${s.label}`}>
+                <div key={s.id} className={`sheet-sec${confirmed.has(s.id) ? '' : ' sheet-prop'}`} style={{ right: mm(s.x), width: mm(s.w) }} aria-label={`解答用紙の${s.label}`}>
                   <div className="sheet-sec-h" style={{ height: mm(cell) }}>{s.label}</div>
                   {s.waiting
                     ? <p className="sheet-waiting" style={{ top: mm(cell) }}>{s.waiting}</p>

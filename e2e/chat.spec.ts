@@ -73,7 +73,10 @@ test('会話で直した後に紙面を変えると、元に戻せない。確�
   await expect(page.getByRole('group', { name: '【三】の操作' }).getByRole('button', { name: '確定する' })).toBeAttached()
 
   await page.getByRole('group', { name: '【三】問三の操作' }).getByRole('button', { name: '削除' }).click()
-  await expect(chat(page).getByRole('button', { name: '元に戻す' })).toBeDisabled()
+  // 会話で直した返答の「元に戻す」は押せない（紙面で消した知らせの「元に戻す」は押せる）
+  await expect(chat(page).getByRole('button', { name: '元に戻す' })).toHaveCount(2)
+  await expect(chat(page).getByRole('button', { name: '元に戻す' }).first()).toBeDisabled()
+  await expect(chat(page).getByRole('button', { name: '元に戻す' }).last()).toBeEnabled()
 })
 
 test('自分の言葉で頼んで大問を入れ替える', async ({ page }) => {

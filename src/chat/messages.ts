@@ -13,6 +13,10 @@ export type ChatButton = { label: string; group?: string } & (
   | { action: 'redraft'; sectionId: string }
   | { action: 'undo' }
   | { action: 'addSection' }
+  // 案内: 本文欄を開く・出題する漢字を選ぶ・作文を足す／入れない・配点をそろえる・紙のタブを開く
+  | { action: 'openPassage' | 'chooseKanji'; sectionId: string }
+  | { action: 'addComposition' | 'skipComposition' | 'rescale' }
+  | { action: 'showSheet'; sheet: 'answer' | 'key' }
   // 本文を直したあとの要確認の小問への対応
   | { action: 'fixFlag' | 'keepFlag' | 'removeFlagged'; sectionId: string; questionId: string }
 )
