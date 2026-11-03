@@ -25,10 +25,29 @@ body {
   color: #2f5fb3;
 }
 
-/* テストを作る画面 */
+/* テストを作る画面: 左に選ぶ欄、右にできあがる骨組みと指導目標 */
+.start-wrap { display: grid; grid-template-columns: minmax(0, 760px) minmax(280px, 380px); justify-content: center; gap: 16px; margin: 24px 16px; align-items: start; }
+.start-side { position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding: 18px 20px; font-size: 13px; background: #fff; border: 1px solid #d2d8e1; border-radius: 8px; }
+.start-side h2 { margin: 0 0 8px; font-size: 15px; }
+.start-side h2 + * { margin-bottom: 16px; }
+.start-skeleton { margin: 0 0 16px; padding-left: 0; list-style: none; }
+.start-skeleton li + li { margin-top: 4px; }
+.start-goals { margin-bottom: 10px; }
+.start-goals p { margin: 0 0 4px; }
+.start-goals ul { margin: 0; padding-left: 0; list-style: none; }
+.start-goals li + li { margin-top: 3px; }
+.start-kanten { padding: 1px 6px; font-size: 11px; border-radius: 4px; white-space: nowrap; }
+.k-knowledge { color: #2f5fb3; background: #eef3fb; }
+.k-thinking { color: #8a4b00; background: #fff1d6; }
+.start-textbook { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+.start-textbook select { padding: 4px 6px; font: inherit; }
+@media (max-width: 899px) {
+  .start-wrap { grid-template-columns: minmax(0, 1fr); }
+  .start-side { position: static; max-height: none; }
+}
+
 .start {
-  max-width: 760px;
-  margin: 24px auto;
+  margin: 0;
   padding: 24px 28px;
   background: #fff;
   border: 1px solid #d2d8e1;
@@ -93,7 +112,11 @@ body {
 .totals { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 8px 16px 0; font-size: 14px; }
 .totals b { font-size: 16px; }
 .totals-off { color: #a1281e; font-weight: 700; }
-.totals-kanten { color: #5a6375; font-size: 13px; }
+.totals-kanten { display: inline-flex; gap: 8px; align-items: center; color: #5a6375; font-size: 13px; }
+/* 観点別の配点の割合の帯 */
+.totals-meter { display: inline-flex; width: 120px; height: 8px; overflow: hidden; background: #e3e7ee; border-radius: 4px; }
+.totals-meter .m-k { background: #2f5fb3; }
+.totals-meter .m-t { background: #d08a00; }
 .totals button { padding: 4px 10px; font: inherit; font-size: 13px; color: #2f5fb3; background: #fff; border: 1px solid #b9c6dd; border-radius: 6px; cursor: pointer; }
 .totals-message { color: #2f5fb3; }
 
@@ -132,10 +155,14 @@ body {
 .workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 12px; padding: 12px 12px 0; }
 .paper-col { min-width: 0; min-height: 0; overflow: auto; }
 
+/* 狭い画面: 会話と紙面を切り替えて一つずつ出す */
+.mview { display: flex; overflow: hidden; background: #fff; border: 1px solid #b9c6dd; border-radius: 8px; }
+.mview button { position: relative; flex: 1; padding: 8px; font: inherit; color: #1b2130; background: none; border: 0; cursor: pointer; }
+.mview button[aria-pressed="true"] { color: #fff; font-weight: 700; background: #2f5fb3; }
+.mview-dot { position: absolute; top: 8px; width: 8px; height: 8px; margin-left: 4px; background: #d08a00; border-radius: 50%; }
+
 @media (max-width: 899px) {
-  .app-edit { height: auto; }
-  .workspace { grid-template-columns: minmax(0, 1fr); }
-  .chat { height: 60vh; }
+  .workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
 }
 
 /* 大問の一覧 */
@@ -202,7 +229,7 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs, .outline { display: none; }
+  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs, .outline, .mview { display: none; }
   .app-edit { display: block; height: auto; }
   .workspace { display: block; padding: 0; }
   .paper-col { overflow: visible; }

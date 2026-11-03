@@ -72,7 +72,8 @@ test('満点を変えて、配点を満点にそろえる', async ({ page }) => 
   await dialog.getByLabel('満点').fill('50')
   await dialog.getByRole('button', { name: 'この情報にする' }).click()
   await expect(page.locator('.totals')).toContainText('満点と合っていません')
-  await page.getByRole('button', { name: '配点を満点にそろえる' }).click()
+  // 合計の欄のボタン（会話にも同じボタンが出る）
+  await page.locator('.totals').getByRole('button', { name: '配点を満点にそろえる' }).click()
   await expect(page.locator('.totals')).toContainText('配点の合計 50 点 / 満点 50 点')
   await expect(page.locator('.page').first().locator('.cover')).toContainText('五十点満点です')
 })
