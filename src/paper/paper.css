@@ -179,6 +179,15 @@
   .blk-tools { display: none; }
 }
 
+/* 会話で選んだもの・会話の変更で変わったものの印。輪郭と背景だけで、割り付けの幅は変えない */
+.blk-selected { outline: 2px solid #2f5fb3; outline-offset: 1px; }
+.blk-changed { background: #fff6d8; }
+
+@media print {
+  .blk-selected { outline: none; }
+  .blk-changed { background: none; }
+}
+
 /* 小問のすき間（ブロックの後ろの余白）の「＋ 小問を追加」。マウスを乗せたときに出す */
 .blk-add {
   position: absolute;

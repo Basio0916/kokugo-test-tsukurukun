@@ -7,11 +7,15 @@ import { Cover, QuestionView, SectionHeader } from './parts'
 
 /* 紙面をブロック（表紙・大問の見出しと本文・小問・結び）に分ける。ページへの割り付けはブロック単位で行う */
 
+// ブロックが表す大問・小問（会話で選ぶ単位）。表紙と結びは持たない
+export type BlockTarget = { sectionId: string; questionId?: string }
+
 export type Block = {
   key: string
   node: ReactNode
   newPage: boolean
   keepWithNext: boolean
+  target?: BlockTarget
 }
 
 const SHORT_KINDS: Section['kind'][] = ['kanji', 'grammar']
@@ -59,6 +63,7 @@ export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
         : header,
       newPage,
       keepWithNext: true,
+      target: { sectionId: section.id },
     })
     section.questions.forEach((q, qi) => {
       const view = <QuestionView question={q} index={qi} numbers={numbers} />
@@ -69,6 +74,7 @@ export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
           : view,
         newPage: false,
         keepWithNext: false,
+        target: { sectionId: section.id, questionId: q.id },
       })
     })
   })

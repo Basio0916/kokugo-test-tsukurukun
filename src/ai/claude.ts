@@ -11,14 +11,17 @@ import { retryPrompt } from './prompt.js'
 // 使うモデルは環境変数 DRAFT_MODEL で切り替えられる
 const model = () => process.env.DRAFT_MODEL ?? 'claude-opus-5-5'
 
-async function ask<T>(client: Anthropic, schema: z.ZodType<T>, system: string, content: string) {
+// 考える量。会話は待ちを短くするため medium で呼ぶ
+type Effort = 'low' | 'medium' | 'high'
+
+async function ask<T>(client: Anthropic, schema: z.ZodType<T>, system: string, content: string, effort: Effort) {
   // Haiku には拒否されたときのサーバー側のフォールバックがない
   const fallback = model().startsWith('claude-haiku') ? {} : { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' as const }
   const response = await client.beta.messages.parse({
     model: model(),
     max_tokens: 16000,
     ...fallback,
-    output_config: { effort: 'high', format: zodOutputFormat(schema) },
+    output_config: { effort, format: zodOutputFormat(schema) },
     system,
     messages: [{ role: 'user', content }],
   })
@@ -37,6 +40,7 @@ type DraftJob<T, R> = {
   system: string
   prompt: string
   convert: (proposal: T) => Checked<R>
+  effort?: Effort
 }
 
 export async function draftWithRetry<T, R>(job: DraftJob<T, R>, client = new Anthropic()): Promise<Checked<R>> {
@@ -44,7 +48,7 @@ export async function draftWithRetry<T, R>(job: DraftJob<T, R>, client = new Ant
   let errors: string[] = []
   for (let attempt = 0; attempt < 2; attempt++) {
     const started = Date.now()
-    const answer = await ask(client, job.schema, job.system, content)
+    const answer = await ask(client, job.schema, job.system, content, job.effort ?? 'high')
     if (!answer.ok) return { ok: false, errors: answer.errors }
     const converted = job.convert(answer.proposal)
     const { input_tokens, output_tokens } = answer.usage

@@ -1,18 +1,12 @@
 import type { Grade } from '../catalog/schema'
 import type { Section, Test } from '../model/schema'
-import type { DraftedRationale, DraftRequest, DraftResponse } from './draft'
+import type { ChatRequest, ChatResponse, Selection } from './chat'
+import type { DraftRequest, DraftResponse } from './draft'
 import type { GrammarDraftRequest } from './grammarDraft'
 import type { KanjiDraftRequest } from './kanjiDraft'
 import type { QuestionDraftRequest, QuestionDraftResponse } from './questionDraft'
 
-/* ブラウザから大問の生成を頼む。サーバー側の関数（/api/draft-section）を呼ぶ */
-
-// 大問ごとの、AI に作ってもらう状態
-export type SectionDraft =
-  | { status: 'drafting' }
-  | { status: 'failed'; errors: string[] }
-  | { status: 'drafted'; rationales: DraftedRationale[] }
-export type DraftStates = Record<string, SectionDraft>
+/* ブラウザから AI に頼む。サーバー側の関数（/api/draft-section など）を呼ぶ */
 
 // 出典の「」の中を教材名とする（例: 太宰治「走れメロス」より → 走れメロス）
 export function materialOf(section: Section): string | undefined {
@@ -38,9 +32,9 @@ async function post<R = DraftResponse>(path: string, body: unknown): Promise<R> 
   }
 }
 
-/** subtotal は大問の配点の枠 */
-export function requestDraft(test: Test, section: Section, subtotal: number): Promise<DraftResponse> {
-  const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section }
+/** subtotal は大問の配点の枠。wish は会話で作り直しを頼んだときの先生の希望 */
+export function requestDraft(test: Test, section: Section, subtotal: number, wish?: string): Promise<DraftResponse> {
+  const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, ...(wish && { wish }) }
   return post('/api/draft-section', body)
 }
 
@@ -59,4 +53,10 @@ export function requestGrammar(test: Test, section: Section, subtotal: number, m
 export function requestIdeas(test: Test, section: Section, subtotal: number, how: QuestionDraftRequest['how']): Promise<QuestionDraftResponse> {
   const body: QuestionDraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, how }
   return post<QuestionDraftResponse>('/api/draft-question', body)
+}
+
+/** 会話で頼む。history は直近の会話 */
+export function requestChat(test: Test, selection: Selection | undefined, history: ChatRequest['history'], message: string): Promise<ChatResponse> {
+  const body: ChatRequest = { test, ...(selection && { selection }), history, message }
+  return post<ChatResponse>('/api/chat', body)
 }
