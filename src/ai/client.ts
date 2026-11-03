@@ -9,9 +9,9 @@ import type { QuestionDraftRequest, QuestionDraftResponse } from './questionDraf
 
 /* ブラウザから AI に頼む。サーバー側の関数（/api/draft-section など）を呼ぶ */
 
-// 出典の「」の中を教材名とする（例: 太宰治「走れメロス」より → 走れメロス）
+// 大問の教材名。持っていなければ出典の「」の中を教材名とする（例: 太宰治「走れメロス」より → 走れメロス）
 export function materialOf(section: Section): string | undefined {
-  return section.passage?.kind === 'prose' ? section.passage.source.match(/「(.+?)」/)?.[1] : undefined
+  return section.material ?? (section.passage?.kind === 'prose' ? section.passage.source.match(/「(.+?)」/)?.[1] : undefined)
 }
 
 export function gradeOf(test: Test): Grade | undefined {
@@ -19,9 +19,16 @@ export function gradeOf(test: Test): Grade | undefined {
   return g === 1 || g === 2 || g === 3 ? g : undefined
 }
 
-/** AI に作ってもらえる大問（本文を持つ文学的文章・説明的文章で、教材名がわかるもの） */
+/** AI に作ってもらえる大問（本文を持つ文学的文章・説明的文章で、教材名がわかるもの）。小問の案や会話での小問の直しもこの大問だけ */
 export function draftable(section: Section): boolean {
   return (section.kind === 'literary' || section.kind === 'expository') && materialOf(section) !== undefined
+}
+
+/** AI に大問を作り直してもらえる大問（本文を持つ文章・古文・漢文で、教材名がわかるもの） */
+export function redraftable(section: Section): boolean {
+  if (materialOf(section) === undefined) return false
+  if (section.kind === 'kanbun') return section.passage?.kind === 'kanbun'
+  return (section.kind === 'literary' || section.kind === 'expository' || section.kind === 'classical') && section.passage?.kind === 'prose'
 }
 
 async function post<R = DraftResponse>(path: string, body: unknown): Promise<R> {
@@ -37,6 +44,12 @@ async function post<R = DraftResponse>(path: string, body: unknown): Promise<R> 
 export function requestDraft(test: Test, section: Section, subtotal: number, wish?: string): Promise<DraftResponse> {
   const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, ...(wish && { wish }) }
   return post('/api/draft-section', body)
+}
+
+/** 古文・漢文の大問を作ってもらう（要求の形は文章の大問と同じ） */
+export function requestClassical(test: Test, section: Section, subtotal: number, wish?: string): Promise<DraftResponse> {
+  const body: DraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, ...(wish && { wish }) }
+  return post(section.kind === 'kanbun' ? '/api/draft-kanbun' : '/api/draft-classical', body)
 }
 
 /** words は先生が決めた語、candidates は本文から拾った候補 */

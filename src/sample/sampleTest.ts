@@ -35,7 +35,7 @@ export const sampleTest: Test = Test.parse({
       ],
     },
     {
-      id: 'meros', kind: 'literary', instruction: '次の文章を読んで、あとの問いに答えなさい。',
+      id: 'meros', kind: 'literary', material: '走れメロス', instruction: '次の文章を読んで、あとの問いに答えなさい。',
       passage: { kind: 'prose', source: '太宰治「走れメロス」より', segments: prose('メロスは<m:a>激怒した</m>。必ず、かの<m:b>邪智暴虐</m>の王を除かなければならぬと決意した。<m:c>メロスには政治がわからぬ</m>。メロスは、村の牧人である。笛を吹き、羊と遊んで暮して来た。けれども邪悪に対しては、人一倍に敏感であった。きょう未明メロスは村を出発し、野を越え山越え、十里はなれた此のシラクスの市にやって来た。') },
       questions: [
         { id: 'q1', format: 'extract', charLimit: 11, kanten: 'thinking', standard: 'C(1)イ', points: 4,
@@ -54,7 +54,7 @@ export const sampleTest: Test = Test.parse({
       ],
     },
     {
-      id: 'ougi', kind: 'classical', instruction: '次の古文（「平家物語」の一節）を読んで、あとの問いに答えなさい。',
+      id: 'ougi', kind: 'classical', material: '扇の的　――「平家物語」から', instruction: '次の古文（「平家物語」の一節）を読んで、あとの問いに答えなさい。',
       passage: { kind: 'prose', source: '「平家物語」より', segments: prose('ころは二月十八日の<m:a>酉{とり}の刻{こく}</m>ばかりのことなるに、をりふし北風激しくて、磯{いそ}打つ波も高かりけり。舟は、揺り上げ<m:b>揺りすゑ</m><m:c>漂へ</m>ば、扇もくしに定まらずひらめいたり。沖には平家、舟を一面に並べて見物す。陸{くが}には源氏、くつばみを並べてこれを見る。<m:d>いづれもいづれも晴れならずといふことぞなき</m>。') },
       questions: [
         { id: 'o1', format: 'choice', kanten: 'knowledge', standard: '(3)イ', points: 4,
@@ -72,7 +72,7 @@ export const sampleTest: Test = Test.parse({
       ],
     },
     {
-      id: 'kanshi', kind: 'kanbun', instruction: '次の漢詩を読んで、あとの問いに答えなさい。',
+      id: 'kanshi', kind: 'kanbun', material: '漢詩の風景', instruction: '次の漢詩を読んで、あとの問いに答えなさい。',
       passage: { kind: 'kanbun', title: '春暁', author: '孟浩然',
         lines: [kanbunLine('春眠不[レ]覚(エ)[レ]暁(ヲ)'), kanbunLine('処処聞(ク)[二]啼鳥(ヲ)[一]'), kanbunLine('夜来風雨(ノ)声'), kanbunLine('<m:a>花落(ツルコト)知(ル)多少</m>')],
         notes: ['＊啼鳥……鳴いている鳥。', '＊夜来……昨夜から。'] },

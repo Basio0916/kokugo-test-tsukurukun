@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { findGroup, standardText } from '../catalog/catalog.js'
 import { choiceLabel, markNumbers, questionPoints, sectionPoints, totalPoints } from '../model/derive.js'
-import { Section, Test, type Question, type StemSegment } from '../model/schema.js'
+import { needsPassage, Section, Test, type Question, type StemSegment } from '../model/schema.js'
 import { reorderSections } from '../edit/operations.js'
 import { circled, kansuji } from '../paper/kansuji.js'
 import { freshIds } from './addQuestion.js'
 import { addMarks, plainText } from './anchor.js'
 import { draftWithRetry, jsonHandler, type Checked } from './claude.js'
-import { draftable, gradeOf, materialOf } from './client.js'
+import { draftable, gradeOf, materialOf, redraftable } from './client.js'
 import { CHAT_SYSTEM_PROMPT, chatUserPrompt } from './prompt.js'
 import { ProposedMark, ProposedQuestion } from './proposal.js'
 import { buildQuestion } from './toSection.js'
@@ -117,7 +117,7 @@ export function describeSection(test: Test, section: Section, i: number): string
     const marks = passage.lines.flat().flatMap(t => (t.kind === 'mark' && numbers.has(t.id) ? [`- 傍線部${circled(numbers.get(t.id)!)}「${chars(t.children)}」`] : []))
     lines.push(`傍線部:\n${marks.length ? marks.join('\n') : '（なし）'}`)
     if (passage.notes.length) lines.push(`語注:\n${passage.notes.map(n => `- ${n}`).join('\n')}`)
-  } else if (section.kind !== 'kanji' && section.kind !== 'grammar' && section.kind !== 'composition') {
+  } else if (needsPassage(section.kind)) {
     lines.push('本文: （まだ貼られていない）')
   }
   lines.push(...(section.questions.length ? section.questions.map((q, qi) => questionText(q, qi, numbers)) : ['小問: （なし）']))
@@ -177,7 +177,7 @@ export function toChatResult(test: Test, answer: ChatAnswer): Checked<ChatResult
     case 'redraftSection': {
       const section = sectionOf(change.sectionId)
       if (!section) return { ok: false, errors: [`大問 ${change.sectionId} がテストにない`] }
-      if (!draftable(section)) return { ok: false, errors: [`大問 ${change.sectionId} は本文を持つ文学的文章・説明的文章の大問ではないので、作り直せない`] }
+      if (!redraftable(section)) return { ok: false, errors: [`大問 ${change.sectionId} は本文を持つ文章・古文・漢文の大問ではないので、作り直せない`] }
       return { ok: true, ...base, change }
     }
     case 'reorderSections': {

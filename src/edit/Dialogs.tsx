@@ -46,7 +46,7 @@ export type NewSection =
   | { kind: 'grammar'; materials: string[] }
 
 export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmit: (s: NewSection) => void; onClose: () => void }) {
-  const materials = materialsOf(grade).filter(m => m.selectable)
+  const materials = materialsOf(grade)
   const grammar = grammarMaterialsOf(grade)
   const [choice, setChoice] = useState('')
   const [grammarChosen, setGrammarChosen] = useState<Set<string>>(new Set())

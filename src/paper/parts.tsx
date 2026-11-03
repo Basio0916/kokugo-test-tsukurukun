@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { choiceLabel, questionPoints, sectionPoints } from '../model/derive'
-import type { Item, KanbunChar, KanbunPassage, ProsePassage, ProseSegment, Question, Section, StemSegment, Test } from '../model/schema'
+import { needsPassage, type Item, type KanbunChar, type KanbunPassage, type ProsePassage, type ProseSegment, type Question, type Section, type StemSegment, type Test } from '../model/schema'
 import { circled, kansuji } from './kansuji'
 
 /* 紙面の部品。番号は呼び出し側で計算した傍線部の番号を受け取って描く */
@@ -105,8 +105,6 @@ type HeaderProps = {
   onEditInstruction?: () => void
 }
 
-const PROSE_KINDS: Section['kind'][] = ['literary', 'expository', 'classical']
-
 export function SectionHeader({ section, index, numbers, allotment, onOpenPassage, onOpenKanji, onEditInstruction }: HeaderProps) {
   const p = section.passage
   const points = section.questions.length === 0 && allotment !== undefined ? allotment : sectionPoints(section)
@@ -114,7 +112,7 @@ export function SectionHeader({ section, index, numbers, allotment, onOpenPassag
     <>
       <p className="sec-h" onDoubleClick={onEditInstruction} title={onEditInstruction ? 'ダブルクリックで指示文を直す' : undefined}><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(points)}点）</span></p>
       {p?.kind === 'prose' && <Prose passage={p} numbers={numbers} sectionId={section.id} />}
-      {!p && PROSE_KINDS.includes(section.kind) && (
+      {!p && needsPassage(section.kind) && (
         <button type="button" className="passage passage-slot" onClick={onOpenPassage} disabled={!onOpenPassage}>
           本文欄<span>（押して本文を貼り付けてください）</span>
         </button>

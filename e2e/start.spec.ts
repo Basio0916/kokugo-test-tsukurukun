@@ -41,10 +41,11 @@ test('教材を選ばないとテストは作られない', async ({ page }) => 
   await expect(page.locator('.page')).toHaveCount(0)
 })
 
-test('古文・漢文の教材は選べない', async ({ page }) => {
+test('古文・漢文の教材も選べる', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('checkbox', { name: /扇の的/ })).toBeDisabled()
-  await expect(page.getByRole('checkbox', { name: /漢詩の風景/ })).toBeDisabled()
+  await page.getByLabel('二年').check()
+  await expect(page.getByRole('checkbox', { name: /扇の的/ })).toBeEnabled()
+  await expect(page.getByRole('checkbox', { name: /漢詩の風景/ })).toBeEnabled()
 })
 
 test('選んだ教材の骨組みができ、本文を貼ると大問ができる', async ({ page }) => {

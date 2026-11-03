@@ -11,6 +11,8 @@ const API_ROUTES: Record<string, [string, string]> = {
   '/api/draft-question': ['/src/ai/questionDraft.ts', 'handleQuestionDraftRequest'],
   '/api/chat': ['/src/ai/chat.ts', 'handleChatRequest'],
   '/api/check-passage': ['/src/ai/passageCheck.ts', 'handlePassageCheckRequest'],
+  '/api/draft-classical': ['/src/ai/classicalDraft.ts', 'handleClassicalDraftRequest'],
+  '/api/draft-kanbun': ['/src/ai/kanbunDraft.ts', 'handleKanbunDraftRequest'],
 }
 
 function devApi(): Plugin {

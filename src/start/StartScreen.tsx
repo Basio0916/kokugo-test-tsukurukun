@@ -73,12 +73,11 @@ export function StartScreen({ onStart }: { onStart: (skeleton: Skeleton) => void
         <ul className="start-materials">
           {materials.map(m => (
             <li key={m.name}>
-              <label className={m.selectable ? '' : 'start-disabled'}>
-                <input type="checkbox" checked={chosen.has(m.name)} disabled={!m.selectable} onChange={() => toggle(m)} />
+              <label>
+                <input type="checkbox" checked={chosen.has(m.name)} onChange={() => toggle(m)} />
                 <span className="start-month">{m.month}月</span>
                 {m.name}
                 {m.unit && <span className="start-unit">{m.unit}</span>}
-                {!m.selectable && <span className="start-later">{m.kind === 'kanbun' ? '漢文' : '古文'}は後で対応</span>}
               </label>
             </li>
           ))}

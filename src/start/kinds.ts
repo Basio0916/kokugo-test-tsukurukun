@@ -42,8 +42,6 @@ export type Material = {
   unit: string | null
   month: number
   kind: SectionKind
-  // この change で選べるのは文学的文章・説明的文章だけ（古文・漢文は後で対応）
-  selectable: boolean
 }
 
 /** その学年で、文章の大問にできる教材（読むことの指導事項を持つまとまり）を年間指導計画の順に並べる */
@@ -52,8 +50,7 @@ export function materialsOf(grade: Grade): Material[] {
     unit.groups
       .filter((g: Group) => g.standards.some(c => c.startsWith('C(1)')) && !NOT_FOR_TEST.has(g.materials[0]))
       .map(g => {
-        const kind = kindOf(g.materials[0])
-        return { name: g.materials[0], unit: unit.title, month: g.month, kind, selectable: kind === 'literary' || kind === 'expository' }
+        return { name: g.materials[0], unit: unit.title, month: g.month, kind: kindOf(g.materials[0]) }
       }),
   )
 }

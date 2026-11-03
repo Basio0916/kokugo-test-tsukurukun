@@ -1,5 +1,5 @@
 import { kantenTotals, totalPoints } from '../model/derive'
-import type { Section, Test } from '../model/schema'
+import { needsPassage, type Section, type Test } from '../model/schema'
 import { keyRows } from './keyRows'
 import './sheet.css'
 
@@ -17,11 +17,10 @@ export function AnswerKey({ test, nameOf }: { test: Test; nameOf: (section: Sect
         <tbody>
           {test.sections.map(s => {
             const rows = keyRows(s)
-            const prose = s.kind === 'literary' || s.kind === 'expository' || s.kind === 'classical'
             return [
               <tr key={s.id} className="key-group"><td colSpan={5}>{nameOf(s)}</td></tr>,
               ...(rows.length === 0
-                ? [<tr key={`${s.id}:none`}><td colSpan={5} className="key-muted">{prose && !s.passage ? '本文を貼ると、小問と一緒に作られます。' : '小問はまだありません。'}</td></tr>]
+                ? [<tr key={`${s.id}:none`}><td colSpan={5} className="key-muted">{needsPassage(s.kind) && !s.passage ? '本文を貼ると、小問と一緒に作られます。' : '小問はまだありません。'}</td></tr>]
                 : rows.map((r, i) => (
                   <tr key={`${s.id}:${i}`}>
                     <td>{r.label}</td>

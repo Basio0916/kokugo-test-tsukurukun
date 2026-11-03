@@ -52,16 +52,22 @@ export function toSection(base: Section, proposal: SectionProposal, pointStep: n
   }
 }
 
-/** AI が提案した小問一つを、テストのデータの小問に組み立てる。ids は AI の傍線部のキー → システムの識別子 */
-export function buildQuestion(p: ProposedQuestion, id: string, label: string, ids: Map<string, string>, passageText: string, points: number): { question: Question; errors: string[] } {
+/** AI の問い文の記法を、問い文に組み立てる。傍線部のキーはシステムの識別子に置き換える */
+export function buildStem(text: string, label: string, ids: Map<string, string>): { segments: StemSegment[]; errors: string[] } {
   const errors: string[] = []
-  if (WRITTEN_NUMBER.test(p.stem)) errors.push(`${label}: 問い文に番号や記号を文字で書いている（{傍線部:A}・{範囲} の記法を使う）`)
-  const segments: StemSegment[] = stem(p.stem).map(s => {
+  if (WRITTEN_NUMBER.test(text)) errors.push(`${label}: 問い文に番号や記号を文字で書いている（{傍線部:A}・{範囲} の記法を使う）`)
+  const segments: StemSegment[] = stem(text).map(s => {
     if (s.kind !== 'markRef') return s
     const markId = ids.get(s.id)
     if (!markId) errors.push(`${label}: 問い文が参照する傍線部${s.id}が marks にない`)
     return { ...s, id: markId ?? s.id }
   })
+  return { segments, errors }
+}
+
+/** AI が提案した小問一つを、テストのデータの小問に組み立てる。ids は AI の傍線部のキー → システムの識別子 */
+export function buildQuestion(p: ProposedQuestion, id: string, label: string, ids: Map<string, string>, passageText: string, points: number): { question: Question; errors: string[] } {
+  const { segments, errors } = buildStem(p.stem, label, ids)
   // 正答は番号ではなく選択肢の文で受け取る（番号だと 0 と 1 のどちらから数えたかで一つずれても、検証で見つからない）
   const correct = p.correctChoice === undefined ? -1 : (p.choices ?? []).indexOf(p.correctChoice)
   if (p.format === 'choice' && correct === -1) errors.push(`${label}: 正答（correctChoice）が選択肢のどれとも一致しない（選択肢の文をそのまま書く）`)

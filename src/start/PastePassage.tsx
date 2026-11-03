@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import type { ProsePassage } from '../model/schema'
-import { pastedPassage } from './passage'
+import type { ProsePassage, Section } from '../model/schema'
+import { pastedPassage, workOf } from './passage'
 
 /* 本文を貼り付ける画面。教材 CD などからコピーした本文を貼り、作者名を添えて決める */
 
-type Props = { material: string; onSubmit: (passage: ProsePassage) => void; onClose: () => void }
+type Props = { material: string; kind?: Section['kind']; onSubmit: (passage: ProsePassage) => void; onClose: () => void }
 
-export function PastePassage({ material, onSubmit, onClose }: Props) {
+export function PastePassage({ material, kind, onSubmit, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
   const [text, setText] = useState('')
   const [author, setAuthor] = useState('')
@@ -18,7 +18,8 @@ export function PastePassage({ material, onSubmit, onClose }: Props) {
 
   function submit(e: FormEvent) {
     e.preventDefault()
-    const passage = pastedPassage(text, material, author)
+    // 古文の出典は作品名（「平家物語」より）
+    const passage = pastedPassage(text, kind === 'classical' ? workOf(material) : material, author)
     if (!passage) return setError('本文を入れてください。')
     onSubmit(passage)
   }

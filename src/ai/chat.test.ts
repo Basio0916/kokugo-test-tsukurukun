@@ -82,9 +82,11 @@ describe('会話の返答の関門', () => {
     expect(toChatResult(sampleTest, answer({ kind: 'reorderSections', order: ['kanji', 'meros', 'grammar', 'ougi', 'kanshi', 'sakubun'] })).ok).toBe(true)
   })
 
-  it('作り直せるのは本文を持つ文学的文章・説明的文章の大問だけ', () => {
+  it('作り直せるのは本文を持つ文章・古文・漢文の大問だけ', () => {
     expect(toChatResult(sampleTest, answer({ kind: 'redraftSection', sectionId: 'meros', wish: '記述を中心に' })).ok).toBe(true)
-    expect(toChatResult(sampleTest, answer({ kind: 'redraftSection', sectionId: 'ougi', wish: '易しく' })).ok).toBe(false)
+    expect(toChatResult(sampleTest, answer({ kind: 'redraftSection', sectionId: 'ougi', wish: '易しく' })).ok).toBe(true)
+    expect(toChatResult(sampleTest, answer({ kind: 'redraftSection', sectionId: 'kanshi', wish: '易しく' })).ok).toBe(true)
+    expect(toChatResult(sampleTest, answer({ kind: 'redraftSection', sectionId: 'kanji', wish: '易しく' })).ok).toBe(false)
   })
 
   it('消す大問・小問がテストにあるか', () => {
