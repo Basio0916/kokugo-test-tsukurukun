@@ -78,14 +78,18 @@ test('満点を変えて、配点を満点にそろえる', async ({ page }) => 
   await expect(page.locator('.page').first().locator('.cover')).toContainText('五十点満点です')
 })
 
-test('大問を追加すると、最後に空の大問が加わる。印刷には操作が出ない', async ({ page }) => {
+test('大問を追加すると、作文の前に空の大問が加わる。入っている教材は選べない。印刷には操作が出ない', async ({ page }) => {
   await openSample(page)
   await page.getByRole('button', { name: '＋ 大問を追加' }).click()
   const dialog = page.getByRole('dialog', { name: '大問を追加する' })
-  await dialog.getByLabel('1月　走れメロス').check()
+  await expect(dialog.getByLabel('1月　走れメロス（入っています）')).toBeDisabled()
+  await expect(dialog.getByLabel('作文の大問（入っています）')).toBeDisabled()
+  await expect(dialog.getByLabel('漢字の大問（入っています）')).toBeDisabled()
+  await dialog.getByLabel('9月　字のない葉書').check()
   await dialog.getByRole('button', { name: 'この大問を加える' }).click()
   await expect(headers(page)).toHaveCount(7)
-  await expect(headers(page).last()).toContainText('【七】　次の文章を読んで、あとの問いに答えなさい。（十点）')
+  await expect(headers(page).nth(5)).toContainText('【六】　次の文章を読んで、あとの問いに答えなさい。（十点）')
+  await expect(headers(page).last()).toContainText('次の条件にしたがって書きなさい')
   await expect(page.locator('.page .passage-slot')).toHaveCount(1)
 
   await page.emulateMedia({ media: 'print' })

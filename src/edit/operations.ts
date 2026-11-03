@@ -41,8 +41,11 @@ export function setInstruction(test: Test, sectionId: string, instruction: strin
   return { ok: true, test: mapSection(test, sectionId, s => ({ ...s, instruction: text })) }
 }
 
-export function appendSection(test: Test, section: Section): Test {
-  return { ...test, sections: [...test.sections, section] }
+/** 大問を足す。作文の大問があればその前に入れ、なければ最後に入れる（作文を足すときは最後） */
+export function insertSection(test: Test, section: Section): Test {
+  const at = section.kind === 'composition' ? -1 : test.sections.findIndex(s => s.kind === 'composition')
+  if (at < 0) return { ...test, sections: [...test.sections, section] }
+  return { ...test, sections: [...test.sections.slice(0, at), section, ...test.sections.slice(at)] }
 }
 
 /** prefix に番号を付けた、テストの中でまだ使っていない大問の識別子 */

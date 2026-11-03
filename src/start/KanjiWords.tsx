@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useBackdropClose } from '../edit/backdrop'
 import { splitWords } from './kanjiCandidates'
 
 /* 漢字の大問で出題する語を決める画面。漢字テストでやった語を貼るのがおもな入り口で、本文から拾った候補からも選べる */
@@ -12,6 +13,7 @@ type Props = {
 
 export function KanjiWords({ candidates, initial, onSubmit, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const backdrop = useBackdropClose(ref)
   const [text, setText] = useState(initial.filter(w => !candidates.includes(w)).join('、'))
   const [checked, setChecked] = useState<Set<string>>(new Set(initial.filter(w => candidates.includes(w))))
   const [error, setError] = useState<string | null>(null)
@@ -37,7 +39,7 @@ export function KanjiWords({ candidates, initial, onSubmit, onClose }: Props) {
   }
 
   return (
-    <dialog ref={ref} className="paste" onClose={onClose} aria-label="出題する漢字を選ぶ">
+    <dialog ref={ref} className="paste" onClose={onClose} aria-label="出題する漢字を選ぶ" {...backdrop}>
       <form onSubmit={submit}>
         <h2>出題する漢字を選ぶ</h2>
         <p>授業の漢字テストでやった語（熟語や送り仮名の付いた語）を貼ってください。改行・読点・空白で区切れます。決めると、AI が読みと書きの問題を作ります（数十秒かかります）。</p>

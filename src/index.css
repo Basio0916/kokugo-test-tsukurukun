@@ -146,6 +146,7 @@ body {
 .mark-reshape button { padding: 4px 10px; font: inherit; font-size: 13px; color: #2f5fb3; background: #fff; border: 1px solid #b9c6dd; border-radius: 6px; cursor: pointer; }
 .mark-quote { font-family: "BIZ UDMincho", serif; border-bottom: 1px solid currentColor; }
 .mark-float { position: fixed; z-index: 10; padding: 6px 12px; font: inherit; font-size: 13px; color: #fff; background: #2f5fb3; border: 0; border-radius: 6px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.2); cursor: pointer; }
+.consult-float { bottom: 16px; left: 50%; transform: translateX(-50%); white-space: nowrap; }
 
 .start-sub { margin: 8px 0 4px; font-size: 14px; color: #5a6375; }
 .kanji-candidates { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d2d8e1; border-radius: 6px; }
@@ -236,8 +237,13 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs, .outline, .mview, .paper-head { display: none; }
+  .app-bar, .chat, .paste, .totals, .mark-float, .consult-float, .sheet-tabs, .outline, .mview, .paper-head { display: none; }
   .app-edit { display: block; height: auto; }
   .workspace { display: block; padding: 0; }
   .paper-col { overflow: visible; }
+}
+
+/* 動きを減らす設定の端末では、切り替えの動きとなめらかなスクロールを止める */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

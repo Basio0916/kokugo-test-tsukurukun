@@ -62,6 +62,12 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
   const hasItems = q.items !== undefined
   const choiceList = lines(choices)
 
+  // 選択肢の数を変えたら、範囲の外になった正答はアに戻す
+  function changeChoices(text: string) {
+    setChoices(text)
+    if (correct >= lines(text).length) setCorrect(0)
+  }
+
   function submit() {
     const problems: string[] = []
     const parsed = textToStem(stem, numbers)
@@ -102,8 +108,11 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
         )}
         {(q.choices !== undefined || q.format === 'choice') && (
           <label>選択肢（一行に一つ）
-            <textarea rows={4} value={choices} onChange={e => setChoices(e.target.value)} aria-label="選択肢" />
+            <textarea rows={4} value={choices} onChange={e => changeChoices(e.target.value)} aria-label="選択肢" />
           </label>
+        )}
+        {q.correct !== undefined && q.choices !== undefined && choiceList.length !== q.choices.length && (
+          <p className="edit-note" role="status">選択肢の数が変わりました。正答の記号を確かめてください。</p>
         )}
         {q.correct !== undefined && (
           <label>正答

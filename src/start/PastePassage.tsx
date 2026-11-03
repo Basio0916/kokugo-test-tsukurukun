@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useBackdropClose } from '../edit/backdrop'
 import type { ProsePassage, Section } from '../model/schema'
 import { pastedPassage, workOf } from './passage'
 
@@ -8,6 +9,7 @@ type Props = { material: string; kind?: Section['kind']; onSubmit: (passage: Pro
 
 export function PastePassage({ material, kind, onSubmit, onClose }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const backdrop = useBackdropClose(ref)
   const [text, setText] = useState('')
   const [author, setAuthor] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +27,7 @@ export function PastePassage({ material, kind, onSubmit, onClose }: Props) {
   }
 
   return (
-    <dialog ref={ref} className="paste" onClose={onClose} aria-label={`「${material}」の本文を貼り付ける`}>
+    <dialog ref={ref} className="paste" onClose={onClose} aria-label={`「${material}」の本文を貼り付ける`} {...backdrop}>
       <form onSubmit={submit}>
         <h2>「{material}」の本文を貼り付ける</h2>
         <p>テストで扱う範囲を貼り付けてください。一枚の紙面に収まるのは二千字ほどまでです。改行は段落になります。決めると、AI がこの大問を作ります（数十秒かかります）。</p>

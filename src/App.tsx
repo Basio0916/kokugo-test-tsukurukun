@@ -16,7 +16,7 @@ import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from '
 import { MarkQuestion } from './edit/MarkQuestion'
 import { MarkReshape } from './edit/MarkReshape'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
-import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
+import { insertSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
 import { changedParts, passageIssues, passageToText, rebuildPassage, type Issue } from './edit/passageEdit'
 import { kanbunToText, rebuildKanbun } from './edit/kanbunEdit'
 import { applyRuby } from './ai/classical'
@@ -85,6 +85,8 @@ export function App() {
   const [reviewing, setReviewing] = useState<{ sectionId: string; at: number; question: Question; section?: Section; note?: string; own: boolean; mark?: { selection: PassageSelection; wish: string }; version?: number } | null>(null)
   // 線を引いて作る画面を、書き直しで開き直したときの希望
   const [markWish, setMarkWish] = useState('')
+  // 線を引いて作る案の整え直しの番号（最後に頼んだものの返答だけを入れる）
+  const reshapeSeq = useRef(0)
   const [selected, setSelected] = useState<PassageSelection | null>(null)
   const [marking, setMarking] = useState<PassageSelection | null>(null)
   // 会話: メッセージ、AI が考えている間、紙面で選んでいるもの、会話の変更で変わったもの
@@ -114,6 +116,8 @@ export function App() {
   const [annotating, setAnnotating] = useState<Set<string>>(new Set())
   // 幅の狭い画面では会話と紙面を切り替えて一つずつ出す。会話を見ている間に紙面が変わったら「紙面」に印を付ける
   const narrow = useMediaQuery('(max-width: 899px)')
+  // 狭い画面で、紙面で選んだものについて相談しに会話へ移った（会話の入力欄へ移る）
+  const [consulting, setConsulting] = useState(false)
   const [view, setView] = useState<'chat' | 'paper'>('chat')
   const [paperDot, setPaperDot] = useState(false)
   const shownTest = useRef(test)
@@ -124,6 +128,7 @@ export function App() {
   const showPaper = () => {
     setView('paper')
     setPaperDot(false)
+    setConsulting(false)
   }
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
@@ -356,7 +361,7 @@ export function App() {
       const like = sameKind('composition')
       const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
       const section = blankComposition(newSectionId(test, 'sakubun'), allotment)
-      const added = appendSection(test, section)
+      const added = insertSection(test, section)
       const fitted = fit ? rescalePoints(added, [section.id]) : null
       commit(fitted?.ok ? fitted.test : added)
       setAllotments(a => ({ ...a, [section.id]: allotment }))
@@ -371,7 +376,7 @@ export function App() {
           : { ...base, id: newSectionId(test, 's'), kind: added.material.kind, material: added.material.name, instruction: instructionFor(added.material.kind) }
     const like = sameKind(section.kind)
     const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
-    const next = appendSection(test, section)
+    const next = insertSection(test, section)
     commit(next)
     setAllotments(a => ({ ...a, [section.id]: allotment }))
     setAdding(false)
@@ -414,7 +419,7 @@ export function App() {
     const off = total !== info.fullMarks
     say({
       who: 'ai',
-      text: `${changes.join('、')}しました。${refit ? `刻みに合わない配点があったので、合計を${info.fullMarks}点にそろえ直しています。` : ''}${off ? `配点の合計は${total}点で、満点と合っていません。` : ''}`,
+      text: `${changes.join('、')}しました。${info.minutes !== before.minutes && info.minutes < 45 ? '今の問題の量だと、時間が足りないかもしれません。' : ''}${refit ? `刻みに合わない配点があったので、合計を${info.fullMarks}点にそろえ直しています。` : ''}${off ? `配点の合計は${total}点で、満点と合っていません。` : ''}`,
       ...(off && { buttons: [{ label: '配点を満点にそろえる', action: 'rescale' as const }] }),
     })
   }
@@ -426,7 +431,7 @@ export function App() {
     setTarget({ sectionId })
     const scroll = (tries: number) => {
       const el = document.querySelector(`.page [data-target="${sectionId}"]`)
-      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      if (el) el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
       else if (tries > 0) setTimeout(() => scroll(tries - 1), 100)
     }
     setTimeout(() => scroll(10), 0)
@@ -738,6 +743,7 @@ export function App() {
           busy={chatBusy}
           onSend={text => void ask(text)}
           suggestions={suggestions}
+          focusInput={consulting}
         />}
         {(!narrow || view === 'paper') && <main className="paper-col" onScroll={() => setSelected(null)}>
           {/* 合計の欄・大問の一覧・紙のタブは、紙面を送っても上に残す */}
@@ -857,6 +863,12 @@ export function App() {
           onClose={() => setEditingInfo(false)}
         />
       )}
+      {/* 狭い画面で紙面を見ているときは会話が見えないので、選んだものについて相談する入口を出す */}
+      {narrow && view === 'paper' && active && !selected && (
+        <button type="button" className="mark-float consult-float" onClick={() => { setConsulting(true); setView('chat') }}>
+          {targetLabel(test, active)}について AI に相談する
+        </button>
+      )}
       {selected && !marking && (s => !!s && ideasAvailable(s) && s.passage?.kind === 'prose')(test.sections.find(s => s.id === selected.sectionId)) && (
         <button
           type="button" className="mark-float"
@@ -875,6 +887,8 @@ export function App() {
             request={how => requestIdeas(test, section, subtotalOf(section), how)}
             initialWish={markWish}
             onReview={(idea, wish) => {
+              // 前の案の整え直しが遅れて届いても入れない
+              reshapeSeq.current++
               setMarking(null)
               setReviewing({ sectionId: section.id, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, own: false, mark: { selection: marking, wish } })
             }}
@@ -922,13 +936,16 @@ export function App() {
                 <MarkReshape
                   question={reviewing.question}
                   onReshape={async (format, charLimit) => {
+                    const seq = ++reshapeSeq.current
                     const r = await requestIdeas(test, base, subtotalOf(base), { kind: 'mark', quote: mark.selection.quote, ...(mark.selection.before && { before: mark.selection.before }), wish: mark.wish, format, ...(charLimit && { charLimit }) })
+                    if (seq !== reshapeSeq.current) return null
                     if (!r.ok) return r.errors
                     const idea = r.ideas[0]
-                    setReviewing({ ...reviewing, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, version: (reviewing.version ?? 0) + 1 })
+                    setReviewing(now => now && { ...now, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, version: (now.version ?? 0) + 1 })
                     return []
                   }}
                   onRewrite={() => {
+                    reshapeSeq.current++
                     setReviewing(null)
                     setMarkWish(mark.wish)
                     setMarking(mark.selection)
@@ -945,12 +962,21 @@ export function App() {
               if (!errors.length) setReviewing(null)
               return errors
             }}
-            onClose={() => setReviewing(null)}
+            onClose={() => { reshapeSeq.current++; setReviewing(null) }}
           />
         )
       })()}
       {adding && gradeOf(test) && (
-        <AddSection grade={gradeOf(test)!} onSubmit={addSection} onClose={() => setAdding(false)} />
+        <AddSection
+          grade={gradeOf(test)!}
+          present={{
+            materials: new Set(test.sections.flatMap(s => [s.material, materialNames[s.id]].filter((m): m is string => !!m))),
+            grammar: new Set(test.sections.flatMap(s => grammarBySection[s.id] ?? [])),
+            kanji: test.sections.some(s => s.kind === 'kanji'),
+            composition: test.sections.some(s => s.kind === 'composition'),
+          }}
+          onSubmit={addSection} onClose={() => setAdding(false)}
+        />
       )}
     </div>
   )
