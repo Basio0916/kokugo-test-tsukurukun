@@ -88,3 +88,23 @@ test.describe('タッチの端末', () => {
     await expect(add).toHaveCSS('color', 'rgba(47, 95, 179, 0.5)')
   })
 })
+
+test('狭い画面で紙面の小問を選ぶと相談する入口が出て、押すと会話の入力欄に移る', async ({ page }) => {
+  await openSample(page)
+  const consult = page.getByRole('button', { name: /について AI に相談する/ })
+  // 広い画面では会話が見えているので出さない
+  await q2(page).click()
+  await expect(consult).toHaveCount(0)
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('navigation', { name: '表示の切り替え' }).getByRole('button', { name: '紙面' }).click()
+  await expect(consult).toHaveText('【三】問二について AI に相談する')
+  await consult.click()
+  await expect(chat(page)).toContainText('選択中：【三】問二')
+  await expect(chat(page).getByLabel('AIへの相談')).toBeFocused()
+
+  // 何も選んでいなければ出さない
+  await chat(page).getByRole('button', { name: '選択を外す' }).click()
+  await page.getByRole('navigation', { name: '表示の切り替え' }).getByRole('button', { name: '紙面' }).click()
+  await expect(consult).toHaveCount(0)
+})

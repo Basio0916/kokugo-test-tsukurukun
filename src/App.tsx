@@ -116,6 +116,8 @@ export function App() {
   const [annotating, setAnnotating] = useState<Set<string>>(new Set())
   // 幅の狭い画面では会話と紙面を切り替えて一つずつ出す。会話を見ている間に紙面が変わったら「紙面」に印を付ける
   const narrow = useMediaQuery('(max-width: 899px)')
+  // 狭い画面で、紙面で選んだものについて相談しに会話へ移った（会話の入力欄へ移る）
+  const [consulting, setConsulting] = useState(false)
   const [view, setView] = useState<'chat' | 'paper'>('chat')
   const [paperDot, setPaperDot] = useState(false)
   const shownTest = useRef(test)
@@ -126,6 +128,7 @@ export function App() {
   const showPaper = () => {
     setView('paper')
     setPaperDot(false)
+    setConsulting(false)
   }
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
@@ -740,6 +743,7 @@ export function App() {
           busy={chatBusy}
           onSend={text => void ask(text)}
           suggestions={suggestions}
+          focusInput={consulting}
         />}
         {(!narrow || view === 'paper') && <main className="paper-col" onScroll={() => setSelected(null)}>
           {/* 合計の欄・大問の一覧・紙のタブは、紙面を送っても上に残す */}
@@ -858,6 +862,12 @@ export function App() {
           }}
           onClose={() => setEditingInfo(false)}
         />
+      )}
+      {/* 狭い画面で紙面を見ているときは会話が見えないので、選んだものについて相談する入口を出す */}
+      {narrow && view === 'paper' && active && !selected && (
+        <button type="button" className="mark-float consult-float" onClick={() => { setConsulting(true); setView('chat') }}>
+          {targetLabel(test, active)}について AI に相談する
+        </button>
       )}
       {selected && !marking && (s => !!s && ideasAvailable(s) && s.passage?.kind === 'prose')(test.sections.find(s => s.id === selected.sectionId)) && (
         <button

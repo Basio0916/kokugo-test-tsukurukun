@@ -21,9 +21,11 @@ type Props = {
   onSend: (text: string) => void
   // 頼み方の例（押すと入力欄に入る）
   suggestions: string[]
+  // 描いたときに入力欄へ移る（狭い画面で、紙面で選んだものについて相談するとき）
+  focusInput?: boolean
 }
 
-export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, chips, onChip, statuses, alerts, busy, onSend, suggestions }: Props) {
+export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, chips, onChip, statuses, alerts, busy, onSend, suggestions, focusInput }: Props) {
   const [text, setText] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -101,7 +103,7 @@ export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, 
         )}
         <div className="chat-input">
           <textarea
-            rows={2} value={text} aria-label="AIへの相談"
+            rows={2} value={text} aria-label="AIへの相談" autoFocus={focusInput}
             placeholder="AIに相談する（例：大問二と三を入れ替えて）"
             onChange={e => setText(e.target.value)}
             onKeyDown={e => {
