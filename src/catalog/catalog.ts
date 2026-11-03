@@ -1,6 +1,7 @@
-import mitsumura from './mitsumura-r7.json'
-import standards from './standards.json'
-import { Catalog, StandardTexts, type Grade, type Group, type Unit } from './schema'
+// サーバー側の関数（Node の ESM）からも読み込むので、拡張子と JSON の import 属性を付ける
+import mitsumura from './mitsumura-r7.json' with { type: 'json' }
+import standards from './standards.json' with { type: 'json' }
+import { Catalog, StandardTexts, type Grade, type Group, type Unit } from './schema.js'
 
 /* 教科書の単元データと、学習指導要領の指導事項の文言。読み込み時に形を検証する */
 

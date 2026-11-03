@@ -1,4 +1,4 @@
-import type { KanbunChar, KanbunToken, ProseSegment, StemSegment } from './schema'
+import type { KanbunChar, KanbunToken, ProseSegment, StemSegment } from './schema.js'
 
 /*
  * サンプルや試験データを短く書くための記法。保存形式ではない。
