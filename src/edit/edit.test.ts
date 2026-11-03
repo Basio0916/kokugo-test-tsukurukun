@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { markNumbers, questionNumberOf, totalPoints } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
-import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, reorderQuestions, reorderSections, replaceQuestion, replaceSection, setInstruction, sortQuestionsByPassage, stepPoints } from './operations'
+import { insertSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, reorderQuestions, reorderSections, replaceQuestion, replaceSection, setInstruction, sortQuestionsByPassage, stepPoints } from './operations'
 import { rescalePoints } from './rescale'
 import { stemToText, textToStem } from './stemText'
 
@@ -18,8 +18,16 @@ describe('大問の操作', () => {
     const removed = removeSection(sampleTest, 'grammar')
     expect(removed.sections.some(s => s.id === 'grammar')).toBe(false)
     expect(newSectionId(sampleTest, 'kanji')).toBe('kanji2')
-    const added = appendSection(sampleTest, { id: newSectionId(sampleTest, 's'), kind: 'literary', instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] })
-    expect(added.sections.at(-1)!.id).toBe('s')
+    const added = insertSection(sampleTest, { id: newSectionId(sampleTest, 's'), kind: 'literary', instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] })
+    expect(added.sections.map(s => s.id).slice(-2)).toEqual(['s', 'sakubun'])
+  })
+
+  it('作文の大問がなければ最後に足し、作文は最後に足す', () => {
+    const noComposition = removeSection(sampleTest, 'sakubun')
+    const literary = { id: 's', kind: 'literary' as const, instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] }
+    expect(insertSection(noComposition, literary).sections.at(-1)!.id).toBe('s')
+    const composition = { ...sampleTest.sections.find(s => s.id === 'sakubun')!, id: 'sakubun2' }
+    expect(insertSection(sampleTest, composition).sections.at(-1)!.id).toBe('sakubun2')
   })
 
   it('新しい並びで並べ替える。今の大問の並べ替えでなければ理由を返す', () => {

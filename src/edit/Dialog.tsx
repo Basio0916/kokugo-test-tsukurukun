@@ -1,4 +1,5 @@
 import { useEffect, useRef, type FormEvent, type ReactNode } from 'react'
+import { useBackdropClose } from './backdrop'
 
 /* 紙面の上での操作に使うポップアップの枠。開いたらすぐモーダルで出し、やめると閉じる */
 
@@ -14,6 +15,7 @@ type Props = {
 
 export function Dialog({ title, submitLabel, errors, onSubmit, onClose, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
+  const backdrop = useBackdropClose(ref)
   useEffect(() => {
     ref.current?.showModal()
   }, [])
@@ -22,7 +24,7 @@ export function Dialog({ title, submitLabel, errors, onSubmit, onClose, children
     onSubmit()
   }
   return (
-    <dialog ref={ref} className="paste" onClose={onClose} aria-label={title}>
+    <dialog ref={ref} className="paste" onClose={onClose} aria-label={title} {...backdrop}>
       <form onSubmit={submit}>
         <h2>{title}</h2>
         {children}

@@ -53,7 +53,12 @@ export type NewSection =
   | { kind: 'grammar'; materials: string[] }
   | { kind: 'composition' }
 
-export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmit: (s: NewSection) => void; onClose: () => void }) {
+// テストに入っている大問（足す画面で選べなくする）
+export type PresentSections = { materials: Set<string>; grammar: Set<string>; kanji: boolean; composition: boolean }
+
+const IN_TEST = '（入っています）'
+
+export function AddSection({ grade, present, onSubmit, onClose }: { grade: Grade; present: PresentSections; onSubmit: (s: NewSection) => void; onClose: () => void }) {
   const materials = materialsOf(grade)
   const grammar = grammarMaterialsOf(grade)
   const [choice, setChoice] = useState('')
@@ -74,25 +79,25 @@ export function AddSection({ grade, onSubmit, onClose }: { grade: Grade; onSubmi
     <Dialog title="大問を追加する" submitLabel="この大問を加える" errors={errors} onSubmit={submit} onClose={onClose}>
       <fieldset className="kanji-candidates">
         <legend>漢字・文法・作文</legend>
-        <label><input type="radio" name="add" checked={choice === 'kanji'} onChange={() => setChoice('kanji')} />漢字の大問</label>
+        <label><input type="radio" name="add" checked={choice === 'kanji'} onChange={() => setChoice('kanji')} disabled={present.kanji} />漢字の大問{present.kanji && IN_TEST}</label>
         <label><input type="radio" name="add" checked={choice === 'grammar'} onChange={() => setChoice('grammar')} />文法の大問</label>
-        <label><input type="radio" name="add" checked={choice === 'composition'} onChange={() => setChoice('composition')} />作文の大問（題と条件は AI が作ります）</label>
+        <label><input type="radio" name="add" checked={choice === 'composition'} onChange={() => setChoice('composition')} disabled={present.composition} />作文の大問{present.composition ? IN_TEST : '（題と条件は AI が作ります）'}</label>
         {choice === 'grammar' && grammar.map(g => (
           <label key={g.name}>
-            <input type="checkbox" checked={grammarChosen.has(g.name)} onChange={() => setGrammarChosen(prev => {
+            <input type="checkbox" checked={grammarChosen.has(g.name)} disabled={present.grammar.has(g.name)} onChange={() => setGrammarChosen(prev => {
               const next = new Set(prev)
               if (next.has(g.name)) next.delete(g.name)
               else next.add(g.name)
               return next
             })} />
-            {g.name}
+            {g.name}{present.grammar.has(g.name) && IN_TEST}
           </label>
         ))}
       </fieldset>
       <fieldset className="kanji-candidates add-materials">
         <legend>文章の教材</legend>
         {materials.map(m => (
-          <label key={m.name}><input type="radio" name="add" checked={choice === m.name} onChange={() => setChoice(m.name)} />{m.month}月　{m.name}</label>
+          <label key={m.name}><input type="radio" name="add" checked={choice === m.name} onChange={() => setChoice(m.name)} disabled={present.materials.has(m.name)} />{m.month}月　{m.name}{present.materials.has(m.name) && IN_TEST}</label>
         ))}
       </fieldset>
     </Dialog>

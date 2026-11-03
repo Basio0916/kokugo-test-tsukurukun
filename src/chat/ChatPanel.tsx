@@ -104,7 +104,10 @@ export function ChatPanel({ messages, canUndo, onButton, target, onClearTarget, 
             rows={2} value={text} aria-label="AIへの相談"
             placeholder="AIに相談する（例：大問二と三を入れ替えて）"
             onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send() } }}
+            onKeyDown={e => {
+              // 日本語を変換している途中の Enter では送らない
+              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) { e.preventDefault(); send() }
+            }}
           />
           <button type="button" className="chat-send" disabled={busy} onClick={send}>送信</button>
         </div>

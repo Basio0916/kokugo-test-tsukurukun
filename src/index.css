@@ -241,3 +241,8 @@ body {
   .workspace { display: block; padding: 0; }
   .paper-col { overflow: visible; }
 }
+
+/* 動きを減らす設定の端末では、切り替えの動きとなめらかなスクロールを止める */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+}

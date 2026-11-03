@@ -10,11 +10,13 @@ async function openSample(page: Page) {
 const merosPage = (page: Page) => page.locator('.page').filter({ hasText: '走れメロス' })
 const stems = (page: Page) => merosPage(page).locator('.stem')
 
-// 送られた大問の本文に新しい傍線部を付けた案を返す（引用は本文の「人一倍に敏感であった」）
-function fakeIdeas(count: number, requests: unknown[] = []) {
+// 送られた大問の本文に新しい傍線部を付けた案を返す（引用は本文の「人一倍に敏感であった」）。delay は返すまで待つ時間（頼んだ順に）
+function fakeIdeas(count: number, requests: unknown[] = [], delays: number[] = []) {
   return async (route: Route) => {
     const req = route.request().postDataJSON()
+    const wait = delays[requests.length] ?? 0
     requests.push(req)
+    await new Promise(r => setTimeout(r, wait))
     const segments = req.section.passage.segments.flatMap((s: { kind: string; text?: string }) => {
       if (s.kind !== 'text' || !s.text!.includes('人一倍に敏感であった')) return [s]
       const [head, tail] = s.text!.split('人一倍に敏感であった')
@@ -23,9 +25,9 @@ function fakeIdeas(count: number, requests: unknown[] = []) {
     const idea = (n: number) => ({
       section: { ...req.section, passage: { ...req.section.passage, segments } },
       question: {
-        id: `meros-a${n}`, format: 'short', kanten: 'thinking', standard: 'C(1)イ', points: 4, answer: '答え',
+        id: `meros-a${n}`, format: req.how.format ?? 'short', kanten: 'thinking', standard: 'C(1)イ', points: 4, answer: '答え',
         ...(req.how.charLimit && { charLimit: req.how.charLimit }),
-        stem: [{ kind: 'markRef', id: 'meros-n1', form: 'label' }, { kind: 'text', text: `とありますが、どういうことですか（案${n}${req.how.charLimit ? `・${req.how.charLimit}字` : ''}）。` }],
+        stem: [{ kind: 'markRef', id: 'meros-n1', form: 'label' }, { kind: 'text', text: `とありますが、どういうことですか（案${n}${req.how.format ? `・${req.how.format}` : ''}${req.how.charLimit ? `・${req.how.charLimit}字` : ''}）。` }],
       },
       rationale: `理由${n}`,
       ...(req.how.kind === 'mark' && { adjustments: '短答にし、二十字以内にしました' }),
@@ -106,9 +108,10 @@ test('本文に線を引いて作ると、選んだところに傍線部が付�
   expect(requests[0].how).toMatchObject({ kind: 'mark', quote: '人一倍に敏感であった', before: '邪悪に対しては、' })
 })
 
-test('タッチで選んでも線を引いて作れる。形式・字数を選び直して整え直し、希望を書き直せる', async ({ page }) => {
+test('タッチで選んでも線を引いて作れる。形式を選んだとたん・字数を決めたときに整え直し、希望を書き直せる', async ({ page }) => {
   const requests: Array<{ how: { kind: string; wish?: string; format?: string; charLimit?: number } }> = []
-  await page.route('/api/draft-question', fakeIdeas(1, requests))
+  // 一回目の整え直し（短答）は遅れて届き、後から頼んだ記述の案だけが入る
+  await page.route('/api/draft-question', fakeIdeas(1, requests, [0, 1500, 0, 0]))
   await openSample(page)
   await selectInPassage(page, 'touchend')
   await page.getByRole('button', { name: '傍線を引いて小問を作る' }).click()
@@ -120,10 +123,18 @@ test('タッチで選んでも線を引いて作れる。形式・字数を選�
   await expect(review).toContainText('（案1）')
   const reshape = review.getByRole('group', { name: '形式と字数を選び直す' })
   await reshape.getByLabel('解答形式').selectOption({ label: '短答' })
+  await reshape.getByLabel('解答形式').selectOption({ label: '記述' })
+  await expect(review.getByLabel('問い文')).toHaveValue(/（案1・description・30字）/)
+  await page.waitForTimeout(1600)
+  await expect(review.getByLabel('問い文')).toHaveValue(/（案1・description・30字）/)
+  expect(requests[1].how).toMatchObject({ kind: 'mark', wish: 'メロスがどういう人か答えさせたい', format: 'short' })
+  expect(requests[2].how).toMatchObject({ kind: 'mark', format: 'description', charLimit: 30 })
+
+  // 字数は Enter で決めると整え直す（小問は入れない）
   await reshape.getByLabel('字数', { exact: true }).fill('40')
-  await review.getByRole('button', { name: '整え直す' }).click()
-  await expect(review.getByLabel('問い文')).toHaveValue(/（案1・40字）/)
-  expect(requests[1].how).toMatchObject({ kind: 'mark', wish: 'メロスがどういう人か答えさせたい', format: 'short', charLimit: 40 })
+  await reshape.getByLabel('字数', { exact: true }).press('Enter')
+  await expect(review.getByLabel('問い文')).toHaveValue(/（案1・description・40字）/)
+  expect(requests[3].how).toMatchObject({ format: 'description', charLimit: 40 })
 
   await review.getByRole('button', { name: '書き直して、もう一度整えてもらう' }).click()
   const again = page.getByRole('dialog', { name: '【三】の本文に線を引いて小問を作る' })
@@ -131,7 +142,7 @@ test('タッチで選んでも線を引いて作れる。形式・字数を選�
   await again.getByLabel('どんな問題にしたいか').fill('メロスの性格を二十字で書かせたい')
   await again.getByRole('button', { name: 'AI に問題の形にしてもらう' }).click()
   await page.getByRole('dialog', { name: /として入れる小問/ }).getByRole('button', { name: 'この問題で入れる' }).click()
-  expect(requests[2].how).toMatchObject({ kind: 'mark', wish: 'メロスの性格を二十字で書かせたい', quote: '人一倍に敏感であった' })
+  expect(requests[4].how).toMatchObject({ kind: 'mark', wish: 'メロスの性格を二十字で書かせたい', quote: '人一倍に敏感であった' })
   await expect(merosPage(page).locator('.mk')).toHaveText(['①', '②', '③', '④'])
 })
 
