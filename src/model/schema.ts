@@ -41,7 +41,8 @@ export const KanbunToken = z.discriminatedUnion('kind', [KanbunChar, KanbunMark]
 export const KanbunPassage = z.object({
   kind: z.literal('kanbun'),
   title: z.string().min(1),
-  author: z.string().min(1),
+  // 作者がわからない（論語の章など）ときは空にできる
+  author: z.string(),
   lines: z.array(z.array(KanbunToken).min(1)).min(1),
   notes: z.array(z.string().min(1)),
 })
@@ -92,13 +93,19 @@ export const Question = z
   })
 
 export const SectionKind = z.enum(['kanji', 'grammar', 'literary', 'expository', 'classical', 'kanbun', 'composition'])
+type SectionKind = z.infer<typeof SectionKind>
 const PROSE_KINDS = ['literary', 'expository', 'classical'] as const
+// 本文を持つ大問の種類（文章・古文は文章の本文、漢文は漢文の本文）
+export const PASSAGE_KINDS: readonly SectionKind[] = [...PROSE_KINDS, 'kanbun']
+export const needsPassage = (kind: SectionKind) => PASSAGE_KINDS.includes(kind)
 
 export const Section = z
   .object({
     id: z.string().min(1),
     kind: SectionKind,
     instruction: z.string().min(1),
+    // 単元データの教材名（教材の大問だけ。単元の指導事項を引くのに使う）
+    material: z.string().min(1).optional(),
     passage: Passage.optional(),
     questions: z.array(Question),
   })
@@ -107,8 +114,8 @@ export const Section = z
     // 本文を貼る前の大問は、本文も小問も持たない
     const beforePaste = !s.passage && s.questions.length === 0
     if (prose && !beforePaste && s.passage?.kind !== 'prose') ctx.addIssue({ code: 'custom', message: '文章を扱う大問は本文を持つ' })
-    if (s.kind === 'kanbun' && s.passage?.kind !== 'kanbun') ctx.addIssue({ code: 'custom', message: '漢文の大問は漢文の本文を持つ' })
-    if (!prose && s.kind !== 'kanbun' && s.passage) ctx.addIssue({ code: 'custom', message: 'この種類の大問は本文を持たない' })
+    if (s.kind === 'kanbun' && !beforePaste && s.passage?.kind !== 'kanbun') ctx.addIssue({ code: 'custom', message: '漢文の大問は漢文の本文を持つ' })
+    if (!needsPassage(s.kind) && s.passage) ctx.addIssue({ code: 'custom', message: 'この種類の大問は本文を持たない' })
     if (s.kind === 'composition' && (s.questions.length !== 1 || s.questions[0].format !== 'composition')) ctx.addIssue({ code: 'custom', message: '作文の大問は作文の問を一つだけ持つ' })
   })
 

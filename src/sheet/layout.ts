@@ -1,5 +1,5 @@
 import { markNumbers, questionPoints } from '../model/derive'
-import type { Kanten, Question, Section, Test } from '../model/schema'
+import { needsPassage, type Kanten, type Question, type Section, type Test } from '../model/schema'
 import { circled, kansuji } from '../paper/kansuji'
 
 /*
@@ -87,8 +87,7 @@ function layoutSection(section: Section, index: number, cell: number, rows: numb
     .map(kanten => ({ kanten, points: section.questions.filter(q => q.kanten === kanten).reduce((a, q) => a + questionPoints(q), 0) }))
     .filter(s => section.questions.some(q => q.kanten === s.kanten))
   if (section.questions.length === 0) {
-    const prose = section.kind === 'literary' || section.kind === 'expository' || section.kind === 'classical'
-    return { id: section.id, label, w: cell, units: [], scores, waiting: prose && !section.passage ? '本文待ち' : '小問なし' }
+    return { id: section.id, label, w: cell, units: [], scores, waiting: needsPassage(section.kind) && !section.passage ? '本文待ち' : '小問なし' }
   }
   const units: Unit[] = []
   let col = 0

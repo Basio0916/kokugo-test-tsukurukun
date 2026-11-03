@@ -28,7 +28,8 @@ describe('頼み方のボタン', () => {
   it('大問: 作り直す・漢字を選び直す・本文欄を開く。作っている間は押せない', () => {
     expect(labels(chipsFor(sampleTest, { sectionId: 'meros' }, ctx))).toEqual(['本文を直す', 'AIに作り直してもらう', '小問を足す'])
     expect(chipsFor(sampleTest, { sectionId: 'meros' }, { ...ctx, drafting: new Set(['meros']) })[1].disabled).toBe(true)
-    expect(labels(chipsFor(sampleTest, { sectionId: 'ougi' }, ctx))).toEqual(['本文を直す', '小問を足す'])
+    expect(labels(chipsFor(sampleTest, { sectionId: 'ougi' }, ctx))).toEqual(['本文を直す', 'AIに作り直してもらう', '小問を足す'])
+    expect(labels(chipsFor(sampleTest, { sectionId: 'kanshi' }, ctx))).toEqual(['AIに作り直してもらう', '返り点と送り仮名を直す', '小問を足す'])
     expect(labels(chipsFor(sampleTest, { sectionId: 'kanji' }, ctx))).toEqual(['出題する漢字を選び直す', '小問を足す'])
     expect(labels(chipsFor(sampleTest, { sectionId: 'grammar' }, { ...ctx, grammarKnown: () => true }))).toEqual(['AIに作り直してもらう', '小問を足す'])
     const empty = { ...sampleTest, sections: [{ id: 's', kind: 'literary' as const, instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] }] }

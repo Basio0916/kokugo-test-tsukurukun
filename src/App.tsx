@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { draftable, gradeOf, materialOf, requestChat, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
+import { draftable, gradeOf, materialOf, requestChat, requestClassical, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
@@ -15,13 +15,15 @@ import { MarkQuestion } from './edit/MarkQuestion'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
 import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
 import { changedParts, passageIssues, passageToText, rebuildPassage, type Issue } from './edit/passageEdit'
+import { KanbunEditor } from './edit/KanbunEditor'
+import { editKanbun } from './model/kanbun'
 import { PassageEditor } from './edit/PassageEditor'
 import { QuestionEditor } from './edit/QuestionEditor'
 import { rescalePoints } from './edit/rescale'
 import type { QuestionAction, SectionAction } from './edit/Tools'
 import { TotalsBar } from './edit/TotalsBar'
 import { markNumbers, sectionPoints, totalPoints } from './model/derive'
-import type { ProsePassage, Question, Section, Test } from './model/schema'
+import type { KanbunPassage, ProsePassage, Question, Section, Test } from './model/schema'
 import { kansuji } from './paper/kansuji'
 import { Paper } from './paper/Paper'
 import { AnswerKey } from './sheet/AnswerKey'
@@ -33,8 +35,9 @@ import { findGroup } from './catalog/catalog'
 import { kanjiStandardOf } from './start/kinds'
 import { kanjiCandidates } from './start/kanjiCandidates'
 import { KanjiWords } from './start/KanjiWords'
+import { PasteKanbun } from './start/PasteKanbun'
 import { PastePassage } from './start/PastePassage'
-import { GRAMMAR_SECTION_ID, KANJI_SECTION_ID, type Allotments, type MaterialNames } from './start/skeleton'
+import { GRAMMAR_SECTION_ID, instructionFor, KANJI_SECTION_ID, type Allotments, type MaterialNames } from './start/skeleton'
 import { StartScreen, type Skeleton } from './start/StartScreen'
 
 // ?sample でサンプルのテストを開く（?sample=long は小問の多いサンプル）
@@ -85,6 +88,8 @@ export function App() {
   const flagsRef = useRef(flags)
   useEffect(() => { flagsRef.current = flags }, [flags])
   const [editingPassage, setEditingPassage] = useState<string | null>(null)
+  // 返り点と送り仮名を直している漢文の大問
+  const [editingKaeriten, setEditingKaeriten] = useState<string | null>(null)
   // 開いている紙（問題用紙・解答用紙・模範解答と採点基準）。解答用紙の割り付けは、収まらない知らせにも使う
   const [sheet, setSheet] = useState<'paper' | 'answer' | 'key'>('paper')
   const sheetLayout = useMemo(() => test && layoutAnswerSheet(test), [test])
@@ -174,13 +179,21 @@ export function App() {
     }
   }
 
-  function pastePassage(sectionId: string, passage: ProsePassage) {
+  function pastePassage(sectionId: string, passage: ProsePassage | KanbunPassage) {
     if (!test) return
     const section = { ...test.sections.find(s => s.id === sectionId)!, passage, questions: [] }
     const next = { ...test, sections: test.sections.map(s => (s.id === sectionId ? section : s)) }
     commit(next)
     setPasting(null)
-    void draft(section, () => requestDraft(next, section, subtotalOf(section)))
+    void draft(section, requestFor(section))
+  }
+
+  // 大問の種類に合った作り方（文章・古文・漢文・文法）。wish は会話で頼んだときの先生の希望
+  function requestFor(section: Section, wish?: string): () => Promise<DraftResponse> {
+    const current = testRef.current!
+    if (section.kind === 'grammar') return () => requestGrammar(current, section, subtotalOf(section), grammarBySection[section.id])
+    if (section.kind === 'classical' || section.kind === 'kanbun') return () => requestClassical(current, section, subtotalOf(section), wish)
+    return () => requestDraft(current, section, subtotalOf(section), wish)
   }
 
   function chooseKanji(sectionId: string, words: string[]) {
@@ -193,10 +206,8 @@ export function App() {
   }
 
   function redraft(section: Section) {
-    if (!test) return
     if (section.kind === 'kanji') return setChoosingKanji(section.id)
-    if (section.kind === 'grammar') return void draft(section, () => requestGrammar(test, section, subtotalOf(section), grammarBySection[section.id]))
-    void draft(section, () => requestDraft(test, section, subtotalOf(section)))
+    void draft(section, requestFor(section))
   }
 
   const onSection = useCallback((sectionId: string, action: SectionAction | 'instruction') => {
@@ -255,7 +266,7 @@ export function App() {
     const section: Section =
       added.kind === 'kanji' ? { ...base, id: newSectionId(test, KANJI_SECTION_ID), kind: 'kanji', instruction: '次の問いに答えなさい。' }
         : added.kind === 'grammar' ? { ...base, id: newSectionId(test, GRAMMAR_SECTION_ID), kind: 'grammar', instruction: '次の問いに答えなさい。' }
-          : { ...base, id: newSectionId(test, 's'), kind: added.material.kind, instruction: '次の文章を読んで、あとの問いに答えなさい。' }
+          : { ...base, id: newSectionId(test, 's'), kind: added.material.kind, material: added.material.name, instruction: instructionFor(added.material.kind) }
     const like = sameKind(section.kind)
     const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
     const next = appendSection(test, section)
@@ -299,7 +310,7 @@ export function App() {
     if (applied.kind === 'failed') return say(failed(applied.errors))
     if (applied.kind === 'redraft') {
       say(reply)
-      return void draft(applied.section, () => requestDraft(current, applied.section, subtotalOf(applied.section), applied.wish))
+      return void draft(applied.section, requestFor(applied.section, applied.wish))
     }
     commit(applied.test)
     setChanged(applied.changed)
@@ -307,6 +318,23 @@ export function App() {
     say({ ...reply, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: current, after: applied.test } })
     // 直した・消した小問の要確認は外す
     if ((change.kind === 'reviseQuestion' || change.kind === 'remove') && change.questionId) clearFlag(change.sectionId, change.questionId)
+  }
+
+  // 漢文の返り点と送り仮名を直す。白文の字は変えず、傍線部は同じ字に付けたまま
+  function saveKaeriten(section: Section, text: string): string[] {
+    if (!test || section.passage?.kind !== 'kanbun') return []
+    const edited = editKanbun(section.passage, text)
+    if (!edited.ok) return edited.errors
+    const r = replaceSection(test, { ...section, passage: edited.passage })
+    if (!r.ok) return r.errors
+    setEditingKaeriten(null)
+    commit(r.test)
+    unconfirm(section.id)
+    setChanged({ sectionId: section.id })
+    const bracket = bracketOf(section.id)
+    say({ who: 'me', text: `（紙面で${bracket}の返り点と送り仮名を直しました）` })
+    say({ who: 'ai', text: `${bracket}の返り点と送り仮名を直しました。返り点に従って読めることを確かめています。`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test } })
+    return []
   }
 
   // 本文を直す。傍線とルビを付け直して紙面に入れ、続けて小問との食い違いを確かめる
@@ -411,6 +439,7 @@ export function App() {
     if (chip.kind === 'kanji') return setChoosingKanji(chip.sectionId)
     if (chip.kind === 'openPassage') return setPasting(chip.sectionId)
     if (chip.kind === 'editPassage') return setEditingPassage(chip.sectionId)
+    if (chip.kind === 'kaeriten') return setEditingKaeriten(chip.sectionId)
     if (chip.kind === 'draft') {
       const section = test.sections.find(s => s.id === chip.sectionId)
       return section && redraft(section)
@@ -489,9 +518,17 @@ export function App() {
           {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
         </main>
       </div>
-      {pasting && (
+      {pasting && test.sections.find(s => s.id === pasting)?.kind === 'kanbun' && (
+        <PasteKanbun
+          material={materialNames[pasting] ?? materialOf(test.sections.find(s => s.id === pasting)!) ?? ''}
+          onSubmit={passage => pastePassage(pasting, passage)}
+          onClose={() => setPasting(null)}
+        />
+      )}
+      {pasting && test.sections.find(s => s.id === pasting)?.kind !== 'kanbun' && (
         <PastePassage
           material={materialNames[pasting] ?? ''}
+          kind={test.sections.find(s => s.id === pasting)?.kind}
           onSubmit={passage => pastePassage(pasting, passage)}
           onClose={() => setPasting(null)}
         />
@@ -530,6 +567,17 @@ export function App() {
             numbers={markNumbers(section)}
             onSubmit={text => savePassage(section.id, text)}
             onClose={() => setEditingPassage(null)}
+          />
+        )
+      })()}
+      {editingKaeriten && (() => {
+        const section = test.sections.find(s => s.id === editingKaeriten)
+        return section?.passage?.kind === 'kanbun' && (
+          <KanbunEditor
+            title={`${labelOf(section.id)}の返り点と送り仮名を直す`}
+            passage={section.passage}
+            onSubmit={text => saveKaeriten(section, text)}
+            onClose={() => setEditingKaeriten(null)}
           />
         )
       })()}

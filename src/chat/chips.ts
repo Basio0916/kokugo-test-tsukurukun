@@ -1,5 +1,5 @@
-import { draftable } from '../ai/client'
-import type { Test } from '../model/schema'
+import { draftable, redraftable } from '../ai/client'
+import { needsPassage, type Test } from '../model/schema'
 import { targetLabel, type Target } from './messages'
 
 /* 選んだ大問・小問に合わせて出す、よくある頼み方のボタン */
@@ -12,6 +12,7 @@ export type Chip = { label: string; disabled?: boolean } & (
   | { kind: 'kanji'; sectionId: string }
   | { kind: 'openPassage'; sectionId: string }
   | { kind: 'editPassage'; sectionId: string }
+  | { kind: 'kaeriten'; sectionId: string }
 )
 
 type Context = {
@@ -51,10 +52,10 @@ export function chipsFor(test: Test, target: Target, ctx: Context): Chip[] {
   }
 
   const chips: Chip[] = []
-  const prose = section.kind === 'literary' || section.kind === 'expository'
-  if (prose && !section.passage) chips.push({ label: '本文欄を開く', kind: 'openPassage', sectionId: section.id })
+  if (needsPassage(section.kind) && !section.passage) chips.push({ label: '本文欄を開く', kind: 'openPassage', sectionId: section.id })
   if (section.passage?.kind === 'prose') chips.push({ label: '本文を直す', kind: 'editPassage', sectionId: section.id, disabled: drafting })
-  if (draftable(section)) chips.push({ label: section.questions.length ? 'AIに作り直してもらう' : 'AIに作ってもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
+  if (redraftable(section)) chips.push({ label: section.questions.length ? 'AIに作り直してもらう' : 'AIに作ってもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
+  if (section.passage?.kind === 'kanbun') chips.push({ label: '返り点と送り仮名を直す', kind: 'kaeriten', sectionId: section.id, disabled: drafting })
   if (section.kind === 'grammar' && ctx.grammarKnown(section.id)) chips.push({ label: 'AIに作り直してもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
   if (section.kind === 'kanji') chips.push({ label: '出題する漢字を選び直す', kind: 'kanji', sectionId: section.id, disabled: drafting })
   if (addable) chips.push({ label: '小問を足す', kind: 'addQuestion', sectionId: section.id, at: section.questions.length })

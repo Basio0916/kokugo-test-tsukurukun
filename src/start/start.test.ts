@@ -4,7 +4,7 @@ import { Test } from '../model/schema'
 import { itemPlan } from '../ai/items'
 import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, materialsOf } from './kinds'
 import { kanjiCandidates, splitWords } from './kanjiCandidates'
-import { pastedPassage } from './passage'
+import { pastedKanbun, pastedPassage, workOf } from './passage'
 import { buildSkeleton } from './skeleton'
 
 const info = { year: '令和八年度', name: '学年末テスト', grade: '二年', fullMarks: 100, minutes: 50, pointStep: 1 as const }
@@ -17,10 +17,10 @@ describe('教材の一覧', () => {
 
   it('二年の一覧に走れメロスがあり、古文・漢文は選べない', () => {
     const list = materialsOf(2)
-    expect(list.find(m => m.name === '走れメロス')).toMatchObject({ kind: 'literary', selectable: true, month: 1, unit: '８　表現を見つめる' })
-    expect(list.find(m => m.name === 'モアイは語る――地球の未来')).toMatchObject({ kind: 'expository', selectable: true })
-    expect(list.find(m => m.name.startsWith('扇の的'))).toMatchObject({ kind: 'classical', selectable: false })
-    expect(list.find(m => m.name === '漢詩の風景')).toMatchObject({ kind: 'kanbun', selectable: false })
+    expect(list.find(m => m.name === '走れメロス')).toMatchObject({ kind: 'literary', month: 1, unit: '８　表現を見つめる' })
+    expect(list.find(m => m.name === 'モアイは語る――地球の未来')).toMatchObject({ kind: 'expository' })
+    expect(list.find(m => m.name.startsWith('扇の的'))).toMatchObject({ kind: 'classical' })
+    expect(list.find(m => m.name === '漢詩の風景')).toMatchObject({ kind: 'kanbun' })
     expect(list.some(m => m.name === '国語の力試し')).toBe(false)
   })
 })
@@ -37,7 +37,7 @@ describe('骨組みと配点の枠', () => {
   })
 
   it('〇・五点刻みでも合計は満点ちょうど', () => {
-    const three = materialsOf(2).filter(m => m.selectable).slice(0, 3)
+    const three = materialsOf(2).filter(m => m.kind === 'literary' || m.kind === 'expository').slice(0, 3)
     const r = buildSkeleton({ ...info, fullMarks: 50, pointStep: 0.5 }, three)!
     expect(Object.values(r.allotments).reduce((a, b) => a + b, 0)).toBe(50)
     expect(Object.values(r.allotments).every(p => Number.isInteger(p / 0.5))).toBe(true)
@@ -122,5 +122,34 @@ describe('本文からの候補と、先生が貼った語', () => {
 
   it('改行・読点・空白で区切り、同じ語はまとめる', () => {
     expect(splitWords('約束、信頼　名誉\n疲労,漂う 約束')).toEqual(['約束', '信頼', '名誉', '疲労', '漂う'])
+  })
+})
+
+describe('古文の出典と教材名', () => {
+  it('作品名は教材名のかぎかっこの中、なければ「――」の前', () => {
+    expect(workOf('扇の的　――「平家物語」から')).toBe('平家物語')
+    expect(workOf('枕草子')).toBe('枕草子')
+    expect(workOf('君待つと――万葉・古今・新古今')).toBe('君待つと')
+  })
+
+  it('骨組みの大問は教材名を持ち、古文・漢文は種類に合った指示文になる', () => {
+    const materials = materialsOf(2).filter(m => ['走れメロス', '扇の的　――「平家物語」から', '漢詩の風景'].includes(m.name))
+    const skeleton = buildSkeleton({ year: '令和八年度', name: '期末', grade: '二年', fullMarks: 100, minutes: 50, pointStep: 1 }, materials)!
+    // 教材は年間指導計画の順（扇の的・漢詩の風景が十一月、走れメロスが一月）
+    expect(skeleton.test.sections.map(s => [s.kind, s.material, s.instruction])).toEqual([
+      ['classical', '扇の的　――「平家物語」から', '次の古文を読んで、あとの問いに答えなさい。'],
+      ['kanbun', '漢詩の風景', '次の漢文を読んで、あとの問いに答えなさい。'],
+      ['literary', '走れメロス', '次の文章を読んで、あとの問いに答えなさい。'],
+    ])
+    expect(Test.safeParse(skeleton.test).success).toBe(true)
+  })
+})
+
+describe('漢文の白文を貼る', () => {
+  it('一行に一句。空白は除き、空の行は捨てる。語注は一行に一つ', () => {
+    const p = pastedKanbun('春暁', '孟浩然', '春眠不覚暁\n 処処 聞啼鳥\n\n夜来風雨声\n花落知多少', '＊啼鳥……鳴いている鳥。\n\n＊夜来……昨夜から。')!
+    expect(p.lines.map(l => l.map(t => (t.kind === 'char' ? t.char : '')).join(''))).toEqual(['春眠不覚暁', '処処聞啼鳥', '夜来風雨声', '花落知多少'])
+    expect(p.notes).toEqual(['＊啼鳥……鳴いている鳥。', '＊夜来……昨夜から。'])
+    expect(pastedKanbun('春暁', '', ' \n ', '')).toBeNull()
   })
 })

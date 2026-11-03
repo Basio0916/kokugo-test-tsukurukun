@@ -25,6 +25,13 @@ export type Skeleton = {
   grammarMaterials: string[]
 }
 
+/** 教材の大問の指示文 */
+export function instructionFor(kind: Section['kind']): string {
+  if (kind === 'classical') return '次の古文を読んで、あとの問いに答えなさい。'
+  if (kind === 'kanbun') return '次の漢文を読んで、あとの問いに答えなさい。'
+  return '次の文章を読んで、あとの問いに答えなさい。'
+}
+
 export const KANJI_SECTION_ID = 'kanji'
 export const GRAMMAR_SECTION_ID = 'grammar'
 
@@ -49,7 +56,8 @@ export function buildSkeleton(info: TestInfo, materials: Material[], options: Sk
   const readings: Section[] = materials.map((m, i) => ({
     id: `s${i + 1}`,
     kind: m.kind,
-    instruction: '次の文章を読んで、あとの問いに答えなさい。',
+    material: m.name,
+    instruction: instructionFor(m.kind),
     questions: [],
   }))
 
