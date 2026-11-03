@@ -1,4 +1,4 @@
-import { draftable, redraftable } from '../ai/client'
+import { redraftable, revisable } from '../ai/client'
 import { needsPassage, type Test } from '../model/schema'
 import { targetLabel, type Target } from './messages'
 
@@ -38,7 +38,7 @@ export function chipsFor(test: Test, target: Target, ctx: Context): Chip[] {
     const q = section.questions[qi]
     const ask = (chip: string, text: string): Chip => ({ label: chip, kind: 'ask', text: `${label}${text}`, disabled: ctx.busy || drafting })
     const chips: Chip[] = []
-    if (draftable(section) && !q.items) {
+    if (revisable(section) && !q.items) {
       chips.push(ask('もう少し易しく', 'をもう少し易しくしてください'))
       if (q.format === 'choice') chips.push(ask('選択肢を五つに', 'の選択肢を五つにしてください'), ask('記述問題にする', 'を記述問題にしてください'))
       chips.push(ask('AIに作り直してもらう', 'を別の問い方で作り直してください'))

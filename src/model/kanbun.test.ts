@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sampleTest } from '../sample/sampleTest'
-import { editKanbun, lineChars, lineNotation, readingOrder, readLine, wrapMarks } from './kanbun'
+import { addKanbunMarks, editKanbun, lineChars, lineNotation, readingOrder, readLine, wrapMarks } from './kanbun'
 import { kanbunLine } from './notation'
 import { Section, type KanbunPassage } from './schema'
 
@@ -69,5 +69,20 @@ describe('句の中の引用に傍線部を付ける', () => {
 describe('白文を貼る前の漢文の大問', () => {
   it('本文も小問も持たなければ正しい', () => {
     expect(Section.safeParse({ id: 's', kind: 'kanbun', material: '漢詩の風景', instruction: '次の漢文を読んで、あとの問いに答えなさい。', questions: [] }).success).toBe(true)
+  })
+})
+
+describe('今ある傍線部を残して漢文の引用に傍線部を付ける', () => {
+  let n = 0
+  const idOf = () => `x${++n}`
+  it('同じ範囲は今の傍線部を使い、新しい箇所には新しい傍線部、一部だけ重なれば不正', () => {
+    const lines = kanshi().lines
+    const r = addKanbunMarks(lines, [{ key: 'A', quote: '花落知多少' }, { key: 'B', quote: '啼鳥' }], idOf)
+    expect(r.ok && r.ids.get('A')).toBe('a')
+    expect(r.ok && r.ids.get('B')).toBe('x1')
+    expect(r.ok && r.lines[1][3]).toMatchObject({ kind: 'mark', id: 'x1' })
+    expect(r.ok && r.lines[3]).toEqual(lines[3])
+    expect(addKanbunMarks(lines, [{ key: 'A', quote: '落知' }], idOf)).toMatchObject({ ok: false, errors: [expect.stringContaining('一部だけ重なって')] })
+    expect(addKanbunMarks(lines, [{ key: 'A', quote: '暁処処' }], idOf).ok).toBe(false)
   })
 })

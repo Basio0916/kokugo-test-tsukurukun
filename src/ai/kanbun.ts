@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { lineText, readLine, wrapMarks } from '../model/kanbun.js'
 import { Section, type KanbunChar } from '../model/schema.js'
 import { allocatePoints } from './points.js'
-import { ProposedMark, ProposedQuestion } from './proposal.js'
+import { ProposedMark, ProposedQuestion, Suggestions } from './proposal.js'
 import { buildQuestion, type Converted } from './toSection.js'
 
 /*
@@ -14,6 +14,7 @@ export const KanbunProposal = z.object({
   lines: z.array(z.string().min(1)).min(1).describe('一句（白文の一行）ごとの訓読。字(送り仮名)[返り点] の記法で、白文と同じ順・同じ数'),
   marks: z.array(ProposedMark),
   questions: z.array(ProposedQuestion).min(1),
+  suggestions: Suggestions,
 })
 export type KanbunProposal = z.infer<typeof KanbunProposal>
 
@@ -50,5 +51,6 @@ export function toKanbunSection(base: Section, proposal: KanbunProposal, pointSt
     ok: true,
     section: parsed.data,
     rationales: proposal.questions.map((p, i) => ({ questionId: questions[i].id, rationale: p.rationale, standard: p.standard })),
+    ...(proposal.suggestions?.length && { suggestions: proposal.suggestions }),
   }
 }

@@ -20,6 +20,11 @@ describe('頼み方のボタン', () => {
     expect(chips[4]).toMatchObject({ kind: 'addQuestion', at: 2 })
   })
 
+  it('漢文の記号選択の小問にも、AI に頼むボタンが出る', () => {
+    expect(labels(chipsFor(sampleTest, { sectionId: 'kanshi', questionId: 'h3' }, ctx)).slice(0, 4)).toEqual(['もう少し易しく', '選択肢を五つに', '記述問題にする', 'AIに作り直してもらう'])
+    expect(labels(chipsFor(sampleTest, { sectionId: 'ougi', questionId: 'o2' }, ctx))).toEqual(['この後ろに小問を足す', '配点を一点上げる', '配点を一点下げる'])
+  })
+
   it('漢字の小問は配点と足すだけ。考えている間は頼みの文を送れない', () => {
     expect(labels(chipsFor(sampleTest, { sectionId: 'kanji', questionId: 'k1' }, ctx))).toEqual(['この後ろに小問を足す', '配点を一点上げる', '配点を一点下げる'])
     const busy = chipsFor(sampleTest, { sectionId: 'meros', questionId: 'q3' }, { ...ctx, busy: true, pointStep: 0.5 })

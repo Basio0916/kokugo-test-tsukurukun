@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { questionPoints } from '../model/derive.js'
 import { Section, type Question } from '../model/schema.js'
+import { addKanbunMarks, lineText } from '../model/kanbun.js'
 import { addMarks, plainText } from './anchor.js'
 import type { Checked } from './claude.js'
 import { ProposedMark, ProposedQuestion } from './proposal.js'
@@ -43,8 +44,8 @@ type Options = { pointStep: number; subtotal: number; quote?: string }
 
 export function toIdeas(base: Section, proposal: QuestionIdeas, options: Options): Checked<{ ideas: Idea[] }> {
   const passage = base.passage
-  if (passage?.kind !== 'prose') return { ok: false, errors: ['この大問は本文（文章）を持たない'] }
-  const usedMarkIds = passage.segments.flatMap(s => (s.kind === 'mark' ? [s.id] : []))
+  if (!passage) return { ok: false, errors: ['この大問は本文を持たない'] }
+  const usedMarkIds = passage.kind === 'prose' ? passage.segments.flatMap(s => (s.kind === 'mark' ? [s.id] : [])) : passage.lines.flat().flatMap(t => (t.kind === 'mark' ? [t.id] : []))
   const points = defaultPoints(base, options.subtotal, options.pointStep)
   const errors: string[] = []
   const ideas: Idea[] = []
@@ -55,12 +56,15 @@ export function toIdeas(base: Section, proposal: QuestionIdeas, options: Options
       return
     }
     const markId = freshIds(new Set(usedMarkIds), `${base.id}-n`)
-    const anchored = addMarks(passage.segments, idea.marks, () => markId())
+    // 文章・古文は本文の引用、漢文は句の中の字の引用に、今ある傍線部を残して付ける
+    const anchored = passage.kind === 'prose'
+      ? (() => { const r = addMarks(passage.segments, idea.marks, () => markId()); return r.ok ? { ok: true as const, passage: { ...passage, segments: r.segments }, ids: r.ids, text: plainText(r.segments) } : r })()
+      : (() => { const r = addKanbunMarks(passage.lines, idea.marks, () => markId()); return r.ok ? { ok: true as const, passage: { ...passage, lines: r.lines }, ids: r.ids, text: r.lines.map(lineText).join('') } : r })()
     if (!anchored.ok) return errors.push(...anchored.errors.map(e => `${label}: ${e}`))
     const questionId = freshIds(new Set(base.questions.map(q => q.id)), `${base.id}-a`)()
-    const built = buildQuestion(idea.question, questionId, label, anchored.ids, plainText(anchored.segments), points)
+    const built = buildQuestion(idea.question, questionId, label, anchored.ids, anchored.text, points)
     if (built.errors.length) return errors.push(...built.errors)
-    const section: Section = { ...base, passage: { ...passage, segments: anchored.segments } }
+    const section: Section = { ...base, passage: anchored.passage }
     const parsed = Section.safeParse({ ...section, questions: [...section.questions, built.question] })
     if (!parsed.success) return errors.push(...parsed.error.issues.map(issue => `${label}: ${issue.message}`))
     ideas.push({ section, question: built.question, rationale: idea.question.rationale, ...(idea.adjustments && { adjustments: idea.adjustments }) })

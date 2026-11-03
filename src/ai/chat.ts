@@ -2,12 +2,13 @@ import { z } from 'zod'
 import { findGroup, standardText } from '../catalog/catalog.js'
 import { choiceLabel, markNumbers, questionPoints, sectionPoints, totalPoints } from '../model/derive.js'
 import { needsPassage, Section, Test, type Question, type StemSegment } from '../model/schema.js'
-import { reorderSections } from '../edit/operations.js'
+import { reorderQuestions, reorderSections } from '../edit/operations.js'
+import { addKanbunMarks, lineNotation, lineText } from '../model/kanbun.js'
 import { circled, kansuji } from '../paper/kansuji.js'
 import { freshIds } from './addQuestion.js'
 import { addMarks, plainText } from './anchor.js'
 import { draftWithRetry, jsonHandler, type Checked } from './claude.js'
-import { draftable, gradeOf, materialOf, redraftable } from './client.js'
+import { gradeOf, materialOf, redraftable, revisable } from './client.js'
 import { CHAT_SYSTEM_PROMPT, chatUserPrompt } from './prompt.js'
 import { ProposedMark, ProposedQuestion } from './proposal.js'
 import { buildQuestion } from './toSection.js'
@@ -47,6 +48,9 @@ export const ChatAnswer = z.object({
     z.object({ kind: z.literal('reorderSections'), order: z.array(z.string().min(1)).describe('すべての大問の識別子を、新しい順にもれなく並べる') }),
     z.object({ kind: z.literal('remove'), sectionId: id('大問'), questionId: id('消す小問（大問を消すときは書かない）').optional() }),
     z.object({ kind: z.literal('addSection') }),
+    z.object({ kind: z.literal('reorderQuestions'), sectionId: id('大問'), order: z.array(z.string().min(1)).describe('その大問のすべての小問の識別子を、新しい順にもれなく並べる') }),
+    z.object({ kind: z.literal('sortQuestions'), sectionId: id('本文の順に並べる大問') }),
+    z.object({ kind: z.literal('addQuestion'), sectionId: id('小問を足す大問'), afterQuestionId: id('この小問の後ろに足す（大問の最後なら書かない）').optional() }),
   ]).describe('頼みに合う変更を一つだけ。紙面を変えないときは none'),
 })
 export type ChatAnswer = z.infer<typeof ChatAnswer>
@@ -59,6 +63,9 @@ export type ChatChange =
   | { kind: 'reorderSections'; order: string[] }
   | { kind: 'remove'; sectionId: string; questionId?: string }
   | { kind: 'addSection' }
+  | { kind: 'reorderQuestions'; sectionId: string; order: string[] }
+  | { kind: 'sortQuestions'; sectionId: string }
+  | { kind: 'addQuestion'; sectionId: string; afterQuestionId?: string }
 export type ChatResult = { reply: string; notes: string[]; change: ChatChange }
 export type ChatResponse = Checked<ChatResult>
 
@@ -113,7 +120,7 @@ export function describeSection(test: Test, section: Section, i: number): string
     lines.push(`傍線部:\n${marks.length ? marks.join('\n') : '（なし）'}`)
   } else if (passage?.kind === 'kanbun') {
     const chars = (cs: Array<{ char: string }>) => cs.map(c => c.char).join('')
-    lines.push(`本文（${passage.title}　${passage.author}）:\n${passage.lines.map(l => l.map(t => (t.kind === 'char' ? t.char : chars(t.children))).join('')).join('\n')}`)
+    lines.push(`本文（${passage.title}　${passage.author}。一句ごとに「字(送り仮名)[返り点]」の記法）:\n${passage.lines.map(lineNotation).join('\n')}`)
     const marks = passage.lines.flat().flatMap(t => (t.kind === 'mark' && numbers.has(t.id) ? [`- 傍線部${circled(numbers.get(t.id)!)}「${chars(t.children)}」`] : []))
     lines.push(`傍線部:\n${marks.length ? marks.join('\n') : '（なし）'}`)
     if (passage.notes.length) lines.push(`語注:\n${passage.notes.map(n => `- ${n}`).join('\n')}`)
@@ -147,16 +154,20 @@ function reviseQuestion(test: Test, change: Extract<ChatAnswer['change'], { kind
   const section = test.sections.find(s => s.id === change.sectionId)
   if (!section) return { ok: false, errors: [`大問 ${change.sectionId} がテストにない`] }
   const passage = section.passage
-  if (!draftable(section) || passage?.kind !== 'prose') return { ok: false, errors: [`大問 ${change.sectionId} は文学的文章・説明的文章の大問ではないので、会話では小問を直せない（none にして、紙面の「直す」を案内する）`] }
+  if (!revisable(section) || !passage) return { ok: false, errors: [`大問 ${change.sectionId} は本文を持つ文章・古文・漢文の大問ではないので、会話では小問を直せない（none にして、紙面の「直す」を案内する）`] }
   const old = section.questions.find(q => q.id === change.questionId)
   if (!old) return { ok: false, errors: [`小問 ${change.questionId} が大問 ${change.sectionId} にない`] }
-  if (old.items) return { ok: false, errors: [`小問 ${change.questionId} は項目を持つので、会話では直せない`] }
-  const markId = freshIds(new Set(passage.segments.flatMap(s => (s.kind === 'mark' ? [s.id] : []))), `${section.id}-n`)
-  const anchored = addMarks(passage.segments, change.marks, () => markId())
+  if (old.items) return { ok: false, errors: [`小問 ${change.questionId} は項目を持つので、会話では直せない（none にして、紙面の「直す」を案内する）`] }
+  const used = passage.kind === 'prose' ? passage.segments.flatMap(s => (s.kind === 'mark' ? [s.id] : [])) : passage.lines.flat().flatMap(t => (t.kind === 'mark' ? [t.id] : []))
+  const markId = freshIds(new Set(used), `${section.id}-n`)
+  // 文章・古文は本文の引用、漢文は句の中の字の引用に、今ある傍線部を残して付ける
+  const anchored = passage.kind === 'prose'
+    ? (() => { const r = addMarks(passage.segments, change.marks, () => markId()); return r.ok ? { ok: true as const, passage: { ...passage, segments: r.segments }, ids: r.ids, text: plainText(r.segments) } : r })()
+    : (() => { const r = addKanbunMarks(passage.lines, change.marks, () => markId()); return r.ok ? { ok: true as const, passage: { ...passage, lines: r.lines }, ids: r.ids, text: r.lines.map(lineText).join('') } : r })()
   if (!anchored.ok) return { ok: false, errors: anchored.errors }
-  const built = buildQuestion({ ...change.question, weight: 1 }, old.id, '直した小問', anchored.ids, plainText(anchored.segments), questionPoints(old))
+  const built = buildQuestion({ ...change.question, weight: 1 }, old.id, '直した小問', anchored.ids, anchored.text, questionPoints(old))
   if (built.errors.length) return { ok: false, errors: built.errors }
-  const parsed = Section.safeParse({ ...section, passage: { ...passage, segments: anchored.segments }, questions: section.questions.map(q => (q.id === old.id ? built.question : q)) })
+  const parsed = Section.safeParse({ ...section, passage: anchored.passage, questions: section.questions.map(q => (q.id === old.id ? built.question : q)) })
   if (!parsed.success) return { ok: false, errors: parsed.error.issues.map(issue => `直した小問: ${issue.message}`) }
   return { ok: true, change: { kind: 'reviseQuestion', sectionId: section.id, questionId: old.id, section: parsed.data } }
 }
@@ -183,6 +194,18 @@ export function toChatResult(test: Test, answer: ChatAnswer): Checked<ChatResult
     case 'reorderSections': {
       const r = reorderSections(test, change.order)
       return r.ok ? { ok: true, ...base, change } : r
+    }
+    case 'reorderQuestions': {
+      const r = reorderQuestions(test, change.sectionId, change.order)
+      return r.ok ? { ok: true, ...base, change } : r
+    }
+    case 'sortQuestions':
+      return sectionOf(change.sectionId) ? { ok: true, ...base, change } : { ok: false, errors: [`大問 ${change.sectionId} がテストにない`] }
+    case 'addQuestion': {
+      const section = sectionOf(change.sectionId)
+      if (!section) return { ok: false, errors: [`大問 ${change.sectionId} がテストにない`] }
+      if (change.afterQuestionId && !section.questions.some(q => q.id === change.afterQuestionId)) return { ok: false, errors: [`小問 ${change.afterQuestionId} が大問 ${change.sectionId} にない`] }
+      return { ok: true, ...base, change }
     }
     case 'remove': {
       const section = sectionOf(change.sectionId)

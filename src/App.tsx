@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { draftable, gradeOf, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
+import { gradeOf, ideasAvailable, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
@@ -11,7 +11,7 @@ import { guideMessage, nextStep, outOfOrder, sectionStatus, startMessage } from 
 import { Outline } from './chat/Outline'
 import { draftedMessage, failedMessage, liveTarget, sectionLabel, targetLabel, WELCOME, type ChatButton, type ChatMessage, type NewMessage, type Target } from './chat/messages'
 import { AddQuestion } from './edit/AddQuestion'
-import { blankQuestion, type OwnFormat } from './edit/addQuestionModel'
+import { blankQuestion, ideaStem, type OwnFormat } from './edit/addQuestionModel'
 import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from './edit/Dialogs'
 import { MarkQuestion } from './edit/MarkQuestion'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
@@ -84,6 +84,8 @@ export function App() {
   // 会話: メッセージ、AI が考えている間、紙面で選んでいるもの、会話の変更で変わったもの
   const [messages, setMessages] = useState<ChatMessage[]>([{ id: 0, ...WELCOME }])
   const [chatBusy, setChatBusy] = useState(false)
+  // 最後に作った大問の、頼み方の例（何かを送ったら消す）
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [target, setTarget] = useState<Target | null>(null)
   const [changed, setChanged] = useState<Target | null>(null)
   const nextMessageId = useRef(1)
@@ -208,6 +210,7 @@ export function App() {
     commit(after)
     setChanged({ sectionId: section.id })
     unconfirm(section.id, true)
+    if (result.suggestions) setSuggestions(result.suggestions)
     say(draftedMessage(label, section.id, result.rationales, { before, after }))
   }
 
@@ -421,6 +424,7 @@ export function App() {
     const sent = test
     const history = messages.slice(-10).map(m => ({ who: m.who, text: m.text }))
     say({ who: 'me', text })
+    setSuggestions([])
     setChatBusy(true)
     const r = await requestChat(sent, about ?? undefined, history, text)
     setChatBusy(false)
@@ -434,6 +438,10 @@ export function App() {
     const applied = applyChatChange(sent, current, change)
     if (applied.kind === 'stale') return say({ who: 'ai', text: '考えている間に紙面のその部分が変わったので、この変更は入れませんでした。もう一度頼んでください。' })
     if (applied.kind === 'failed') return say(failed(applied.errors))
+    if (applied.kind === 'addQuestion') {
+      say(reply)
+      return void offerIdeas(applied.section, applied.at)
+    }
     if (applied.kind === 'redraft') {
       say(reply)
       return void draft(applied.section, requestFor(applied.section, applied.wish))
@@ -461,6 +469,22 @@ export function App() {
     say({ who: 'me', text: `（紙面で${bracket}の返り点と送り仮名を直しました）` })
     say({ who: 'ai', text: `${bracket}の返り点と送り仮名を直しました。返り点に従って読めることを確かめています。`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test } })
     return []
+  }
+
+  // 会話で「小問を足して」と頼まれたら、AI の案を作って会話のボタンに並べる（案が使えない大問は、足し方を選ぶ画面を開く）
+  async function offerIdeas(section: Section, at: number) {
+    if (!ideasAvailable(section)) return setAddingAt({ sectionId: section.id, at })
+    setChatBusy(true)
+    const r = await requestIdeas(testRef.current!, section, subtotalOf(section), { kind: 'suggest' })
+    setChatBusy(false)
+    const bracket = bracketOf(section.id)
+    if (!r.ok) return say({ who: 'ai', text: `${bracket}の小問の案を作れませんでした。`, notes: { title: '理由', label: '作れなかった理由', items: r.errors.map(e => ({ text: e })) }, error: true })
+    say({
+      who: 'ai',
+      text: `${bracket}に足せる小問の案です。押した案が問${kansuji(at + 1)}として入ります。`,
+      notes: { title: '案', label: '小問の案', items: r.ideas.map((idea, i) => ({ head: `案${i + 1}（${idea.question.standard}）`, text: `${ideaStem(idea)}　${idea.rationale}` })) },
+      buttons: r.ideas.map((idea, i) => ({ label: `案${i + 1}を入れる`, action: 'insertIdea' as const, sectionId: section.id, at, idea })),
+    })
   }
 
   // 本文を直す。傍線とルビを付け直して紙面に入れ、続けて小問との食い違いを確かめる
@@ -537,6 +561,10 @@ export function App() {
       return setSheet(button.sheet)
     }
     if (button.action === 'addComposition') return addSection({ kind: 'composition' }, true)
+    if (button.action === 'insertIdea') {
+      const errors = putQuestion(button.sectionId, button.at, button.idea.question, button.idea.section)
+      return void (errors.length ? say({ who: 'ai', text: `入れられませんでした。${errors.join(' ')}`, error: true }) : setChanged({ sectionId: button.sectionId, questionId: button.idea.question.id }))
+    }
     if (button.action === 'skipComposition') return guide('作文は入れずにおきます。')
     if (button.action === 'fixFlag' || button.action === 'keepFlag' || button.action === 'removeFlagged') {
       const { sectionId, questionId } = button
@@ -637,6 +665,7 @@ export function App() {
           ]}
           busy={chatBusy}
           onSend={text => void ask(text)}
+          suggestions={suggestions}
         />}
         {(!narrow || view === 'paper') && <main className="paper-col" onScroll={() => setSelected(null)}>
           <TotalsBar test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)} />
@@ -752,7 +781,7 @@ export function App() {
           onClose={() => setEditingInfo(false)}
         />
       )}
-      {selected && !marking && draftable(test.sections.find(s => s.id === selected.sectionId) ?? test.sections[0]) && (
+      {selected && !marking && (s => !!s && ideasAvailable(s) && s.passage?.kind === 'prose')(test.sections.find(s => s.id === selected.sectionId)) && (
         <button
           type="button" className="mark-float"
           // 選んだところの下に出す。画面の外に出ないように収める
@@ -782,7 +811,7 @@ export function App() {
           <AddQuestion
             title={`${labelOf(section.id)}の問${kansuji(addingAt.at + 1)}として小問を追加`}
             section={section}
-            aiAvailable={draftable(section)}
+            aiAvailable={ideasAvailable(section)}
             request={how => requestIdeas(test, section, subtotalOf(section), how)}
             onPick={idea => {
               const errors = putQuestion(section.id, addingAt.at, idea.question, idea.section)

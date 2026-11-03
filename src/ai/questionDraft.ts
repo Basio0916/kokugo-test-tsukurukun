@@ -5,6 +5,7 @@ import { markNumbers } from '../model/derive.js'
 import { PointStep, Section, type Question } from '../model/schema.js'
 import { circled } from '../paper/kansuji.js'
 import { QuestionIdeas, toIdeas, type Idea } from './addQuestion.js'
+import { lineNotation, lineText } from '../model/kanbun.js'
 import { plainText } from './anchor.js'
 import { draftWithRetry, jsonHandler } from './claude.js'
 import { ADD_QUESTION_PROMPT, formatPrompt, markPrompt, suggestPrompt, type AddQuestionContext } from './prompt.js'
@@ -38,13 +39,18 @@ export async function draftQuestion(request: QuestionDraftRequest): Promise<Ques
   const { grade, material, pointStep, subtotal, section, how } = request
   const group = findGroup(grade, material)
   if (!group) return { ok: false, errors: [`単元データに「${material}」がありません`] }
-  if (section.passage?.kind !== 'prose') return { ok: false, errors: ['この大問は本文（文章）を持たない'] }
+  const passage = section.passage
+  if (!passage) return { ok: false, errors: ['この大問は本文を持たない'] }
   const numbers = markNumbers(section)
+  const marks = passage.kind === 'prose'
+    ? passage.segments.flatMap(s => (s.kind === 'mark' ? [{ id: s.id, text: plainText(s.children) }] : []))
+    : passage.lines.flat().flatMap(t => (t.kind === 'mark' ? [{ id: t.id, text: lineText(t.children) }] : []))
   const context: AddQuestionContext = {
     grade, material,
     standards: group.standards.map(code => ({ code, text: standardText(grade, code) ?? '' })),
-    passage: plainText(section.passage.segments),
-    marks: section.passage.segments.flatMap(s => (s.kind === 'mark' && numbers.has(s.id) ? [`- 傍線部${circled(numbers.get(s.id)!)}「${plainText(s.children)}」`] : [])),
+    // 漢文は一句ごとの訓読の記法で見せる（書き下し文の問いを作れるように）
+    passage: passage.kind === 'prose' ? plainText(passage.segments) : `${passage.title}　${passage.author}（一句ごとに「字(送り仮名)[返り点]」の記法）\n${passage.lines.map(lineNotation).join('\n')}`,
+    marks: marks.flatMap(m => (numbers.has(m.id) ? [`- 傍線部${circled(numbers.get(m.id)!)}「${m.text}」`] : [])),
     questions: section.questions.map((q, i) => questionLine(q, numbers, i)),
   }
   const prompt = how.kind === 'suggest' ? suggestPrompt(context)

@@ -1,3 +1,4 @@
+import { markIdsInPassage, markRefsOf } from '../model/derive.js'
 import { Test, type Question, type Section } from '../model/schema.js'
 
 /* 紙面の上での操作。どれもテストのデータを受け取り、新しいテストのデータを返す（元のデータは変えない） */
@@ -53,6 +54,28 @@ export function newSectionId(test: Test, prefix: string): string {
 
 export function moveQuestion(test: Test, sectionId: string, questionId: string, delta: -1 | 1): Test {
   return mapSection(test, sectionId, s => ({ ...s, questions: move(s.questions, s.questions.findIndex(q => q.id === questionId), delta) }))
+}
+
+/** 大問の小問を order（小問の識別子の並び）の順に並べ替える。order がその大問の小問の並べ替えでなければ理由を返す */
+export function reorderQuestions(test: Test, sectionId: string, order: string[]): Edited {
+  const section = test.sections.find(s => s.id === sectionId)
+  if (!section) return { ok: false, errors: [`大問 ${sectionId} がテストにない`] }
+  const ids = section.questions.map(q => q.id)
+  if (order.length !== ids.length || new Set(order).size !== order.length || !order.every(id => ids.includes(id))) {
+    return { ok: false, errors: [`小問の並びが大問 ${sectionId} の小問（${ids.join('・')}）を一つずつ含んでいない`] }
+  }
+  return { ok: true, test: mapSection(test, sectionId, s => ({ ...s, questions: order.map(id => s.questions.find(q => q.id === id)!) })) }
+}
+
+/** 大問の小問を、傍線部が本文に出てくる順に並べる。傍線部を参照しない小問は、今の順のまま後ろに置く */
+export function sortQuestionsByPassage(test: Test, sectionId: string): Test {
+  return mapSection(test, sectionId, s => {
+    const order = s.passage ? markIdsInPassage(s.passage) : []
+    const first = (q: Question) => Math.min(...markRefsOf(q).map(id => order.indexOf(id)).filter(i => i >= 0))
+    const marked = s.questions.filter(q => Number.isFinite(first(q)))
+    const rest = s.questions.filter(q => !Number.isFinite(first(q)))
+    return { ...s, questions: [...marked.sort((a, b) => first(a) - first(b)), ...rest] }
+  })
 }
 
 export function removeQuestion(test: Test, sectionId: string, questionId: string): Test {

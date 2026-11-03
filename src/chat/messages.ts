@@ -1,3 +1,4 @@
+import type { Idea } from '../ai/addQuestion'
 import type { Selection } from '../ai/chat'
 import type { DraftedRationale } from '../ai/draft'
 import type { Section, Test } from '../model/schema'
@@ -17,6 +18,8 @@ export type ChatButton = { label: string; group?: string } & (
   | { action: 'openPassage' | 'chooseKanji'; sectionId: string }
   | { action: 'addComposition' | 'skipComposition' | 'rescale' }
   | { action: 'showSheet'; sheet: 'answer' | 'key' }
+  // 会話に並べた小問の案を入れる（at は差し込む位置）
+  | { action: 'insertIdea'; sectionId: string; at: number; idea: Idea }
   // 本文を直したあとの要確認の小問への対応
   | { action: 'fixFlag' | 'keepFlag' | 'removeFlagged'; sectionId: string; questionId: string }
 )

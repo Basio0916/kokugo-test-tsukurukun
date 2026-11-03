@@ -127,3 +127,14 @@ describe('返答から大問を組み立てる', () => {
     expect(r.errors.join('\n')).toContain('問4: 抜き出しの答え「王を倒す」が本文にない')
   })
 })
+
+describe('頼み方の例', () => {
+  it('大問を作る返答の頼み方の例は、変換の結果に通る（なくてもよい）', () => {
+    const meros = sampleTest.sections.find(s => s.id === 'meros')!
+    const proposal = { marks: [{ key: 'A', quote: '激怒した' }], questions: [{ format: 'short' as const, stem: '{傍線部:A}とありますが、なぜですか。', answer: '王が人を殺すから', kanten: 'thinking' as const, standard: 'C(1)イ', weight: 1, rationale: '理由' }] }
+    const withSuggestions = toSection(meros, { ...proposal, suggestions: ['人物像は記述で聞きたいです。'] }, 1, 10)
+    expect(withSuggestions.ok && withSuggestions.suggestions).toEqual(['人物像は記述で聞きたいです。'])
+    const without = toSection(meros, proposal, 1, 10)
+    expect(without.ok && without.suggestions).toBeUndefined()
+  })
+})

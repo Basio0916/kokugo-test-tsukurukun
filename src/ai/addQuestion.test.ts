@@ -71,3 +71,16 @@ describe('小問を足す AI の案', () => {
     expect(r.ok && r.ideas.length).toBe(1)
   })
 })
+
+describe('漢文の小問の案', () => {
+  it('句の中の字の引用に、今ある傍線部を残して傍線部を付ける', () => {
+    const kanshi = sampleTest.sections.find(s => s.id === 'kanshi')!
+    const r = toIdeas(kanshi, { ideas: [{ marks: [{ key: 'A', quote: '処処聞啼鳥' }], question: { format: 'choice', stem: '{傍線部:A}から読み取れることを、次の{範囲}から一つ選び、記号で答えなさい。', choices: ['あ', 'い', 'う', 'え'], correctChoice: 'あ', kanten: 'thinking', standard: 'C(1)エ', weight: 1, rationale: '理由' } }] }, { pointStep: 1, subtotal: 12 })
+    expect(r.ok).toBe(true)
+    if (!r.ok || r.ideas[0].section.passage?.kind !== 'kanbun') return
+    expect(r.ideas[0].section.passage.lines[1][0]).toMatchObject({ kind: 'mark', id: 'kanshi-n1' })
+    expect(r.ideas[0].section.passage.lines[3][0]).toMatchObject({ kind: 'mark', id: 'a' })
+    const bad = toIdeas(kanshi, { ideas: [{ marks: [{ key: 'A', quote: '聞(ク)' }], question: { format: 'short', stem: '{傍線部:A}を書き下しなさい。', answer: '聞く', kanten: 'knowledge', standard: '(3)ア', weight: 1, rationale: '理由' } }] }, { pointStep: 1, subtotal: 12 })
+    expect(bad.ok).toBe(false)
+  })
+})
