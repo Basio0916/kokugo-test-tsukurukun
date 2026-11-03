@@ -4,6 +4,7 @@ import type { ChatRequest, ChatResponse, Selection } from './chat'
 import type { DraftRequest, DraftResponse } from './draft'
 import type { GrammarDraftRequest } from './grammarDraft'
 import type { KanjiDraftRequest } from './kanjiDraft'
+import type { PassageCheckRequest, PassageCheckResponse } from './passageCheck'
 import type { QuestionDraftRequest, QuestionDraftResponse } from './questionDraft'
 
 /* ブラウザから AI に頼む。サーバー側の関数（/api/draft-section など）を呼ぶ */
@@ -59,4 +60,9 @@ export function requestIdeas(test: Test, section: Section, subtotal: number, how
 export function requestChat(test: Test, selection: Selection | undefined, history: ChatRequest['history'], message: string): Promise<ChatResponse> {
   const body: ChatRequest = { test, ...(selection && { selection }), history, message }
   return post<ChatResponse>('/api/chat', body)
+}
+
+/** 本文を直したあと、選択肢・模範解答と本文の食い違いを AI に確かめてもらう */
+export function requestPassageCheck(body: PassageCheckRequest): Promise<PassageCheckResponse> {
+  return post<PassageCheckResponse>('/api/check-passage', body)
 }

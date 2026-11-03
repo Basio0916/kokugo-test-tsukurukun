@@ -98,7 +98,8 @@ function questionText(q: Question, i: number, numbers: Map<string, number>): str
   return lines.join('\n')
 }
 
-function sectionText(test: Test, section: Section, i: number): string {
+/** AI に読ませる大問の文。番号は紙面と同じに書き、識別子を添える */
+export function describeSection(test: Test, section: Section, i: number): string {
   const numbers = markNumbers(section)
   const material = materialOf(section)
   const grade = gradeOf(test)
@@ -128,7 +129,7 @@ export function describeTest(test: Test): string {
   const { info } = test
   return [
     `# いまのテスト\n中学${info.grade}　${info.name}　満点 ${pt(info.fullMarks)}（いまの合計 ${pt(totalPoints(test))}）、配点は${info.pointStep}点刻み`,
-    ...test.sections.map((s, i) => sectionText(test, s, i)),
+    ...test.sections.map((s, i) => describeSection(test, s, i)),
   ].join('\n\n')
 }
 

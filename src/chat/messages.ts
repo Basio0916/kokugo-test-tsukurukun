@@ -7,11 +7,15 @@ import { kansuji } from '../paper/kansuji'
 
 export type Target = Selection
 
-export type ChatButton =
-  | { label: string; action: 'confirm'; sectionId: string }
-  | { label: string; action: 'redraft'; sectionId: string }
-  | { label: string; action: 'undo' }
-  | { label: string; action: 'addSection' }
+// group が同じボタンは、一つ押すとまとめて押せなくなる（group のないボタンは、メッセージで一つのまとまり）
+export type ChatButton = { label: string; group?: string } & (
+  | { action: 'confirm'; sectionId: string }
+  | { action: 'redraft'; sectionId: string }
+  | { action: 'undo' }
+  | { action: 'addSection' }
+  // 本文を直したあとの要確認の小問への対応
+  | { action: 'fixFlag' | 'keepFlag' | 'removeFlagged'; sectionId: string; questionId: string }
+)
 
 export type Note = { head?: string; text: string; outside?: boolean }
 
@@ -21,10 +25,10 @@ export type ChatMessage = {
   text: string
   notes?: { title: string; label: string; items: Note[] }
   buttons?: ChatButton[]
-  // ボタンを一つ押したら、このメッセージのボタンは押せなくなる
-  used?: boolean
-  // 元に戻す: 今のテストが after と同じときだけ押せる
-  undo?: { before: Test; after: Test }
+  // 押したボタンのまとまり
+  usedGroups?: string[]
+  // 元に戻す: 今のテストが after と同じときだけ押せる。clearFlags の大問の要確認も外す
+  undo?: { before: Test; after: Test; clearFlags?: string }
   error?: boolean
 }
 
@@ -80,3 +84,6 @@ export function failedMessage(label: string, sectionId: string, errors: string[]
     error: true,
   }
 }
+
+/** ボタンがもう押せないか（同じまとまりのボタンを押した） */
+export const buttonUsed = (message: ChatMessage, button: ChatButton) => (message.usedGroups ?? []).includes(button.group ?? '')

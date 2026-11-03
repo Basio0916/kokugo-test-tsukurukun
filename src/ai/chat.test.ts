@@ -3,6 +3,7 @@ import { markNumbers } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
 import { plainText } from './anchor'
 import { describeSelection, describeTest, toChatResult, type ChatAnswer } from './chat'
+import { toIssues } from './passageCheck'
 
 const meros = () => sampleTest.sections.find(s => s.id === 'meros')!
 
@@ -95,5 +96,12 @@ describe('会話の返答の関門', () => {
   it('相談だけなら変更なしで、気づいたことを添える', () => {
     const r = toChatResult(sampleTest, { reply: '問三がよいと思います。', notes: ['記述は一問だけです'], change: { kind: 'none' } })
     expect(r.ok && r.notes).toEqual(['記述は一問だけです'])
+  })
+})
+
+describe('本文の確かめの関門', () => {
+  it('ない小問の識別子は通さない', () => {
+    expect(toIssues(['q1', 'q2'], { issues: [{ questionId: 'q2', issue: '正答の根拠がない' }] })).toEqual({ ok: true, issues: [{ questionId: 'q2', issue: '正答の根拠がない' }] })
+    expect(toIssues(['q1'], { issues: [{ questionId: 'q9', issue: 'x' }] }).ok).toBe(false)
   })
 })

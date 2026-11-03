@@ -10,6 +10,7 @@ const API_ROUTES: Record<string, [string, string]> = {
   '/api/draft-grammar': ['/src/ai/grammarDraft.ts', 'handleGrammarDraftRequest'],
   '/api/draft-question': ['/src/ai/questionDraft.ts', 'handleQuestionDraftRequest'],
   '/api/chat': ['/src/ai/chat.ts', 'handleChatRequest'],
+  '/api/check-passage': ['/src/ai/passageCheck.ts', 'handlePassageCheckRequest'],
 }
 
 function devApi(): Plugin {

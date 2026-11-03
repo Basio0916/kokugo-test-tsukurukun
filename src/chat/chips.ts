@@ -11,6 +11,7 @@ export type Chip = { label: string; disabled?: boolean } & (
   | { kind: 'draft'; sectionId: string }
   | { kind: 'kanji'; sectionId: string }
   | { kind: 'openPassage'; sectionId: string }
+  | { kind: 'editPassage'; sectionId: string }
 )
 
 type Context = {
@@ -52,6 +53,7 @@ export function chipsFor(test: Test, target: Target, ctx: Context): Chip[] {
   const chips: Chip[] = []
   const prose = section.kind === 'literary' || section.kind === 'expository'
   if (prose && !section.passage) chips.push({ label: '本文欄を開く', kind: 'openPassage', sectionId: section.id })
+  if (section.passage?.kind === 'prose') chips.push({ label: '本文を直す', kind: 'editPassage', sectionId: section.id, disabled: drafting })
   if (draftable(section)) chips.push({ label: section.questions.length ? 'AIに作り直してもらう' : 'AIに作ってもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
   if (section.kind === 'grammar' && ctx.grammarKnown(section.id)) chips.push({ label: 'AIに作り直してもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
   if (section.kind === 'kanji') chips.push({ label: '出題する漢字を選び直す', kind: 'kanji', sectionId: section.id, disabled: drafting })
