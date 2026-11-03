@@ -117,3 +117,16 @@ describe('配点を満点にそろえる', () => {
     expect(rescalePoints({ ...sampleTest, sections: [] }).ok).toBe(false)
   })
 })
+
+describe('決まった大問の配点を残してそろえる', () => {
+  it('作文の配点は変えず、ほかを満点からその配点を引いた合計にそろえる', () => {
+    const r = rescalePoints(sampleTest, ['sakubun'])
+    expect(r.ok && totalPoints(r.test)).toBe(100)
+    expect(r.ok && r.test.sections.find(s => s.id === 'sakubun')).toBe(sampleTest.sections.find(s => s.id === 'sakubun'))
+    const bigger = { ...sampleTest, sections: sampleTest.sections.map(s => (s.id === 'sakubun' ? { ...s, questions: s.questions.map(q => ({ ...q, points: 30 })) } : s)) }
+    const r2 = rescalePoints(bigger, ['sakubun'])
+    expect(r2.ok && totalPoints(r2.test)).toBe(100)
+    expect(r2.ok && r2.test.sections.find(s => s.id === 'sakubun')!.questions[0].points).toBe(30)
+  })
+})
+

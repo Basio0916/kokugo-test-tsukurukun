@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { removeQuestion, replaceQuestion } from '../edit/operations'
+import { moveQuestion, removeQuestion, replaceQuestion } from '../edit/operations'
+import type { Section } from '../model/schema'
 import { sampleTest } from '../sample/sampleTest'
 import { applyChatChange } from './apply'
 import { chipsFor } from './chips'
 import { flagsMessage, liveFlags, mergeFlags } from './flags'
+import { nextStep, outOfOrder, sectionStatus } from './guide'
 import { liveTarget, targetLabel } from './messages'
 
 const ctx = { pointStep: 1, drafting: new Set<string>(), busy: false, grammarKnown: () => false }
@@ -99,5 +101,36 @@ describe('要確認', () => {
       ['問四をAIに直してもらう', 'q4'], ['問四はこのままにする', 'q4'], ['問四を消す', 'q4'],
     ])
     expect(flagsMessage(sampleTest, 'meros', {})).toBeNull()
+  })
+})
+
+describe('次にすることと大問の状態', () => {
+  const empty = (id: string, kind: 'literary' | 'kanji' | 'kanbun') => ({ id, kind, instruction: '次の問いに答えなさい。', questions: [] })
+  const withSections = (...sections: Section[]) => ({ ...sampleTest, sections })
+
+  it('本文待ち → 漢字待ち → 作文を勧める → そろった', () => {
+    const meros = sampleTest.sections.find(s => s.id === 'meros')!
+    expect(nextStep(withSections(empty('k', 'kanji'), empty('s', 'kanbun')), false)).toEqual({ kind: 'passage', sectionId: 's' })
+    expect(nextStep(withSections(empty('k', 'kanji'), meros), false)).toEqual({ kind: 'kanji', sectionId: 'k' })
+    expect(nextStep(withSections(meros), false)).toEqual({ kind: 'offerComposition' })
+    expect(nextStep(withSections(meros), true)).toEqual({ kind: 'complete' })
+    expect(nextStep(sampleTest, false)).toEqual({ kind: 'complete' })
+  })
+
+  it('状態は作っています・本文待ち・小問待ち・要確認・確定・相談中の順', () => {
+    const meros = sampleTest.sections.find(s => s.id === 'meros')!
+    const base = { drafting: false, flagged: 0, confirmed: false }
+    expect(sectionStatus(meros, { ...base, drafting: true, confirmed: true }).label).toBe('作っています')
+    expect(sectionStatus(empty('s', 'literary'), base).label).toBe('本文待ち')
+    expect(sectionStatus(empty('k', 'kanji'), base).label).toBe('小問待ち')
+    expect(sectionStatus(meros, { ...base, flagged: 2, confirmed: true }).label).toBe('要確認 2')
+    expect(sectionStatus(meros, { ...base, confirmed: true }).label).toBe('確定')
+    expect(sectionStatus(meros, base).label).toBe('相談中')
+  })
+
+  it('傍線部の順と問の順のずれ', () => {
+    const meros = sampleTest.sections.find(s => s.id === 'meros')!
+    expect(outOfOrder(meros)).toBe(false)
+    expect(outOfOrder(moveQuestion(sampleTest, 'meros', 'q1', 1).sections.find(s => s.id === 'meros')!)).toBe(true)
   })
 })

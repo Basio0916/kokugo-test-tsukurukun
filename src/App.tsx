@@ -7,6 +7,8 @@ import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
 import { chipsFor, type Chip } from './chat/chips'
 import { flagKey, flagsMessage, liveFlags, mergeFlags, type Flags } from './chat/flags'
+import { guideMessage, nextStep, outOfOrder, sectionStatus, startMessage } from './chat/guide'
+import { Outline } from './chat/Outline'
 import { draftedMessage, failedMessage, liveTarget, sectionLabel, targetLabel, WELCOME, type ChatButton, type ChatMessage, type NewMessage, type Target } from './chat/messages'
 import { AddQuestion } from './edit/AddQuestion'
 import { blankQuestion, type OwnFormat } from './edit/addQuestionModel'
@@ -60,6 +62,11 @@ export function App() {
   // AI に大問を作ってもらっている大問
   const [drafting, setDrafting] = useState<Set<string>>(new Set())
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set())
+  // 確定したかを、紙面の操作（固定した関数）からも最新で読めるようにする
+  const confirmedRef = useRef(confirmed)
+  useEffect(() => { confirmedRef.current = confirmed }, [confirmed])
+  // 作文を一度勧めたか
+  const [compositionOffered, setCompositionOffered] = useState(false)
   const [pasting, setPasting] = useState<string | null>(null)
   const [choosingKanji, setChoosingKanji] = useState<string | null>(null)
   const [editingQuestion, setEditingQuestion] = useState<{ sectionId: string; questionId: string } | null>(null)
@@ -139,12 +146,35 @@ export function App() {
   const reportTooWide = useCallback((ids: string[]) => setTooWide(prev => (prev.join() === ids.join() ? prev : ids)), [])
 
   const subtotalOf = (section: Section) => allotments[section.id] ?? sectionPoints(section)
-  const unconfirm = (sectionId: string) => setConfirmed(prev => {
-    if (!prev.has(sectionId)) return prev
-    const next = new Set(prev)
+  // 確定を外す。外したら会話で知らせ、もう一度確定するボタンを付ける（quiet なら知らせない）
+  const unconfirm = (sectionId: string, quiet = false) => {
+    if (!confirmedRef.current.has(sectionId)) return
+    const next = new Set(confirmedRef.current)
     next.delete(sectionId)
-    return next
-  })
+    confirmedRef.current = next
+    setConfirmed(next)
+    if (quiet) return
+    const bracket = bracketOf(sectionId)
+    say({ who: 'ai', text: `${bracket}は確定を外して直しました。よければもう一度確定してください。`, buttons: [{ label: `${bracket}を確定する`, action: 'confirm', sectionId }] })
+  }
+
+  // 次にすることを会話で案内する。作文を勧めるのは一度だけ
+  function guide(prefix = '') {
+    const current = testRef.current!
+    const step = nextStep(current, compositionOffered)
+    if (step.kind === 'offerComposition') setCompositionOffered(true)
+    const message = guideMessage(current, step, s => nameOf(current, s))
+    say({ ...message, text: prefix + message.text })
+  }
+
+  // 大問を確定し、次にすることを案内する
+  function confirmSection(sectionId: string) {
+    if (confirmedRef.current.has(sectionId)) return
+    const next = new Set(confirmedRef.current).add(sectionId)
+    confirmedRef.current = next
+    setConfirmed(next)
+    guide(`${bracketOf(sectionId)}を確定しました。`)
+  }
   const labelOf = (sectionId: string) => (test ? `【${kansuji(test.sections.findIndex(s => s.id === sectionId) + 1)}】` : '')
   const nameOf = (t: Test, section: Section) => sectionLabel(t, section, materialNames, materialOf(section))
 
@@ -163,7 +193,7 @@ export function App() {
     const after = { ...before, sections: before.sections.map(s => (s.id === section.id ? result.section : s)) }
     commit(after)
     setChanged({ sectionId: section.id })
-    unconfirm(section.id)
+    unconfirm(section.id, true)
     say(draftedMessage(label, section.id, result.rationales, { before, after }))
   }
 
@@ -171,6 +201,9 @@ export function App() {
     commit(skeleton.test)
     setAllotments(skeleton.allotments)
     setMaterialNames(skeleton.materialNames)
+    const names = (s: Section) => sectionLabel(skeleton.test, s, skeleton.materialNames, materialOf(s))
+    say(startMessage(skeleton.test, skeleton.allotments, names))
+    say(guideMessage(skeleton.test, nextStep(skeleton.test, true), names))
     // 文法の大問は本文を待たずにすぐ作る（漢字は出題する語を決めてから）
     const grammar = skeleton.test.sections.find(s => s.id === GRAMMAR_SECTION_ID)
     if (grammar) {
@@ -211,23 +244,46 @@ export function App() {
     void draft(section, requestFor(section))
   }
 
-  const onSection = useCallback((sectionId: string, action: SectionAction | 'instruction') => {
+  // 紙面の操作。消す・動かすときは確かめずに行い、会話で知らせて元に戻せるようにする
+  function sectionAction(sectionId: string, action: SectionAction | 'instruction') {
     if (action === 'instruction') return setEditingInstruction(sectionId)
-    if (action === 'confirm') return setConfirmed(prev => new Set(prev).add(sectionId))
-    if (action === 'unconfirm') return unconfirm(sectionId)
-    if (action === 'delete') {
-      if (!window.confirm('この大問を削除しますか？（本文と小問も消えます）')) return
-      return setTest(t => t && removeSection(t, sectionId))
-    }
-    setTest(t => t && moveSection(t, sectionId, action === 'up' ? -1 : 1))
-  }, [])
+    if (action === 'confirm') return confirmSection(sectionId)
+    if (action === 'unconfirm') return unconfirm(sectionId, true)
+    const before = testRef.current!
+    const section = before.sections.find(s => s.id === sectionId)!
+    const name = nameOf(before, section)
+    const after = action === 'delete' ? removeSection(before, sectionId) : moveSection(before, sectionId, action === 'up' ? -1 : 1)
+    if (after.sections.map(s => s.id).join() === before.sections.map(s => s.id).join()) return
+    commit(after)
+    const text = action === 'delete'
+      ? `${name}を削除しました。後ろの大問の番号は繰り上がっています。`
+      : `${name}を${bracketOf(sectionId)}に移しました。`
+    say({ who: 'ai', text, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before, after } })
+  }
 
-  const onQuestion = useCallback((sectionId: string, questionId: string, action: QuestionAction) => {
+  function questionAction(sectionId: string, questionId: string, action: QuestionAction) {
     if (action === 'edit') return setEditingQuestion({ sectionId, questionId })
-    if (action === 'delete' && !window.confirm('この小問を削除しますか？')) return
-    setTest(t => t && (action === 'delete' ? removeQuestion(t, sectionId, questionId) : moveQuestion(t, sectionId, questionId, action === 'up' ? -1 : 1)))
+    const before = testRef.current!
+    const label = targetLabel(before, { sectionId, questionId })
+    const after = action === 'delete' ? removeQuestion(before, sectionId, questionId) : moveQuestion(before, sectionId, questionId, action === 'up' ? -1 : 1)
+    const moved = after.sections.find(s => s.id === sectionId)!
+    if (action !== 'delete' && moved.questions.map(q => q.id).join() === before.sections.find(s => s.id === sectionId)!.questions.map(q => q.id).join()) return
+    commit(after)
+    const text = action === 'delete'
+      ? `${label}を削除しました。後ろの問と傍線部の番号は振り直しています。`
+      : `${label}を${targetLabel(after, { sectionId, questionId })}に移しました。`
+    const note = action !== 'delete' && outOfOrder(moved)
+      ? { notes: { title: '気づいたこと', label: '気づいたこと', items: [{ text: '傍線部の順と問の順がそろっていません。本文の順に並べ直すなら、会話で「本文の順に並べて」と頼んでください。' }] } }
+      : {}
+    say({ who: 'ai', text, ...note, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before, after } })
     unconfirm(sectionId)
-  }, [])
+  }
+
+  // 紙面に渡す関数は固定し（変わると紙面を測り直す）、中から最新の処理を呼ぶ
+  const paperActions = useRef({ sectionAction, questionAction })
+  useEffect(() => { paperActions.current = { sectionAction, questionAction } })
+  const onSection = useCallback((sectionId: string, action: SectionAction | 'instruction') => paperActions.current.sectionAction(sectionId, action), [])
+  const onQuestion = useCallback((sectionId: string, questionId: string, action: QuestionAction) => paperActions.current.questionAction(sectionId, questionId, action), [])
 
   const onAddQuestion = useCallback((sectionId: string, at: number) => setAddingAt({ sectionId, at }), [])
   const editing = useMemo(() => ({ confirmed, onSection, onQuestion, onAddQuestion }), [confirmed, onSection, onQuestion, onAddQuestion])
@@ -260,7 +316,8 @@ export function App() {
     return { kanten: 'thinking', standard: group?.standards.find(c => c.startsWith('C(1)')) ?? section.questions[0]?.standard ?? 'C(1)イ' }
   }
 
-  function addSection(added: NewSection) {
+  // fit なら、加えた大問の配点を残して、ほかの配点を満点に合わせ直す（会話で勧めた作文を足すとき）
+  function addSection(added: NewSection, fit = false) {
     if (!test) return
     const sameKind = (kind: Section['kind']) => test.sections.find(s => s.kind === kind && allotments[s.id] !== undefined)
     if (added.kind === 'composition') {
@@ -268,9 +325,12 @@ export function App() {
       const like = sameKind('composition')
       const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
       const section = blankComposition(newSectionId(test, 'sakubun'), allotment)
-      commit(appendSection(test, section))
+      const added = appendSection(test, section)
+      const fitted = fit ? rescalePoints(added, [section.id]) : null
+      commit(fitted?.ok ? fitted.test : added)
       setAllotments(a => ({ ...a, [section.id]: allotment }))
       setAdding(false)
+      if (fit) say({ who: 'ai', text: `${bracketOf(section.id)}に作文の大問を${allotment}点で入れました。${fitted?.ok ? `ほかの配点を少しずつ調整して、合計を${test.info.fullMarks}点にそろえています。` : ''}題と条件は AI が考えています。` })
       return void draft(section, requestFor(section))
     }
     const base = { questions: [] }
@@ -295,9 +355,20 @@ export function App() {
     if (!test) return
     const r = rescalePoints(test)
     if (!r.ok) return setTotalsMessage(r.error)
-    setTest(r.test)
-    setConfirmed(new Set())
+    commit(r.test)
     setTotalsMessage(`配点の合計を ${test.info.fullMarks} 点にそろえました`)
+  }
+
+  // 大問の一覧から、その大問を選び、問題用紙のそのブロックへ移る（ほかの紙を開いていたら問題用紙に切り替える）
+  function goToSection(sectionId: string) {
+    setSheet('paper')
+    setTarget({ sectionId })
+    const scroll = (tries: number) => {
+      const el = document.querySelector(`.page [data-target="${sectionId}"]`)
+      if (el) el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      else if (tries > 0) setTimeout(() => scroll(tries - 1), 100)
+    }
+    setTimeout(() => scroll(10), 0)
   }
 
   // 会話で頼む。AI の返答の変更は、考えている間に紙面が変わっていなければすぐ入れ、元に戻せるようにする
@@ -413,7 +484,13 @@ export function App() {
     if (!test) return
     // AI に直してもらうときは、直るまでボタンを押せるままにする（直ったら要確認を外すときに押せなくなる）
     if (button.action !== 'fixFlag') setMessages(ms => ms.map(m => (m.id === message.id ? { ...m, usedGroups: [...(m.usedGroups ?? []), button.group ?? ''] } : m)))
-    if (button.action === 'confirm') return setConfirmed(prev => new Set(prev).add(button.sectionId))
+    if (button.action === 'confirm') return confirmSection(button.sectionId)
+    if (button.action === 'openPassage') return setPasting(button.sectionId)
+    if (button.action === 'chooseKanji') return setChoosingKanji(button.sectionId)
+    if (button.action === 'rescale') return rescale()
+    if (button.action === 'showSheet') return setSheet(button.sheet)
+    if (button.action === 'addComposition') return addSection({ kind: 'composition' }, true)
+    if (button.action === 'skipComposition') return guide('作文は入れずにおきます。')
     if (button.action === 'fixFlag' || button.action === 'keepFlag' || button.action === 'removeFlagged') {
       const { sectionId, questionId } = button
       const key = flagKey(sectionId, questionId)
@@ -508,8 +585,11 @@ export function App() {
           onSend={text => void ask(text)}
         />
         <main className="paper-col" onScroll={() => setSelected(null)}>
-          <TotalsBar
-            test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)}
+          <TotalsBar test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)} />
+          <Outline
+            test={test} nameOf={s => nameOf(test, s)}
+            statusOf={s => sectionStatus(s, { drafting: drafting.has(s.id), flagged: Object.keys(liveFlags(test, flags)).filter(k => k.startsWith(`${s.id}/`)).length, confirmed: confirmed.has(s.id) })}
+            onGo={goToSection}
             onAddSection={gradeOf(test) ? () => setAdding(true) : undefined}
           />
           <div className="sheet-tabs" role="tablist" aria-label="表示する紙">
@@ -522,10 +602,11 @@ export function App() {
             <Paper
               test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide}
               selected={active} changed={changed} onSelect={setTarget}
+              onOpenQuestion={t => t.questionId && setEditingQuestion({ sectionId: t.sectionId, questionId: t.questionId })}
               flagged={new Set(Object.keys(liveFlags(test, flags)))}
             />
           )}
-          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} />}
+          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} confirmed={confirmed} />}
           {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
         </main>
       </div>

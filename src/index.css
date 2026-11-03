@@ -138,6 +138,17 @@ body {
   .chat { height: 60vh; }
 }
 
+/* 大問の一覧 */
+.outline { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 16px 0; }
+.outline button { display: inline-flex; gap: 6px; align-items: center; padding: 4px 10px; font: inherit; font-size: 13px; color: #1b2130; background: #fff; border: 1px solid #b9c6dd; border-radius: 999px; cursor: pointer; }
+.outline .outline-add { color: #2f5fb3; border-style: dashed; }
+.outline-st { padding: 1px 6px; font-size: 11px; border-radius: 999px; }
+.st-busy { color: #2f5fb3; background: #eef3fb; }
+.st-wait { color: #6a7385; background: #eef0f4; }
+.st-warn { color: #8a4b00; background: #fff1d6; }
+.st-fixed { color: #fff; background: #2f8a5b; }
+.st-prop { color: #3a4256; background: #f1f3f7; }
+
 /* 紙のタブ */
 .sheet-tabs { display: inline-flex; margin: 8px 16px 0; overflow: hidden; background: #fff; border: 1px solid #b9c6dd; border-radius: 8px; }
 .sheet-tabs button { padding: 6px 14px; font: inherit; font-size: 13px; color: #1b2130; background: none; border: 0; cursor: pointer; }
@@ -191,7 +202,7 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs { display: none; }
+  .app-bar, .chat, .paste, .totals, .mark-float, .sheet-tabs, .outline { display: none; }
   .app-edit { display: block; height: auto; }
   .workspace { display: block; padding: 0; }
   .paper-col { overflow: visible; }

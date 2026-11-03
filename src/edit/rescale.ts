@@ -6,14 +6,17 @@ export type Rescaled = { ok: true; test: Test } | { ok: false; error: string }
 
 /**
  * 配点の合計を満点ちょうどにそろえる。各◯点の小問は一項目の配点を（満点 ÷ 今の合計）の割合で直して刻みの倍数に丸め（最低でも刻み）、
- * 残りの点を、それ以外の小問に今の配点を重みとして割り振る。
+ * 残りの点を、それ以外の小問に今の配点を重みとして割り振る。fixed の大問の配点は変えず、残りを（満点 − その配点）にそろえる。
  */
-export function rescalePoints(test: Test): Rescaled {
-  const { fullMarks, pointStep: step } = test.info
-  const current = totalPoints(test)
+export function rescalePoints(test: Test, fixed: string[] = []): Rescaled {
+  const { pointStep: step } = test.info
+  const kept = test.sections.filter(s => fixed.includes(s.id)).reduce((a, s) => a + s.questions.reduce((b, q) => b + questionPoints(q), 0), 0)
+  const fullMarks = test.info.fullMarks - kept
+  const current = totalPoints(test) - kept
   if (current === 0) return { ok: false, error: 'まだ小問がないので、配点をそろえられません' }
+  if (fullMarks <= 0) return { ok: false, error: '残りの配点がないので、配点をそろえられません' }
   const ratio = fullMarks / current
-  const all = test.sections.flatMap(s => s.questions)
+  const all = test.sections.filter(s => !fixed.includes(s.id)).flatMap(s => s.questions)
   const eachOf = new Map<string, number>()
   for (const q of all) {
     if (q.pointsEach !== undefined) eachOf.set(q.id, Math.max(step, Math.round((q.pointsEach * ratio) / step) * step))
@@ -32,5 +35,5 @@ export function rescalePoints(test: Test): Rescaled {
   const pointsOf = new Map(plain.map((q, i) => [q.id, points[i]]))
   const rescale = (q: Question): Question =>
     q.pointsEach !== undefined ? { ...q, pointsEach: eachOf.get(q.id)! } : { ...q, points: pointsOf.get(q.id)! }
-  return { ok: true, test: { ...test, sections: test.sections.map(s => ({ ...s, questions: s.questions.map(rescale) })) } }
+  return { ok: true, test: { ...test, sections: test.sections.map(s => (fixed.includes(s.id) ? s : { ...s, questions: s.questions.map(rescale) })) } }
 }

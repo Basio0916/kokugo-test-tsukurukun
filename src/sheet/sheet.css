@@ -26,6 +26,11 @@
 .sheet-scores p + p { border-top: 0; background: none; }
 .sheet-scores span { font-size: 6pt; }
 
+/* 確定していない大問は、画面だけ破線にする */
+@media screen {
+  .sheet-prop .sheet-sec-h, .sheet-prop .sheet-head, .sheet-prop .sheet-box, .sheet-prop .sheet-scores p { border-style: dashed; }
+}
+
 /* 模範解答・採点基準の表 */
 .key { max-width: 1100px; margin: 16px auto 32px; padding: 20px 24px; background: #fff; box-shadow: 0 1px 2px rgba(20, 30, 50, 0.14); font-size: 13px; }
 .key h2 { margin: 0 0 10px; font-size: 18px; }

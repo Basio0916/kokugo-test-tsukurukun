@@ -16,6 +16,8 @@ type Props = PaperActions & {
   selected?: BlockTarget | null
   changed?: BlockTarget | null
   onSelect?: (target: BlockTarget) => void
+  // 小問をダブルクリックしたとき（小問を直す）
+  onOpenQuestion?: (target: BlockTarget) => void
   // 本文を直したあとの要確認の小問（「大問/小問」）
   flagged?: Set<string>
 }
@@ -23,7 +25,7 @@ type Props = PaperActions & {
 const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =>
   !!t && !!b && t.sectionId === b.sectionId && (!t.questionId || t.questionId === b.questionId)
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, flagged }: Props) {
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, onOpenQuestion, flagged }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   // 割り付けは、測ったときのブロックの並びと組にして持つ（並びが変わったら、測り直すまで前の割り付けは使わない）
@@ -65,6 +67,11 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                   return (
                     <div
                       className={cls} key={b.key}
+                      // 大問の一覧から移るときの目印
+                      data-target={b.target && (b.target.questionId ? `${b.target.sectionId}/${b.target.questionId}` : b.target.sectionId)}
+                      onDoubleClick={e => {
+                        if (b.target?.questionId && onOpenQuestion && !(e.target as Element).closest('button')) onOpenQuestion(b.target)
+                      }}
                       onClick={e => {
                         // 操作のボタンを押したときと、本文の文字を選んだとき（傍線を引く）は選ばない
                         if (!onSelect || !b.target || (e.target as Element).closest('button') || !getSelection()?.isCollapsed) return
