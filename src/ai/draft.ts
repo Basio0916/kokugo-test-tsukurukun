@@ -17,6 +17,8 @@ export const DraftRequest = z.object({
   // 大問の配点の枠。小問の配点はこの合計になるように割り振る
   subtotal: z.number().positive(),
   section: Section,
+  // 会話で作り直しを頼んだときの先生の希望
+  wish: z.string().min(1).optional(),
 })
 export type DraftRequest = z.infer<typeof DraftRequest>
 
@@ -26,7 +28,7 @@ export type DraftResponse =
   | { ok: false; errors: string[] }
 
 export async function draftSection(request: DraftRequest): Promise<DraftResponse> {
-  const { grade, material, pointStep, subtotal, section } = request
+  const { grade, material, pointStep, subtotal, section, wish } = request
   const group = findGroup(grade, material)
   if (!group) return { ok: false, errors: [`単元データに「${material}」がありません`] }
   if (section.passage?.kind !== 'prose') return { ok: false, errors: ['この大問は本文（文章）を持たない'] }
@@ -41,6 +43,7 @@ export async function draftSection(request: DraftRequest): Promise<DraftResponse
       instruction: section.instruction,
       passage: plainText(section.passage.segments),
       source: section.passage.source,
+      wish,
     }),
     convert: proposal => toSection(section, proposal, pointStep, subtotal),
   })

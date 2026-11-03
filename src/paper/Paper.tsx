@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import type { Test } from '../model/schema'
-import { buildBlocks, type PaperActions } from './blocks'
+import { buildBlocks, type BlockTarget, type PaperActions } from './blocks'
 import { pack } from './pack'
 import './paper.css'
 
@@ -13,9 +13,16 @@ type Props = PaperActions & {
   test: Test
   // 一枚の紙面に収まらない大問（見出しと本文のブロックが紙面の内側より広い）を知らせる
   onTooWide?: (sectionIds: string[]) => void
+  // 会話で選ぶ。選んだもの・変わったものに印を付ける（大問だけを指すときは、その大問のブロックすべて）。割り付けには関わらない
+  selected?: BlockTarget | null
+  changed?: BlockTarget | null
+  onSelect?: (target: BlockTarget) => void
 }
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide }: Props) {
+const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =>
+  !!t && !!b && t.sectionId === b.sectionId && (!t.questionId || t.questionId === b.questionId)
+
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -59,7 +66,20 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
           <div className="page-frame" key={pi}>
             <section className="page" aria-label={`${pi + 1}ページ`}>
               <div className="page-in">
-                {page.map(i => <div className="blk" key={blocks[i].key}>{blocks[i].node}</div>)}
+                {page.map(i => {
+                  const b = blocks[i]
+                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}`
+                  return (
+                    <div
+                      className={cls} key={b.key}
+                      onClick={e => {
+                        // 操作のボタンを押したときと、本文の文字を選んだとき（傍線を引く）は選ばない
+                        if (!onSelect || !b.target || (e.target as Element).closest('button') || !getSelection()?.isCollapsed) return
+                        onSelect(b.target)
+                      }}
+                    >{b.node}</div>
+                  )
+                })}
               </div>
               <div className="page-no">{pi + 1}</div>
             </section>

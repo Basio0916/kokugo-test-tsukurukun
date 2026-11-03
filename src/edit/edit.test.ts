@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { markNumbers, questionNumberOf, totalPoints } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
-import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction } from './operations'
+import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, reorderSections, replaceQuestion, replaceSection, setInstruction, stepPoints } from './operations'
 import { rescalePoints } from './rescale'
 import { stemToText, textToStem } from './stemText'
 
@@ -20,6 +20,20 @@ describe('大問の操作', () => {
     expect(newSectionId(sampleTest, 'kanji')).toBe('kanji2')
     const added = appendSection(sampleTest, { id: newSectionId(sampleTest, 's'), kind: 'literary', instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] })
     expect(added.sections.at(-1)!.id).toBe('s')
+  })
+
+  it('新しい並びで並べ替える。今の大問の並べ替えでなければ理由を返す', () => {
+    const r = reorderSections(sampleTest, ['meros', 'kanji', 'grammar', 'ougi', 'kanshi', 'sakubun'])
+    expect(r.ok && r.test.sections.map(s => s.id)).toEqual(['meros', 'kanji', 'grammar', 'ougi', 'kanshi', 'sakubun'])
+    expect(reorderSections(sampleTest, ['meros', 'kanji']).ok).toBe(false)
+    expect(reorderSections(sampleTest, ['meros', 'meros', 'grammar', 'ougi', 'kanshi', 'sakubun']).ok).toBe(false)
+    expect(reorderSections(sampleTest, ['x', 'kanji', 'grammar', 'ougi', 'kanshi', 'sakubun']).ok).toBe(false)
+  })
+
+  it('大問の置き換えは、テストのデータとして正しくなければ理由を返す', () => {
+    expect(replaceSection(sampleTest, { ...meros(), passage: undefined }).ok).toBe(false)
+    const r = replaceSection(sampleTest, { ...meros(), instruction: '次の文章を読んで答えなさい。' })
+    expect(r.ok && r.test.sections.find(s => s.id === 'meros')!.instruction).toBe('次の文章を読んで答えなさい。')
   })
 
   it('指示文は空にできない', () => {
@@ -48,6 +62,22 @@ describe('小問の操作', () => {
     expect(replaceQuestion(sampleTest, 'meros', { ...q, points: 4.5 }).ok).toBe(false)
     const r = replaceQuestion(sampleTest, 'meros', { ...q, choices: ['あ', 'い', 'う', 'え'] })
     expect(r.ok && r.test.sections.find(s => s.id === 'meros')!.questions[1].choices).toEqual(['あ', 'い', 'う', 'え'])
+  })
+})
+
+describe('配点の上げ下げ', () => {
+  const points = (t: typeof sampleTest, sid: string, qid: string) => t.sections.find(s => s.id === sid)!.questions.find(q => q.id === qid)!
+  it('刻みだけ上げ下げし、刻みより下げられない', () => {
+    const up = stepPoints(sampleTest, 'meros', 'q1', 1)
+    expect(up.ok && points(up.test, 'meros', 'q1').points).toBe(5)
+    const one = { ...sampleTest, sections: sampleTest.sections.map(s => (s.id === 'kanshi' ? { ...s, questions: s.questions.map(q => (q.id === 'h1' ? { ...q, points: 1 } : q)) } : s)) }
+    expect(stepPoints(one, 'kanshi', 'h1', -1).ok).toBe(false)
+  })
+
+  it('項目ごとの配点の小問は、項目ごとの配点を変える', () => {
+    const r = stepPoints(sampleTest, 'kanji', 'k1', -1)
+    expect(r.ok && points(r.test, 'kanji', 'k1').pointsEach).toBe(1)
+    expect(r.ok && totalPoints(r.test)).toBe(totalPoints(sampleTest) - 5)
   })
 })
 

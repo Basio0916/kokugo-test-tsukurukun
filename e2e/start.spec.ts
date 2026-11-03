@@ -139,7 +139,9 @@ test('文法はテストを作ったら作られ、漢字は語を決めると�
   await expect(page.getByRole('region', { name: /【一】漢字 AI の提案の理由/ })).toBeVisible()
   expect(kanjiRequests[0].words).toEqual(['約束', '信頼', '名誉', '邪智暴虐'])
   await expect(page.locator('.page .kanji-slot')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /漢字の出題する漢字を選び直す/ })).toBeVisible()
+  // 漢字の大問を選ぶと、会話に「出題する漢字を選び直す」が出る
+  await page.locator('.page .sec-h').first().click()
+  await expect(page.getByRole('complementary', { name: 'AIと相談' }).getByRole('button', { name: '出題する漢字を選び直す' })).toBeVisible()
 })
 
 test('語を何も決めなければ漢字の大問は作られない', async ({ page }) => {

@@ -29,7 +29,7 @@ export function defaultPoints(section: Section, subtotal: number, step: number):
 }
 
 /** 今ある識別子と重ならない、新しい識別子を作る */
-function freshIds(used: Set<string>, prefix: string) {
+export function freshIds(used: Set<string>, prefix: string) {
   let n = 1
   return () => {
     while (used.has(`${prefix}${n}`)) n++

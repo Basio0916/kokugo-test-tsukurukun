@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { draftable, gradeOf, materialOf, requestDraft, requestGrammar, requestIdeas, requestKanji, type DraftStates } from './ai/client'
+import { draftable, gradeOf, materialOf, requestChat, requestDraft, requestGrammar, requestIdeas, requestKanji } from './ai/client'
 import type { DraftResponse } from './ai/draft'
-import { AiDraftPanel } from './AiDraft'
+import { applyChatChange } from './chat/apply'
+import { ChatPanel } from './chat/ChatPanel'
+import { chipsFor, type Chip } from './chat/chips'
+import { draftedMessage, failedMessage, liveTarget, sectionLabel, targetLabel, WELCOME, type ChatButton, type ChatMessage, type NewMessage, type Target } from './chat/messages'
 import { AddQuestion } from './edit/AddQuestion'
 import { blankQuestion, type OwnFormat } from './edit/addQuestionModel'
 import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from './edit/Dialogs'
 import { MarkQuestion } from './edit/MarkQuestion'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
-import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction } from './edit/operations'
+import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction, stepPoints } from './edit/operations'
 import { QuestionEditor } from './edit/QuestionEditor'
 import { rescalePoints } from './edit/rescale'
 import type { QuestionAction, SectionAction } from './edit/Tools'
 import { TotalsBar } from './edit/TotalsBar'
-import { markNumbers, sectionPoints } from './model/derive'
+import { markNumbers, sectionPoints, totalPoints } from './model/derive'
 import type { ProsePassage, Question, Section, Test } from './model/schema'
 import { kansuji } from './paper/kansuji'
 import { Paper } from './paper/Paper'
@@ -45,7 +48,8 @@ export function App() {
   // 大問の識別子 → 文法の大問を作るときに渡す教材名
   const [grammarBySection, setGrammarBySection] = useState<Record<string, string[]>>({})
   const [kanjiWords, setKanjiWords] = useState<string[]>([])
-  const [drafts, setDrafts] = useState<DraftStates>({})
+  // AI に大問を作ってもらっている大問
+  const [drafting, setDrafting] = useState<Set<string>>(new Set())
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set())
   const [pasting, setPasting] = useState<string | null>(null)
   const [choosingKanji, setChoosingKanji] = useState<string | null>(null)
@@ -60,6 +64,15 @@ export function App() {
   const [reviewing, setReviewing] = useState<{ sectionId: string; at: number; question: Question; section?: Section; note?: string; own: boolean } | null>(null)
   const [selected, setSelected] = useState<PassageSelection | null>(null)
   const [marking, setMarking] = useState<PassageSelection | null>(null)
+  // 会話: メッセージ、AI が考えている間、紙面で選んでいるもの、会話の変更で変わったもの
+  const [messages, setMessages] = useState<ChatMessage[]>([{ id: 0, ...WELCOME }])
+  const [chatBusy, setChatBusy] = useState(false)
+  const [target, setTarget] = useState<Target | null>(null)
+  const [changed, setChanged] = useState<Target | null>(null)
+  const nextMessageId = useRef(1)
+  // AI の返答を待つ間に紙面が変わることがあるので、返答を当てはめるときは最新のテストを読む
+  const testRef = useRef(test)
+  useEffect(() => { testRef.current = test }, [test])
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
   useEffect(() => {
@@ -67,6 +80,16 @@ export function App() {
     document.addEventListener('mouseup', onUp)
     return () => document.removeEventListener('mouseup', onUp)
   }, [])
+
+  const say = (message: NewMessage) => {
+    const id = nextMessageId.current++
+    setMessages(ms => [...ms, { ...message, id }])
+  }
+  // テストを変えて、すぐ最新のテストとして読めるようにする（続けて届く返答が、変える前のテストに当てはめないように）
+  const commit = (next: Test) => {
+    testRef.current = next
+    setTest(next)
+  }
 
   const openPassage = useCallback((sectionId: string) => setPasting(sectionId), [])
   const openKanji = useCallback((sectionId: string) => setChoosingKanji(sectionId), [])
@@ -80,22 +103,29 @@ export function App() {
     return next
   })
   const labelOf = (sectionId: string) => (test ? `【${kansuji(test.sections.findIndex(s => s.id === sectionId) + 1)}】` : '')
+  const nameOf = (t: Test, section: Section) => sectionLabel(t, section, materialNames, materialOf(section))
 
-  // 大問を AI に作ってもらい、できたら紙面の大問を置き換える。作り方（文章・漢字・文法）は request が決める
+  // 大問を AI に作ってもらい、できたら紙面の大問を置き換えて会話で知らせる。作り方（文章・漢字・文法）は request が決める
   async function draft(section: Section, request: () => Promise<DraftResponse>) {
-    setDrafts(d => ({ ...d, [section.id]: { status: 'drafting' } }))
+    const label = nameOf(testRef.current!, section)
+    setDrafting(d => new Set(d).add(section.id))
     const result = await request()
-    if (!result.ok) {
-      setDrafts(d => ({ ...d, [section.id]: { status: 'failed', errors: result.errors } }))
-      return
-    }
-    setTest(t => t && { ...t, sections: t.sections.map(s => (s.id === section.id ? result.section : s)) })
-    setDrafts(d => ({ ...d, [section.id]: { status: 'drafted', rationales: result.rationales } }))
+    setDrafting(d => {
+      const next = new Set(d)
+      next.delete(section.id)
+      return next
+    })
+    if (!result.ok) return say(failedMessage(label, section.id, result.errors))
+    const before = testRef.current!
+    const after = { ...before, sections: before.sections.map(s => (s.id === section.id ? result.section : s)) }
+    commit(after)
+    setChanged({ sectionId: section.id })
     unconfirm(section.id)
+    say(draftedMessage(label, section.id, result.rationales, { before, after }))
   }
 
   function start(skeleton: Skeleton) {
-    setTest(skeleton.test)
+    commit(skeleton.test)
     setAllotments(skeleton.allotments)
     setMaterialNames(skeleton.materialNames)
     // 文法の大問は本文を待たずにすぐ作る（漢字は出題する語を決めてから）
@@ -110,7 +140,7 @@ export function App() {
     if (!test) return
     const section = { ...test.sections.find(s => s.id === sectionId)!, passage, questions: [] }
     const next = { ...test, sections: test.sections.map(s => (s.id === sectionId ? section : s)) }
-    setTest(next)
+    commit(next)
     setPasting(null)
     void draft(section, () => requestDraft(next, section, subtotalOf(section)))
   }
@@ -191,7 +221,7 @@ export function App() {
     const like = sameKind(section.kind)
     const allotment = like ? allotments[like.id] : DEFAULT_ALLOTMENT
     const next = appendSection(test, section)
-    setTest(next)
+    commit(next)
     setAllotments(a => ({ ...a, [section.id]: allotment }))
     setAdding(false)
     if (added.kind === 'reading') setMaterialNames(m => ({ ...m, [section.id]: added.material.name }))
@@ -210,28 +240,120 @@ export function App() {
     setTotalsMessage(`配点の合計を ${test.info.fullMarks} 点にそろえました`)
   }
 
+  // 会話で頼む。AI の返答の変更は、考えている間に紙面が変わっていなければすぐ入れ、元に戻せるようにする
+  async function ask(text: string) {
+    if (!test || chatBusy) return
+    const sent = test
+    const history = messages.slice(-10).map(m => ({ who: m.who, text: m.text }))
+    say({ who: 'me', text })
+    setChatBusy(true)
+    const r = await requestChat(sent, liveTarget(sent, target) ?? undefined, history, text)
+    setChatBusy(false)
+    const failed = (errors: string[]): NewMessage => ({ who: 'ai', text: 'うまくできませんでした。紙面は元のままです。', notes: { title: '理由', label: 'うまくできなかった理由', items: errors.map(e => ({ text: e })) }, error: true })
+    if (!r.ok) return say(failed(r.errors))
+    const reply: NewMessage = { who: 'ai', text: r.reply, ...(r.notes.length && { notes: { title: '気づいたこと', label: '気づいたこと', items: r.notes.map(n => ({ text: n })) } }) }
+    const change = r.change
+    if (change.kind === 'none') return say(reply)
+    if (change.kind === 'addSection') return say({ ...reply, buttons: [{ label: '大問を追加する', action: 'addSection' }] })
+    const current = testRef.current!
+    const applied = applyChatChange(sent, current, change)
+    if (applied.kind === 'stale') return say({ who: 'ai', text: '考えている間に紙面のその部分が変わったので、この変更は入れませんでした。もう一度頼んでください。' })
+    if (applied.kind === 'failed') return say(failed(applied.errors))
+    if (applied.kind === 'redraft') {
+      say(reply)
+      return void draft(applied.section, () => requestDraft(current, applied.section, subtotalOf(applied.section), applied.wish))
+    }
+    commit(applied.test)
+    setChanged(applied.changed)
+    if (applied.unconfirm) unconfirm(applied.unconfirm)
+    say({ ...reply, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: current, after: applied.test } })
+  }
+
+  function onButton(message: ChatMessage, button: ChatButton) {
+    if (!test) return
+    setMessages(ms => ms.map(m => (m.id === message.id ? { ...m, used: true } : m)))
+    if (button.action === 'confirm') return setConfirmed(prev => new Set(prev).add(button.sectionId))
+    if (button.action === 'addSection') return setAdding(true)
+    if (button.action === 'redraft') {
+      const section = test.sections.find(s => s.id === button.sectionId)
+      return section && redraft(section)
+    }
+    if (message.undo && test === message.undo.after) {
+      commit(message.undo.before)
+      setChanged(null)
+      say({ who: 'me', text: '（元に戻しました）' })
+    }
+  }
+
+  function onChip(chip: Chip) {
+    if (!test) return
+    if (chip.kind === 'ask') return void ask(chip.text)
+    if (chip.kind === 'addQuestion') return setAddingAt({ sectionId: chip.sectionId, at: chip.at })
+    if (chip.kind === 'kanji') return setChoosingKanji(chip.sectionId)
+    if (chip.kind === 'openPassage') return setPasting(chip.sectionId)
+    if (chip.kind === 'draft') {
+      const section = test.sections.find(s => s.id === chip.sectionId)
+      return section && redraft(section)
+    }
+    // 配点の上げ下げは AI を使わずに変える
+    const r = stepPoints(test, chip.sectionId, chip.questionId, chip.delta)
+    if (!r.ok) return say({ who: 'ai', text: r.errors.join(' ') })
+    const points = (t: Test) => {
+      const q = t.sections.find(s => s.id === chip.sectionId)!.questions.find(x => x.id === chip.questionId)!
+      return q.pointsEach !== undefined ? `各${q.pointsEach}点` : `${q.points}点`
+    }
+    const where = { sectionId: chip.sectionId, questionId: chip.questionId }
+    commit(r.test)
+    setChanged(where)
+    unconfirm(chip.sectionId)
+    say({ who: 'ai', text: `${targetLabel(test, where)}の配点を${points(test)}から${points(r.test)}にしました。合計は${totalPoints(r.test)}点です。`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test } })
+  }
+
   if (!test) return <div className="app"><StartScreen onStart={start} /></div>
 
   const editedSection = editingQuestion && test.sections.find(s => s.id === editingQuestion.sectionId)
   const editedQuestion = editedSection?.questions.find(q => q.id === editingQuestion!.questionId)
+  const active = liveTarget(test, target)
+  const nameById = (id: string) => {
+    const section = test.sections.find(s => s.id === id)
+    return section ? nameOf(test, section) : ''
+  }
 
   return (
-    <div className="app">
+    <div className="app app-edit">
       <header className="app-bar">
         <b>国語テストつくるくん</b>
         <span>{sample !== null ? 'サンプルのテストを表示しています' : `${test.info.year}　${test.info.name}（${test.info.grade}）`}</span>
         <a href="./">はじめから作る</a>
       </header>
-      <TotalsBar
-        test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)}
-        onAddSection={gradeOf(test) ? () => setAdding(true) : undefined}
-      />
-      <AiDraftPanel
-        test={test} drafts={drafts} materialNames={materialNames} tooWide={tooWide}
-        redraftable={s => s.questions.length > 0 && (s.kind === 'kanji' || (s.kind === 'grammar' && grammarBySection[s.id] !== undefined))}
-        onDraft={redraft}
-      />
-      <Paper test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide} />
+      <div className="workspace">
+        <ChatPanel
+          messages={messages}
+          canUndo={m => !!m.undo && test === m.undo.after}
+          onButton={onButton}
+          target={active && targetLabel(test, active)}
+          onClearTarget={() => setTarget(null)}
+          chips={active ? chipsFor(test, active, { pointStep: test.info.pointStep, drafting, busy: chatBusy, grammarKnown: id => grammarBySection[id] !== undefined }) : []}
+          onChip={onChip}
+          statuses={[
+            ...[...drafting].map(id => `${nameById(id)}の大問を作っています（数十秒かかります）`),
+            ...(chatBusy ? ['AI が考えています（十数秒かかります）'] : []),
+          ]}
+          alerts={tooWide.map(id => `${nameById(id)}の本文が一枚に収まりません。範囲を短くして貼り直してください。`)}
+          busy={chatBusy}
+          onSend={text => void ask(text)}
+        />
+        <main className="paper-col" onScroll={() => setSelected(null)}>
+          <TotalsBar
+            test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)}
+            onAddSection={gradeOf(test) ? () => setAdding(true) : undefined}
+          />
+          <Paper
+            test={test} allotments={allotments} onOpenPassage={openPassage} onOpenKanji={openKanji} editing={editing} onTooWide={reportTooWide}
+            selected={active} changed={changed} onSelect={setTarget}
+          />
+        </main>
+      </div>
       {pasting && (
         <PastePassage
           material={materialNames[pasting] ?? ''}
