@@ -1,8 +1,10 @@
 import { useState, type SyntheticEvent } from 'react'
 import { markRefsOf } from '../model/derive'
+import { lineText } from '../model/kanbun'
 import type { ProseSegment, Section } from '../model/schema'
 import { circled, kansuji } from '../paper/kansuji'
 import { Dialog } from './Dialog'
+import { kanbunToText } from './kanbunEdit'
 import { markAtCaret, passageToText } from './passageEdit'
 
 /*
@@ -20,15 +22,19 @@ type Props = {
 }
 
 export function PassageEditor({ title, section, numbers, onSubmit, onClose }: Props) {
-  const segments: ProseSegment[] = section.passage?.kind === 'prose' ? section.passage.segments : []
-  const [text, setText] = useState(() => passageToText(segments))
+  const passage = section.passage
+  const segments: ProseSegment[] = passage?.kind === 'prose' ? passage.segments : []
+  // 漢文は白文を一行に一句で直す（返り点と送り仮名は、直した句だけ AI が付け直す）
+  const [text, setText] = useState(() => (passage?.kind === 'kanbun' ? kanbunToText(passage) : passageToText(segments)))
   const [caret, setCaret] = useState<[number, number]>([0, 0])
   const [errors, setErrors] = useState<string[]>([])
 
   // 傍線部を参照している小問（問一・問三）
   const usedBy = (markId: string) => section.questions.flatMap((q, i) => (markRefsOf(q).includes(markId) ? [`問${kansuji(i + 1)}`] : [])).join('・')
-  const marks = segments.flatMap(s => (s.kind === 'mark' && numbers.has(s.id) ? [{ id: s.id, text: passageToText(s.children) }] : []))
-  const inside = markAtCaret(segments, text, caret[0], caret[1])
+  const marks = passage?.kind === 'kanbun'
+    ? passage.lines.flat().flatMap(t => (t.kind === 'mark' && numbers.has(t.id) ? [{ id: t.id, text: lineText(t.children) }] : []))
+    : segments.flatMap(s => (s.kind === 'mark' && numbers.has(s.id) ? [{ id: s.id, text: passageToText(s.children) }] : []))
+  const inside = passage?.kind === 'prose' ? markAtCaret(segments, text, caret[0], caret[1]) : undefined
   const track = (e: SyntheticEvent<HTMLTextAreaElement>) => setCaret([e.currentTarget.selectionStart, e.currentTarget.selectionEnd])
 
   return (
@@ -36,7 +42,9 @@ export function PassageEditor({ title, section, numbers, onSubmit, onClose }: Pr
       title={title} submitLabel="この本文にする" errors={errors} onClose={onClose}
       onSubmit={() => setErrors(text.trim() ? onSubmit(text) : ['本文を入れてください'])}
     >
-      <p className="edit-hint">段落は改行で分けます。傍線とルビは文字に付いているので、前後を直しても一緒に動きます。</p>
+      <p className="edit-hint">{passage?.kind === 'kanbun'
+        ? '白文を一行に一句で直します。返り点と送り仮名は、直した句だけ AI が付け直します。傍線は文字に付いています。'
+        : '段落は改行で分けます。傍線とルビは文字に付いているので、前後を直しても一緒に動きます。'}</p>
       <textarea
         rows={12} value={text} aria-label="本文"
         onChange={e => { setText(e.target.value); track(e) }}

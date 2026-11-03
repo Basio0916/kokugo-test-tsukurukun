@@ -53,7 +53,7 @@ export function chipsFor(test: Test, target: Target, ctx: Context): Chip[] {
 
   const chips: Chip[] = []
   if (needsPassage(section.kind) && !section.passage) chips.push({ label: '本文欄を開く', kind: 'openPassage', sectionId: section.id })
-  if (section.passage?.kind === 'prose') chips.push({ label: '本文を直す', kind: 'editPassage', sectionId: section.id, disabled: drafting })
+  if (section.passage) chips.push({ label: '本文を直す', kind: 'editPassage', sectionId: section.id, disabled: drafting })
   if (redraftable(section)) chips.push({ label: section.questions.length ? 'AIに作り直してもらう' : 'AIに作ってもらう', kind: 'draft', sectionId: section.id, disabled: drafting })
   if (section.passage?.kind === 'kanbun') chips.push({ label: '返り点と送り仮名を直す', kind: 'kaeriten', sectionId: section.id, disabled: drafting })
   if (section.kind === 'grammar' && ctx.grammarKnown(section.id)) chips.push({ label: 'AIに作り直してもらう', kind: 'draft', sectionId: section.id, disabled: drafting })

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
-import { gradeOf, ideasAvailable, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck } from './ai/client'
+import { gradeOf, ideasAvailable, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck, requestAnnotate } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
@@ -17,8 +17,10 @@ import { MarkQuestion } from './edit/MarkQuestion'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
 import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
 import { changedParts, passageIssues, passageToText, rebuildPassage, type Issue } from './edit/passageEdit'
+import { kanbunToText, rebuildKanbun } from './edit/kanbunEdit'
+import { applyRuby } from './ai/classical'
 import { KanbunEditor } from './edit/KanbunEditor'
-import { editKanbun } from './model/kanbun'
+import { editKanbun, lineText, readLine, rewrap } from './model/kanbun'
 import { PassageEditor } from './edit/PassageEditor'
 import { QuestionEditor } from './edit/QuestionEditor'
 import { rescalePoints } from './edit/rescale'
@@ -104,6 +106,8 @@ export function App() {
   const [sheet, setSheet] = useState<'paper' | 'answer' | 'key'>('paper')
   const sheetLayout = useMemo(() => test && layoutAnswerSheet(test), [test])
   const [checking, setChecking] = useState<Set<string>>(new Set())
+  // 本文を直して外れた訓読・ルビを AI が付け直している大問
+  const [annotating, setAnnotating] = useState<Set<string>>(new Set())
   // 幅の狭い画面では会話と紙面を切り替えて一つずつ出す。会話を見ている間に紙面が変わったら「紙面」に印を付ける
   const narrow = useMediaQuery('(max-width: 899px)')
   const [view, setView] = useState<'chat' | 'paper'>('chat')
@@ -492,26 +496,83 @@ export function App() {
     if (!test) return []
     const section = test.sections.find(s => s.id === sectionId)
     const passage = section?.passage
-    if (!section || passage?.kind !== 'prose') return []
-    const rebuilt = rebuildPassage(passage.segments, text)
-    if (!rebuilt) return ['本文を入れてください']
+    if (!section || !passage) return []
     const bracket = bracketOf(sectionId)
-    if (JSON.stringify(rebuilt.segments) === JSON.stringify(passage.segments)) {
+    // 文章・古文は字の差分で傍線とルビを付け直し、漢文は句ごとに直した句の返り点と送り仮名を外す
+    const rebuilt = passage.kind === 'prose' ? rebuildPassage(passage.segments, text) : rebuildKanbun(passage, text)
+    if (!rebuilt) return ['本文を入れてください']
+    const nextPassage = 'segments' in rebuilt ? { ...passage, segments: rebuilt.segments } : rebuilt.passage
+    if (JSON.stringify(nextPassage) === JSON.stringify(passage)) {
       setEditingPassage(null)
       say({ who: 'ai', text: `${bracket}の本文は変わっていません。` })
       return []
     }
-    const r = replaceSection(test, { ...section, passage: { ...passage, segments: rebuilt.segments } })
+    const r = replaceSection(test, { ...section, passage: nextPassage })
     if (!r.ok) return r.errors
     setEditingPassage(null)
     commit(r.test)
     unconfirm(sectionId)
     setChanged({ sectionId })
     say({ who: 'me', text: `（紙面で${bracket}の本文を直しました）` })
-    const lost = rebuilt.lostRuby.length ? `「${rebuilt.lostRuby.join('」「')}」のルビは、親字を消したので外れました。` : ''
-    say({ who: 'ai', text: `${bracket}の本文を直しました。傍線は文字に付いているので、前後を直したぶんは一緒に動いています。${lost}続けて、小問と食い違っていないかを確かめます。`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test, clearFlags: sectionId } })
-    void checkPassage(section, r.test, passageToText(passage.segments), text)
+    const oldText = passage.kind === 'prose' ? passageToText(passage.segments) : kanbunToText(passage)
+    const lostRuby = 'lostRuby' in rebuilt ? rebuilt.lostRuby : []
+    const changedLines = 'changed' in rebuilt ? rebuilt.changed : []
+    const reannotate = changedLines.length > 0 || (section.kind === 'classical' && lostRuby.length > 0)
+    const lost = lostRuby.length ? `「${lostRuby.join('」「')}」のルビは、親字を消したので外れました。` : ''
+    const next = changedLines.length
+      ? '直した句の返り点と送り仮名を、AI が付け直しています。'
+      : reannotate ? '直した箇所のルビを、AI が付け直しています。' : '続けて、小問と食い違っていないかを確かめます。'
+    say({ who: 'ai', text: `${bracket}の本文を直しました。傍線は文字に付いているので、前後を直したぶんは一緒に動いています。${lost}${next}`, buttons: [{ label: '元に戻す', action: 'undo' }], undo: { before: test, after: r.test, clearFlags: sectionId } })
+    void (async () => {
+      const edited = reannotate ? await reannotateSection(sectionId, r.test, oldText, text, lostRuby, changedLines) : r.test
+      void checkPassage(section, edited, oldText, text)
+    })()
     return []
+  }
+
+  // 本文を直して外れた漢文の訓読・古文のルビを AI に付け直してもらう。届いたとき大問が変わっていなければ入れる
+  async function reannotateSection(sectionId: string, edited: Test, oldText: string, newText: string, lostRuby: string[], changedLines: number[]): Promise<Test> {
+    const section = edited.sections.find(s => s.id === sectionId)!
+    const passage = section.passage!
+    const bracket = bracketOf(sectionId)
+    setAnnotating(c => new Set(c).add(sectionId))
+    const r = passage.kind === 'kanbun'
+      ? await requestAnnotate({ kind: 'kanbun', title: passage.title, author: passage.author, lines: passage.lines.map(lineText), targets: changedLines })
+      : await requestAnnotate({ kind: 'ruby', passage: passageToText(passage.kind === 'prose' ? passage.segments : []), changes: changedParts(oldText, newText), lost: lostRuby })
+    setAnnotating(c => {
+      const next = new Set(c)
+      next.delete(sectionId)
+      return next
+    })
+    const current = testRef.current!
+    if (current.sections.find(s => s.id === sectionId) !== section) {
+      say({ who: 'ai', text: `${bracket}がまた変わったので、付け直した結果は入れません。` })
+      return current
+    }
+    let annotated: Section | null = null
+    let problems: string[] = r.ok ? [] : r.errors
+    if (r.ok && passage.kind === 'kanbun') {
+      const lines = passage.lines.map((line, i) => {
+        const got = r.lines?.find(l => l.index === i)
+        const read = got && readLine(got.notation, lineText(line))
+        return read && read.ok ? rewrap(line, read.chars) : line
+      })
+      annotated = { ...section, passage: { ...passage, lines } }
+    } else if (r.ok && passage.kind === 'prose') {
+      // 仮名遣いを問う傍線部の中には付けない
+      const blocked = new Set(section.questions.flatMap(q => (q.format === 'kana' ? (q.items ?? []).flatMap(it => (it.markId ? [it.markId] : [])) : [])))
+      const applied = applyRuby(passage.segments, r.ruby ?? [], blocked)
+      problems = applied.errors
+      annotated = { ...section, passage: { ...passage, segments: applied.segments } }
+    }
+    const replaced = annotated && replaceSection(current, annotated)
+    if (!replaced?.ok) {
+      say({ who: 'ai', text: `${bracket}の${passage.kind === 'kanbun' ? '返り点と送り仮名' : 'ルビ'}を付け直せませんでした。外れたままです。`, ...(problems.length && { notes: { title: '理由', label: '付け直せなかった理由', items: problems.map(t => ({ text: t })) } }) })
+      return current
+    }
+    commit(replaced.test)
+    say({ who: 'ai', text: `${bracket}の${passage.kind === 'kanbun' ? '直した句の返り点と送り仮名' : '直した箇所のルビ'}を付け直しました。続けて、小問と食い違っていないかを確かめます。` })
+    return replaced.test
   }
 
   // 機械で確かめた食い違いと、AI が確かめた選択肢・模範解答の食い違いを合わせて要確認にする
@@ -656,6 +717,7 @@ export function App() {
           onChip={onChip}
           statuses={[
             ...[...drafting].map(id => `${nameById(id)}の大問を作っています（数十秒かかります）`),
+            ...[...annotating].map(id => `${nameById(id)}の外れた返り点・送り仮名やルビを、AI が付け直しています`),
             ...[...checking].map(id => `${nameById(id)}の小問と直した本文を、AI が確かめています`),
             ...(chatBusy ? ['AI が考えています（十数秒かかります）'] : []),
           ]}

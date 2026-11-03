@@ -308,3 +308,39 @@ ${p.instruction}${p.wish ? `
 ${p.wish}
 この希望に沿って作ってください。` : ''}`
 }
+
+export const ANNOTATE_KANBUN_PROMPT = `${COMMON}
+
+## 漢文の訓読を付け直す
+先生が漢文の白文の句を直しました。指定された句（番号）にだけ、中学校の教科書で一般的な訓読を付けます。ほかの句は文脈として読むだけで、返答には書きません。
+- lines に、指定された句ごとに番号（index）と「字(送り仮名)[返り点]」の記法（notation）を書く
+- 白文の字（句読点を含む）を一字も変えず、足さず、削らない
+- 送り仮名はカタカナの歴史的仮名遣いで書く。「不」「也」「乎」のように字そのものを読む助字には、その読みを送り仮名として付けない
+- 返り点は レ、一、二、三、上、中、下、一レ、上レ のどれかで、対になる点は同じ句の中に置く`
+
+export function annotateKanbunPrompt(p: { title: string; author: string; lines: string[]; targets: number[] }): string {
+  return `# 漢文（${p.title}　${p.author}）
+${p.lines.map((l, i) => `${i}: ${l}`).join('\n')}
+
+# 訓読を付け直す句の番号
+${p.targets.join('、')}`
+}
+
+export const ANNOTATE_RUBY_PROMPT = `${COMMON}
+
+## 古文のルビを付け直す
+先生が古文の本文を直し、ルビの一部が外れました。直した箇所の中で、中学生が読みにくい漢字にルビを付けます。
+- ruby に、親字（base）と読み（reading）を書く。base は本文の漢字のとおり（送り仮名は含めない）、reading は歴史的仮名遣いのひらがな
+- 直した箇所の外の字には付けない。すでにルビが付いている字にも付けない
+- 付ける漢字がなければ、ruby は空にする`
+
+export function annotateRubyPrompt(p: { passage: string; changes: Array<{ before: string; after: string }>; lost: string[] }): string {
+  return `# 直した後の本文
+${p.passage}
+
+# 先生が直した箇所（直す前 → 直した後）
+${p.changes.map(c => `- 「${c.before}」→「${c.after}」`).join('\n')}
+
+# 外れたルビの親字
+${p.lost.join('、') || '（なし）'}`
+}
