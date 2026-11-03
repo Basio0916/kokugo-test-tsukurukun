@@ -8,6 +8,7 @@ const API_ROUTES: Record<string, [string, string]> = {
   '/api/draft-section': ['/src/ai/draft.ts', 'handleDraftRequest'],
   '/api/draft-kanji': ['/src/ai/kanjiDraft.ts', 'handleKanjiDraftRequest'],
   '/api/draft-grammar': ['/src/ai/grammarDraft.ts', 'handleGrammarDraftRequest'],
+  '/api/draft-question': ['/src/ai/questionDraft.ts', 'handleQuestionDraftRequest'],
 }
 
 function devApi(): Plugin {

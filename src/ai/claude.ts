@@ -2,7 +2,6 @@ import Anthropic from '@anthropic-ai/sdk'
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod'
 import type { z } from 'zod'
 import { retryPrompt } from './prompt.js'
-import type { Converted } from './toSection.js'
 
 /*
  * サーバー側で Claude に大問を作ってもらう共通の流れ。
@@ -29,15 +28,18 @@ async function ask<T>(client: Anthropic, schema: z.ZodType<T>, system: string, c
   return { ok: true as const, proposal: response.parsed_output as T, usage: response.usage }
 }
 
-type DraftJob<T> = {
+// 変換・検証の結果。通らなければ、AI に返して作り直してもらう理由
+export type Checked<R> = ({ ok: true } & R) | { ok: false; errors: string[] }
+
+type DraftJob<T, R> = {
   label: string
   schema: z.ZodType<T>
   system: string
   prompt: string
-  convert: (proposal: T) => Converted
+  convert: (proposal: T) => Checked<R>
 }
 
-export async function draftWithRetry<T>(job: DraftJob<T>, client = new Anthropic()): Promise<Converted> {
+export async function draftWithRetry<T, R>(job: DraftJob<T, R>, client = new Anthropic()): Promise<Checked<R>> {
   let content = job.prompt
   let errors: string[] = []
   for (let attempt = 0; attempt < 2; attempt++) {

@@ -39,7 +39,7 @@ function Mark({ id, numbers, children }: { id: string; numbers: Numbers; childre
   )
 }
 
-function Prose({ passage, numbers }: { passage: ProsePassage; numbers: Numbers }) {
+function Prose({ passage, numbers, sectionId }: { passage: ProsePassage; numbers: Numbers; sectionId: string }) {
   const inline = (s: { kind: 'text'; text: string } | { kind: 'ruby'; base: string; reading: string }, key: number) =>
     s.kind === 'text' ? <span key={key}>{s.text}</span> : <ruby key={key}>{s.base}<rt>{s.reading}</rt></ruby>
   // 段落の区切りで <p> を分ける（段落ごとに一字下げ）
@@ -49,7 +49,7 @@ function Prose({ passage, numbers }: { passage: ProsePassage; numbers: Numbers }
     else paragraphs.at(-1)!.push(s)
   }
   return (
-    <div className="passage">
+    <div className="passage" data-section={sectionId}>
       {paragraphs.map((segments, pi) => (
         <p key={pi}>
           {segments.map((s, i) =>
@@ -113,7 +113,7 @@ export function SectionHeader({ section, index, numbers, allotment, onOpenPassag
   return (
     <>
       <p className="sec-h" onDoubleClick={onEditInstruction} title={onEditInstruction ? 'ダブルクリックで指示文を直す' : undefined}><b>【{kansuji(index + 1)}】</b>　{section.instruction}<span className="pt">（{kansuji(points)}点）</span></p>
-      {p?.kind === 'prose' && <Prose passage={p} numbers={numbers} />}
+      {p?.kind === 'prose' && <Prose passage={p} numbers={numbers} sectionId={section.id} />}
       {!p && PROSE_KINDS.includes(section.kind) && (
         <button type="button" className="passage passage-slot" onClick={onOpenPassage} disabled={!onOpenPassage}>
           本文欄<span>（押して本文を貼り付けてください）</span>

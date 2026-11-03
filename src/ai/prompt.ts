@@ -105,3 +105,61 @@ export function grammarUserPrompt(p: { grade: Grade; materials: string[]; standa
 ## 文法の指導事項（学習指導要領）
 ${p.standards.map(s => `- ${s.code}: ${s.text}`).join('\n')}`
 }
+
+export const ADD_QUESTION_PROMPT = `${SYSTEM_PROMPT}
+
+## 小問を足すとき
+- 今ある小問と同じことを問わない
+- 傍線を引く箇所（marks）は、今ある傍線部を使うときもその文字列を本文からそのまま引用する（同じ範囲なら今の傍線部になる）。今ある傍線部と一部だけ重なる箇所は引用しない
+- 配点の重み（weight）は 1 にしてよい（配点はシステムが決める）`
+
+export type AddQuestionContext = {
+  grade: Grade
+  material: string
+  standards: Array<{ code: string; text: string }>
+  passage: string
+  marks: string[]
+  questions: string[]
+}
+
+function addContext(p: AddQuestionContext): string {
+  return `# 小問を足す大問
+中学${p.grade}年の教材「${p.material}」の大問です。
+
+## 単元の指導事項（学習指導要領）
+${p.standards.map(s => `- ${s.code}: ${s.text}`).join('\n')}
+
+## 本文
+${p.passage}
+
+## 今ある傍線部
+${p.marks.length ? p.marks.join('\n') : '（なし）'}
+
+## 今ある小問
+${p.questions.length ? p.questions.join('\n') : '（なし）'}`
+}
+
+export function suggestPrompt(p: AddQuestionContext): string {
+  return `${addContext(p)}
+
+# お願い
+この大問に足す小問の案を三つ（ideas に三つ）出してください。今ある小問でまだ問えていない指導事項を優先し、三つの案は互いに違う解答形式か違う箇所を問うものにしてください。`
+}
+
+export function formatPrompt(p: AddQuestionContext, format: string, aim?: string): string {
+  return `${addContext(p)}
+
+# お願い
+解答形式「${format}」の小問を一つ（ideas に一つ）作ってください。${aim ? `ねらい: ${aim}` : ''}`
+}
+
+export function markPrompt(p: AddQuestionContext, quote: string, wish: string): string {
+  return `${addContext(p)}
+
+# お願い
+先生が本文の「${quote}」に線を引き、次のような問題にしたいと書きました。
+> ${wish}
+この希望をもとに、定期テストの問い文の形に整えた小問を一つ（ideas に一つ）作ってください。
+- 先生が線を引いた「${quote}」を marks に一字も変えずに引用し（キーは A）、問い文で {傍線部:A} として参照する
+- 解答形式や字数など、希望から整えたところを adjustments に先生向けに短く書く`
+}

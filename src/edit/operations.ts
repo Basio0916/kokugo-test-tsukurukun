@@ -57,3 +57,19 @@ export function replaceQuestion(test: Test, sectionId: string, question: Questio
   if (!parsed.success) return { ok: false, errors: [...new Set(parsed.error.issues.map(i => i.message))] }
   return { ok: true, test: parsed.data }
 }
+
+/**
+ * 小問を at の位置（0 なら問一の前）に差し込む。section を渡すと、大問の本文などをそれに置き換えてから差し込む
+ * （AI の案で本文に傍線部が増えたとき）。テストのデータとして正しくなければ理由を返す。
+ */
+export function insertQuestion(test: Test, sectionId: string, at: number, question: Question, section?: Section): Edited {
+  const next = mapSection(test, sectionId, s => {
+    const base = section ?? s
+    const questions = [...s.questions]
+    questions.splice(at, 0, question)
+    return { ...base, questions }
+  })
+  const parsed = Test.safeParse(next)
+  if (!parsed.success) return { ok: false, errors: [...new Set(parsed.error.issues.map(i => i.message))] }
+  return { ok: true, test: parsed.data }
+}

@@ -38,35 +38,86 @@ export type Anchored =
   | { ok: true; segments: ProseSegment[]; ids: Map<string, string> }
   | { ok: false; errors: string[] }
 
-/** 引用ごとに傍線部を付けた本文と、AI のキーからシステムの識別子への対応を返す */
+type Span = { start: number; end: number; id: string }
+
+// 引用の本文の中の位置。見つからない・一つに決まらないときは理由
+function locate(plain: string, a: Anchor): { start: number; end: number } | string {
+  if (a.quote.includes('\n')) return `傍線部${a.key}「${a.quote}」が段落をまたいでいる（一つの段落の中から引用する）`
+  let found = indexesOf(plain, a.quote)
+  if (found.length > 1 && a.before) found = found.filter(at => plain.slice(0, at).endsWith(a.before!))
+  if (found.length === 0) return `傍線部${a.key}「${a.quote}」が本文にない（本文から一字も変えずに引用する）`
+  if (found.length > 1) return `傍線部${a.key}「${a.quote}」が本文に${found.length}回出てくる（before に直前の数文字を書く）`
+  return { start: found[0], end: found[0] + a.quote.length }
+}
+
+/** 本文に今付いている傍線部の、本文の文字列の上での範囲 */
+export function existingSpans(segments: ProseSegment[]): Span[] {
+  const spans: Span[] = []
+  let at = 0
+  for (const s of segments) {
+    const length = s.kind === 'mark' ? s.children.map(charsOf).join('').length : charsOf(s).length
+    if (s.kind === 'mark') spans.push({ start: at, end: at + length, id: s.id })
+    at += length
+  }
+  return spans
+}
+
+/** 引用ごとに傍線部を付けた本文と、AI のキーからシステムの識別子への対応を返す（今の傍線部は外して付け直す） */
 export function anchorMarks(segments: ProseSegment[], anchors: Anchor[], idOf: (index: number) => string): Anchored {
   const inline = unmark(segments)
   const plain = inline.map(charsOf).join('')
   const errors: string[] = []
-  const spans: Array<{ start: number; end: number; id: string }> = []
+  const spans: Span[] = []
   const ids = new Map<string, string>()
 
   anchors.forEach((a, i) => {
-    if (a.quote.includes('\n')) {
-      errors.push(`傍線部${a.key}「${a.quote}」が段落をまたいでいる（一つの段落の中から引用する）`)
-      return
-    }
-    let found = indexesOf(plain, a.quote)
-    if (found.length > 1 && a.before) found = found.filter(at => plain.slice(0, at).endsWith(a.before!))
-    if (found.length === 0) errors.push(`傍線部${a.key}「${a.quote}」が本文にない（本文から一字も変えずに引用する）`)
-    else if (found.length > 1) errors.push(`傍線部${a.key}「${a.quote}」が本文に${found.length}回出てくる（before に直前の数文字を書く）`)
-    else {
-      if (ids.has(a.key)) errors.push(`傍線部のキー${a.key}が重複している`)
-      ids.set(a.key, idOf(i))
-      spans.push({ start: found[0], end: found[0] + a.quote.length, id: idOf(i) })
-    }
+    const found = locate(plain, a)
+    if (typeof found === 'string') return errors.push(found)
+    if (ids.has(a.key)) errors.push(`傍線部のキー${a.key}が重複している`)
+    ids.set(a.key, idOf(i))
+    spans.push({ ...found, id: idOf(i) })
   })
-  spans.sort((x, y) => x.start - y.start)
-  for (let i = 1; i < spans.length; i++) {
-    if (spans[i].start < spans[i - 1].end) errors.push('傍線部どうしが重なっている')
-  }
+  if (overlaps(spans)) errors.push('傍線部どうしが重なっている')
   if (errors.length) return { ok: false, errors }
+  return withSpans(inline, spans, ids)
+}
 
+/**
+ * 今の傍線部を残したまま、引用ごとに傍線部を付ける。引用が今の傍線部と同じ範囲ならその傍線部を使い、
+ * 一部だけ重なるなら不正。新しい傍線部の識別子は idOf で作る（呼ぶ側が重ならないものを渡す）。
+ */
+export function addMarks(segments: ProseSegment[], anchors: Anchor[], idOf: (index: number) => string): Anchored {
+  const inline = unmark(segments)
+  const plain = inline.map(charsOf).join('')
+  const current = existingSpans(segments)
+  const errors: string[] = []
+  const added: Span[] = []
+  const ids = new Map<string, string>()
+
+  anchors.forEach((a, i) => {
+    const found = locate(plain, a)
+    if (typeof found === 'string') return errors.push(found)
+    const same = current.find(s => s.start === found.start && s.end === found.end)
+    if (same) return ids.set(a.key, same.id)
+    if (current.some(s => s.start < found.end && found.start < s.end)) {
+      return errors.push(`傍線部${a.key}「${a.quote}」が、今ある傍線部と一部だけ重なっている（重ならない箇所か、今の傍線部と同じ範囲を引用する）`)
+    }
+    const id = idOf(i)
+    ids.set(a.key, id)
+    added.push({ ...found, id })
+  })
+  if (overlaps(added)) errors.push('傍線部どうしが重なっている')
+  if (errors.length) return { ok: false, errors }
+  return withSpans(inline, [...current, ...added], ids)
+}
+
+function overlaps(spans: Span[]): boolean {
+  const sorted = [...spans].sort((x, y) => x.start - y.start)
+  return sorted.some((s, i) => i > 0 && s.start < sorted[i - 1].end)
+}
+
+// 地の文・ルビ・段落の区切りの並びを、傍線部の範囲で包み直す
+function withSpans(inline: Inline[], spans: Span[], ids: Map<string, string>): Anchored {
   // 本文の区切りを、傍線部の端で切り分ける
   const cuts = new Set(spans.flatMap(s => [s.start, s.end]))
   const pieces: Array<{ start: number; seg: Inline }> = []

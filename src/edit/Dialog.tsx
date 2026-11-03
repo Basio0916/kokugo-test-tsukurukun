@@ -4,7 +4,8 @@ import { useEffect, useRef, type FormEvent, type ReactNode } from 'react'
 
 type Props = {
   title: string
-  submitLabel: string
+  // 決めるボタンの文言。無ければ決めるボタンを出さない（選ぶだけの画面）
+  submitLabel?: string
   errors: string[]
   onSubmit: () => void
   onClose: () => void
@@ -31,8 +32,8 @@ export function Dialog({ title, submitLabel, errors, onSubmit, onClose, children
           </div>
         )}
         <div className="start-actions">
-          <button type="submit">{submitLabel}</button>
-          <button type="button" className="secondary" onClick={() => ref.current?.close()}>やめる</button>
+          {submitLabel && <button type="submit">{submitLabel}</button>}
+          <button type="button" className="secondary" onClick={() => ref.current?.close()}>{submitLabel ? 'やめる' : '閉じる'}</button>
         </div>
       </form>
     </dialog>

@@ -178,3 +178,26 @@
 @media print {
   .blk-tools { display: none; }
 }
+
+/* 小問のすき間（ブロックの後ろの余白）の「＋ 小問を追加」。マウスを乗せたときに出す */
+.blk-add {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  inline-size: 100%;
+  block-size: 0.9em;
+  padding: 0;
+  font: 11px/1 "BIZ UDPGothic", sans-serif;
+  color: #2f5fb3;
+  background: #eef3fb;
+  border: 1px dashed #8aa4d6;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+}
+.blk-add:hover, .blk-add:focus-visible { opacity: 1; }
+
+@media print {
+  .blk-add { display: none; }
+}

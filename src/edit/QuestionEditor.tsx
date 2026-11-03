@@ -38,9 +38,12 @@ type Props = {
   // 置き換えを試し、だめなら理由を返す
   onSubmit: (question: Question) => string[]
   onClose: () => void
+  submitLabel?: string
+  // ポップアップの上に添える説明（AI が整えたところなど）
+  note?: string
 }
 
-export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose }: Props) {
+export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose, submitLabel = 'この内容で直す', note }: Props) {
   const [stem, setStem] = useState(stemToText(q.stem, numbers, q.choices?.length ?? 4))
   const [choices, setChoices] = useState((q.choices ?? []).join('\n'))
   const [correct, setCorrect] = useState(q.correct ?? 0)
@@ -61,6 +64,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose 
     const problems: string[] = []
     const parsed = textToStem(stem, numbers)
     if (!parsed.ok) problems.push(...parsed.errors)
+    if (q.format !== 'composition' && !stem.trim()) problems.push('問い文を入れてください')
     const idOf = new Map([...numbers].map(([id, n]) => [n, id]))
     const newItems = hasItems ? lines(items).map(l => lineToItem(l, idOf)) : undefined
     newItems?.forEach(it => typeof it === 'string' && problems.push(it))
@@ -85,7 +89,8 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose 
   }
 
   return (
-    <Dialog title={title} submitLabel="この内容で直す" errors={errors} onSubmit={submit} onClose={onClose}>
+    <Dialog title={title} submitLabel={submitLabel} errors={errors} onSubmit={submit} onClose={onClose}>
+      {note && <p className="edit-note">{note}</p>}
       <div className="edit-fields">
         {q.format !== 'composition' && (
           <label>問い文<span className="edit-hint">傍線部は {'{傍線部①}'}・{'{①}'}、選択肢の範囲は {'{ア〜エ}'} のまま残してください</span>

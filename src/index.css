@@ -111,6 +111,20 @@ body {
 .edit-hint { font-size: 12px; color: #6a7385; }
 .add-materials { max-height: 240px; overflow-y: auto; }
 
+/* 小問を足す画面 */
+.add-menu { display: grid; gap: 8px; margin-bottom: 8px; }
+.add-menu button, .idea-list button { padding: 8px 12px; font: inherit; text-align: left; color: #1b2130; background: #fff; border: 1px solid #b9c6dd; border-radius: 6px; cursor: pointer; }
+.add-menu button:disabled { color: #9aa6bb; cursor: default; }
+.idea-list { display: grid; gap: 8px; margin: 0 0 10px; padding: 0; list-style: none; }
+.idea-list button { display: grid; gap: 4px; width: 100%; }
+.idea-list button:hover, .add-menu button:hover:enabled { border-color: #2f5fb3; background: #f5f8fd; }
+.idea-stem { font-family: "BIZ UDMincho", serif; }
+.idea-choices { font-size: 13px; color: #3a4256; }
+.idea-why { font-size: 12px; color: #6a7385; }
+.edit-note { padding: 6px 10px; color: #2f5fb3; background: #eef3fb; border-radius: 6px; }
+.mark-quote { font-family: "BIZ UDMincho", serif; border-bottom: 1px solid currentColor; }
+.mark-float { position: fixed; z-index: 10; padding: 6px 12px; font: inherit; font-size: 13px; color: #fff; background: #2f5fb3; border: 0; border-radius: 6px; box-shadow: 0 2px 8px rgba(20, 30, 50, 0.2); cursor: pointer; }
+
 .start-sub { margin: 8px 0 4px; font-size: 14px; color: #5a6375; }
 .kanji-candidates { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d2d8e1; border-radius: 6px; }
 .kanji-candidates label { display: inline-flex; gap: 4px; align-items: center; margin: 0 14px 4px 0; }
@@ -194,5 +208,5 @@ body {
 
 @media print {
   body { background: #fff; }
-  .app-bar, .ai-panel, .paste, .totals { display: none; }
+  .app-bar, .ai-panel, .paste, .totals, .mark-float { display: none; }
 }
