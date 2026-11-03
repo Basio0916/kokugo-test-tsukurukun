@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { choiceLabel } from '../model/derive'
 import { itemSegments } from '../model/notation'
 import type { Item, Question } from '../model/schema'
@@ -41,9 +41,11 @@ type Props = {
   submitLabel?: string
   // ポップアップの上に添える説明（AI が整えたところなど）
   note?: string
+  // 問い文などの上に足す欄（線を引いて作った案の、形式と字数の選び直しなど）
+  extra?: ReactNode
 }
 
-export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose, submitLabel = 'この内容で直す', note }: Props) {
+export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose, submitLabel = 'この内容で直す', note, extra }: Props) {
   const [stem, setStem] = useState(stemToText(q.stem, numbers, q.choices?.length ?? 4))
   const [choices, setChoices] = useState((q.choices ?? []).join('\n'))
   const [correct, setCorrect] = useState(q.correct ?? 0)
@@ -90,6 +92,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
 
   return (
     <Dialog title={title} submitLabel={submitLabel} errors={errors} onSubmit={submit} onClose={onClose}>
+      {extra}
       {note && <p className="edit-note">{note}</p>}
       <div className="edit-fields">
         {q.format !== 'composition' && (

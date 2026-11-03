@@ -187,7 +187,12 @@
 .blk-flagged { outline: 2px dashed #c97a00; outline-offset: 1px; }
 .blk-flag { position: absolute; bottom: 2px; left: 0; z-index: 2; padding: 2px 4px; font: 700 11px/1.2 "BIZ UDPGothic", sans-serif; color: #fff; background: #c97a00; border-radius: 4px; writing-mode: horizontal-tb; }
 
+/* 確定していない大問の小問は、画面では薄く描く */
+.blk-prop { color: #8b8f99; }
+.blk[role="button"]:focus-visible { outline: 2px solid #2f5fb3; outline-offset: 1px; }
+
 @media print {
+  .blk-prop { color: inherit; }
   .blk-selected, .blk-flagged { outline: none; }
   .blk-changed { background: none; }
   .blk-flag { display: none; }

@@ -20,6 +20,7 @@ describe('模範解答・採点基準の行', () => {
   })
 
   it('作文は条件に沿って書けているかを採点基準にする', () => {
+    expect(rows('sakubun')[0].label).toBe('作文')
     expect(rows('sakubun')[0].rubric).toEqual(['条件に沿って書けている', expect.stringContaining('二段落'), '百六十字以上、二百字以内で書くこと。'])
   })
 })

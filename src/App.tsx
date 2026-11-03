@@ -14,6 +14,7 @@ import { AddQuestion } from './edit/AddQuestion'
 import { blankQuestion, ideaStem, type OwnFormat } from './edit/addQuestionModel'
 import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from './edit/Dialogs'
 import { MarkQuestion } from './edit/MarkQuestion'
+import { MarkReshape } from './edit/MarkReshape'
 import { readPassageSelection, type PassageSelection } from './edit/selection'
 import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, replaceSection, setInstruction, stepPoints } from './edit/operations'
 import { changedParts, passageIssues, passageToText, rebuildPassage, type Issue } from './edit/passageEdit'
@@ -80,7 +81,10 @@ export function App() {
   const [tooWide, setTooWide] = useState<string[]>([])
   // 小問を足す: 足し方を選んでいる位置、入れる前に直している案・自分で書いている小問、本文の選択、線を引いて作る箇所
   const [addingAt, setAddingAt] = useState<{ sectionId: string; at: number } | null>(null)
-  const [reviewing, setReviewing] = useState<{ sectionId: string; at: number; question: Question; section?: Section; note?: string; own: boolean } | null>(null)
+  // mark は線を引いて作った案（選んだ箇所と書いた希望）。version は整え直したときに直す画面を開き直すため
+  const [reviewing, setReviewing] = useState<{ sectionId: string; at: number; question: Question; section?: Section; note?: string; own: boolean; mark?: { selection: PassageSelection; wish: string }; version?: number } | null>(null)
+  // 線を引いて作る画面を、書き直しで開き直したときの希望
+  const [markWish, setMarkWish] = useState('')
   const [selected, setSelected] = useState<PassageSelection | null>(null)
   const [marking, setMarking] = useState<PassageSelection | null>(null)
   // 会話: メッセージ、AI が考えている間、紙面で選んでいるもの、会話の変更で変わったもの
@@ -124,9 +128,15 @@ export function App() {
 
   // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
   useEffect(() => {
+    // タッチで選んだときは、選択が決まるまで少し待つ
     const onUp = () => setTimeout(() => setSelected(readPassageSelection()), 0)
+    const onTouch = () => setTimeout(() => setSelected(readPassageSelection()), 60)
     document.addEventListener('mouseup', onUp)
-    return () => document.removeEventListener('mouseup', onUp)
+    document.addEventListener('touchend', onTouch)
+    return () => {
+      document.removeEventListener('mouseup', onUp)
+      document.removeEventListener('touchend', onTouch)
+    }
   }, [])
 
   const say = (message: NewMessage) => {
@@ -730,6 +740,8 @@ export function App() {
           suggestions={suggestions}
         />}
         {(!narrow || view === 'paper') && <main className="paper-col" onScroll={() => setSelected(null)}>
+          {/* 合計の欄・大問の一覧・紙のタブは、紙面を送っても上に残す */}
+          <div className="paper-head">
           <TotalsBar test={test} message={totalsMessage} onRescale={rescale} onEditInfo={() => setEditingInfo(true)} />
           <Outline
             test={test} nameOf={s => nameOf(test, s)}
@@ -742,6 +754,7 @@ export function App() {
               <button key={value} type="button" role="tab" aria-selected={sheet === value} onClick={() => setSheet(value)}>{label}</button>
             ))}
           </div>
+          </div>
           {/* 開いていない紙は描かない（問題用紙は見えない状態で測ると割り付けが崩れる） */}
           {sheet === 'paper' && (
             <Paper
@@ -749,6 +762,7 @@ export function App() {
               selected={active} changed={changed} onSelect={setTarget}
               onOpenQuestion={t => t.questionId && setEditingQuestion({ sectionId: t.sectionId, questionId: t.questionId })}
               flagged={new Set(Object.keys(liveFlags(test, flags)))}
+              confirmed={confirmed}
             />
           )}
           {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} confirmed={confirmed} />}
@@ -849,7 +863,7 @@ export function App() {
           // 選んだところの下に出す。画面の外に出ないように収める
           style={{ left: Math.max(8, Math.min(selected.x, window.innerWidth - 220)), top: Math.max(8, Math.min(selected.y + 6, window.innerHeight - 48)) }}
           onMouseDown={e => e.preventDefault()}
-          onClick={() => { setMarking(selected); setSelected(null) }}
+          onClick={() => { setMarkWish(''); setMarking(selected); setSelected(null) }}
         >傍線を引いて小問を作る</button>
       )}
       {marking && (() => {
@@ -859,9 +873,10 @@ export function App() {
             title={`${labelOf(section.id)}の本文に線を引いて小問を作る`}
             quote={marking.quote} before={marking.before}
             request={how => requestIdeas(test, section, subtotalOf(section), how)}
-            onReview={idea => {
+            initialWish={markWish}
+            onReview={(idea, wish) => {
               setMarking(null)
-              setReviewing({ sectionId: section.id, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, own: false })
+              setReviewing({ sectionId: section.id, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, own: false, mark: { selection: marking, wish } })
             }}
             onClose={() => setMarking(null)}
           />
@@ -898,7 +913,29 @@ export function App() {
         const section = reviewing.section ?? test.sections.find(s => s.id === reviewing.sectionId)!
         return (
           <QuestionEditor
+            key={reviewing.version ?? 0}
             title={`${labelOf(reviewing.sectionId)}の問${kansuji(reviewing.at + 1)}として入れる小問`}
+            extra={reviewing.mark && (() => {
+              const mark = reviewing.mark
+              const base = test.sections.find(s => s.id === reviewing.sectionId)!
+              return (
+                <MarkReshape
+                  question={reviewing.question}
+                  onReshape={async (format, charLimit) => {
+                    const r = await requestIdeas(test, base, subtotalOf(base), { kind: 'mark', quote: mark.selection.quote, ...(mark.selection.before && { before: mark.selection.before }), wish: mark.wish, format, ...(charLimit && { charLimit }) })
+                    if (!r.ok) return r.errors
+                    const idea = r.ideas[0]
+                    setReviewing({ ...reviewing, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, version: (reviewing.version ?? 0) + 1 })
+                    return []
+                  }}
+                  onRewrite={() => {
+                    setReviewing(null)
+                    setMarkWish(mark.wish)
+                    setMarking(mark.selection)
+                  }}
+                />
+              )
+            })()}
             question={reviewing.question}
             numbers={markNumbers({ ...section, questions: [...section.questions, reviewing.question] })}
             submitLabel="この問題で入れる"

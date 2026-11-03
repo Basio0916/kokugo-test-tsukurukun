@@ -32,7 +32,7 @@ function defaultRubric(q: Question): string[] {
 
 export function keyRows(section: Section): KeyRow[] {
   return section.questions.map((q, i) => ({
-    label: `問${kansuji(i + 1)}`,
+    label: q.format === 'composition' ? '作文' : `問${kansuji(i + 1)}`,
     answer: answerOf(section, q),
     points: q.pointsEach !== undefined ? `各${kansuji(q.pointsEach)}点` : `${kansuji(q.points ?? 0)}点`,
     kanten: KANTEN[q.kanten],

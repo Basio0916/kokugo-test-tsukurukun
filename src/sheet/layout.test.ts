@@ -91,6 +91,11 @@ describe('解答用紙の割り付け', () => {
     expect(meros.scores).toEqual([{ kanten: 'thinking', points: 20 }])
   })
 
+  it('作文の問の見出しは「作文」', () => {
+    const sakubun = layoutAnswerSheet(sampleTest).sections.at(-1)!
+    expect(sakubun.units.filter(u => u.kind === 'question').map(u => u.label)).toEqual(['作文'])
+  })
+
   it('本文を貼る前の大問は本文待ち', () => {
     const t = { ...sampleTest, sections: [...sampleTest.sections, { id: 's', kind: 'literary' as const, instruction: '次の文章を読んで、あとの問いに答えなさい。', questions: [] }] }
     expect(layoutAnswerSheet(t).sections.at(-1)!.waiting).toBe('本文待ち')
