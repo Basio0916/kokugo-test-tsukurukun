@@ -97,6 +97,9 @@ context: |
 #       - Always include a "Non-goals" section
 #     tasks:
 #       - Break tasks into chunks of max 2 hours
+rules:
+  design:
+    - ユーザーが指示しておらず、context にも書かれていないのに AI の判断で決めたプロダクト上の決定（先生から見える振る舞い、既定値、選べないもの・後回しにするもの）は、「確認してほしい判断」の節に最大5件の箇条書きで分けて書く。内部の実装方法は入れない
 
 # Per-operation guidance (optional)
 # Add advisory guidance for how apply and archive work should be conducted.
