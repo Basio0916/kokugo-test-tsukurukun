@@ -18,7 +18,9 @@ const Text = z.object({ kind: z.literal('text'), text: z.string().min(1) })
 const Ruby = z.object({ kind: z.literal('ruby'), base: z.string().min(1), reading: z.string().min(1) })
 const ProseInline = z.discriminatedUnion('kind', [Text, Ruby])
 const ProseMark = z.object({ kind: z.literal('mark'), id: z.string().min(1), children: z.array(ProseInline).min(1) })
-export const ProseSegment = z.discriminatedUnion('kind', [Text, Ruby, ProseMark])
+// 段落の区切り。傍線部は段落をまたがないので、傍線部の中には入らない
+const ParagraphBreak = z.object({ kind: z.literal('break') })
+export const ProseSegment = z.discriminatedUnion('kind', [Text, Ruby, ProseMark, ParagraphBreak])
 
 export const ProsePassage = z.object({
   kind: z.literal('prose'),
@@ -102,7 +104,9 @@ export const Section = z
   })
   .superRefine((s, ctx) => {
     const prose = (PROSE_KINDS as readonly string[]).includes(s.kind)
-    if (prose && s.passage?.kind !== 'prose') ctx.addIssue({ code: 'custom', message: '文章を扱う大問は本文を持つ' })
+    // 本文を貼る前の大問は、本文も小問も持たない
+    const beforePaste = !s.passage && s.questions.length === 0
+    if (prose && !beforePaste && s.passage?.kind !== 'prose') ctx.addIssue({ code: 'custom', message: '文章を扱う大問は本文を持つ' })
     if (s.kind === 'kanbun' && s.passage?.kind !== 'kanbun') ctx.addIssue({ code: 'custom', message: '漢文の大問は漢文の本文を持つ' })
     if (!prose && s.kind !== 'kanbun' && s.passage) ctx.addIssue({ code: 'custom', message: 'この種類の大問は本文を持たない' })
     if (s.kind === 'composition' && (s.questions.length !== 1 || s.questions[0].format !== 'composition')) ctx.addIssue({ code: 'custom', message: '作文の大問は作文の問を一つだけ持つ' })

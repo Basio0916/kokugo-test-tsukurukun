@@ -18,7 +18,8 @@ export type Converted =
 // 問い文に番号・記号を文字で書いた印（記法を使っていない）
 const WRITTEN_NUMBER = /[①-⑳]|[ア-オ][〜～-][イ-カ]|傍線部[0-9０-９一二三四五六七八九]/
 
-export function toSection(base: Section, proposal: SectionProposal, pointStep: number): Converted {
+/** subtotal は大問の配点の枠。小問の配点は、この合計になるように割り振る */
+export function toSection(base: Section, proposal: SectionProposal, pointStep: number, subtotal: number): Converted {
   if (base.passage?.kind !== 'prose') return { ok: false, errors: ['この大問は本文（文章）を持たない'] }
   const errors: string[] = []
   const label = (i: number) => `問${i + 1}`
@@ -27,7 +28,6 @@ export function toSection(base: Section, proposal: SectionProposal, pointStep: n
   if (!anchored.ok) return { ok: false, errors: anchored.errors }
   const passageText = plainText(anchored.segments)
 
-  const subtotal = base.questions.reduce((a, q) => a + (q.points ?? (q.pointsEach ?? 0) * (q.items?.length ?? 0)), 0)
   const points = allocatePoints(proposal.questions.map(q => Math.min(5, Math.max(1, q.weight))), subtotal, pointStep)
   if (!points) errors.push(`小問が多すぎて、小計${subtotal}点を${pointStep}点刻みで配れない`)
 

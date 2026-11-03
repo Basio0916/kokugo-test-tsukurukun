@@ -15,6 +15,8 @@ export const DraftRequest = z.object({
   grade: Grade,
   material: z.string().min(1),
   pointStep: PointStep,
+  // 大問の配点の枠。小問の配点はこの合計になるように割り振る
+  subtotal: z.number().positive(),
   section: Section,
 })
 export type DraftRequest = z.infer<typeof DraftRequest>
@@ -45,12 +47,11 @@ async function ask(client: Anthropic, content: string) {
 }
 
 export async function draftSection(request: DraftRequest, client = new Anthropic()): Promise<DraftResponse> {
-  const { grade, material, pointStep, section } = request
+  const { grade, material, pointStep, subtotal, section } = request
   const group = findGroup(grade, material)
   if (!group) return { ok: false, errors: [`単元データに「${material}」がありません`] }
   if (section.passage?.kind !== 'prose') return { ok: false, errors: ['この大問は本文（文章）を持たない'] }
 
-  const subtotal = section.questions.reduce((a, q) => a + (q.points ?? (q.pointsEach ?? 0) * (q.items?.length ?? 0)), 0)
   const first = userPrompt({
     grade, material, pointStep, subtotal,
     standards: group.standards.map(code => ({ code, text: standardText(grade, code) ?? '' })),
@@ -65,7 +66,7 @@ export async function draftSection(request: DraftRequest, client = new Anthropic
     const started = Date.now()
     const answer = await ask(client, content)
     if (!answer.proposal) return { ok: false, errors: answer.errors }
-    const converted = toSection(section, answer.proposal, pointStep)
+    const converted = toSection(section, answer.proposal, pointStep, subtotal)
     const { input_tokens, output_tokens } = answer.usage
     console.info(`[draft-section] ${model()} ${material} 試行${attempt + 1} ${Date.now() - started}ms 入力${input_tokens} 出力${output_tokens} ${converted.ok ? '通過' : converted.errors.join(' / ')}`)
     if (converted.ok) {
