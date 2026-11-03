@@ -15,8 +15,8 @@ type Props = PaperActions & {
   onTooWide?: (sectionIds: string[]) => void
 }
 
-export function Paper({ test, allotments, onOpenPassage, onTooWide }: Props) {
-  const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage }), [test, allotments, onOpenPassage])
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, onTooWide }: Props) {
+  const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji }), [test, allotments, onOpenPassage, onOpenKanji])
   const measureRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
   const [pages, setPages] = useState<number[][] | null>(null)

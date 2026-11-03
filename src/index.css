@@ -93,6 +93,11 @@ body {
 
 .ai-section { flex-basis: 100%; }
 
+.start-sub { margin: 8px 0 4px; font-size: 14px; color: #5a6375; }
+.kanji-candidates { margin: 0 0 10px; padding: 8px 10px; border: 1px solid #d2d8e1; border-radius: 6px; }
+.kanji-candidates label { display: inline-flex; gap: 4px; align-items: center; margin: 0 14px 4px 0; }
+.kanji-candidates p { margin: 0; }
+
 /* AI と作る操作と、提案の理由。紙面の外に置く */
 .ai-panel {
   display: flex;

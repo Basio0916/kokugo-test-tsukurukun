@@ -16,7 +16,7 @@ export type Converted =
   | { ok: false; errors: string[] }
 
 // 問い文に番号・記号を文字で書いた印（記法を使っていない）
-const WRITTEN_NUMBER = /[①-⑳]|[ア-オ][〜～-][イ-カ]|傍線部[0-9０-９一二三四五六七八九]/
+export const WRITTEN_NUMBER = /[①-⑳]|[ア-オ][〜～-][イ-カ]|傍線部[0-9０-９一二三四五六七八九]/
 
 /** subtotal は大問の配点の枠。小問の配点は、この合計になるように割り振る */
 export function toSection(base: Section, proposal: SectionProposal, pointStep: number, subtotal: number): Converted {

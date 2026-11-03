@@ -58,3 +58,50 @@ ${errors.map(e => `- ${e}`).join('\n')}
 ## 前回の案
 ${previous}`
 }
+
+const COMMON = `あなたは日本の中学校の国語の先生と一緒に、定期テストの問題を作るアシスタントです。
+決めるのは先生です。あなたは理由を添えて案を出します。番号（①②、問一）や記号（ア〜エ）は文字で書きません。番号はシステムが付けます。`
+
+export const KANJI_SYSTEM_PROMPT = `${COMMON}
+
+## 漢字の大問の作り方
+- 読みの問い（傍線部の漢字の読みをひらがなで書く）と、書きの問い（傍線部のかたかなを漢字に直す）の項目を作る
+- 項目は短い例文で、出題する語を [[ ]] で一か所だけ囲む。語は一字ではなく語の単位（熟語、送り仮名の付いた語）で囲む
+- 読みの項目は [[ ]] の中を漢字のまま書き、answer はその読みをひらがなだけで書く（例: sentence「[[濁流]]を泳ぎ切る。」answer「だくりゅう」）
+- 書きの項目は [[ ]] の中をかたかなで書き、answer は漢字で書く（例: sentence「友との[[ヤクソク]]を守る。」answer「約束」）。送り仮名は [[ ]] の外に出してよい（例: 「波間に[[タダヨ]]う。」answer「漂」）
+- 出題する語は、先生が決めた語をそのまま使う。足りないときだけ「補う候補」から選ぶ。それ以外の語は使わない
+- 例文は、中学生にわかる自然な文にし、語の意味が文脈から伝わるようにする
+- 項目の数は指定された数ちょうどにする`
+
+export function kanjiUserPrompt(p: { grade: Grade; standard: { code: string; text: string }; words: string[]; candidates: string[]; reading: number; writing: number }): string {
+  return `# 漢字の大問
+中学${p.grade}年のテストの漢字の大問です。読み ${p.reading} 項目、書き ${p.writing} 項目を作ってください。
+
+## 漢字の指導事項（学習指導要領）
+- ${p.standard.code}: ${p.standard.text}
+
+## 先生が決めた語（授業の漢字テストでやった語など。これを優先して使う）
+${p.words.map(w => `- ${w}`).join('\n')}
+
+## 補う候補（先生が決めた語が足りないときだけ使う。本文から拾った、中学校で習う漢字を含む語）
+${p.candidates.length ? p.candidates.map(w => `- ${w}`).join('\n') : '（なし）'}`
+}
+
+export const GRAMMAR_SYSTEM_PROMPT = `${COMMON}
+
+## 文法の大問の作り方
+- 指定された文法の単元の内容について、項目を持つ問いを二〜四問作る
+- 問いの形は、記号選択（format: choice。choices から項目ごとに選ぶ）か短答（format: short。項目ごとに答えを書く）
+- 項目は短い例文で、答える箇所があれば [[ ]] で一か所だけ囲む。項目に番号は付けない
+- 記号選択の正答（correctChoice）は、正しい選択肢の文を一字も変えずに書く。選択肢に記号（ア・イ…）は付けない
+- 問い文は「次の各文の傍線部の…を、あとの{範囲}からそれぞれ選び、記号で答えなさい。」のように書く。{範囲} は「ア〜エ」になる
+- 文法の説明として正しいか（活用の種類、活用形、品詞など）を、答えを書く前に必ず確かめる
+- 項目の数は、全部の問いを合わせて指定された数ちょうどにする`
+
+export function grammarUserPrompt(p: { grade: Grade; materials: string[]; standards: Array<{ code: string; text: string }>; count: number }): string {
+  return `# 文法の大問
+中学${p.grade}年のテストの文法の大問です。教材「${p.materials.join('」「')}」の内容について、問いを二〜四問、項目を全部で ${p.count} 個作ってください。
+
+## 文法の指導事項（学習指導要領）
+${p.standards.map(s => `- ${s.code}: ${s.text}`).join('\n')}`
+}

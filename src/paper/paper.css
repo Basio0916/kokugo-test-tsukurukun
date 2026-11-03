@@ -144,3 +144,5 @@
 @media print {
   .passage-slot { color: transparent; background: none; border: 1px solid #141414; }
 }
+
+.kanji-slot { block-size: 6em; }

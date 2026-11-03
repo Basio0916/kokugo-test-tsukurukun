@@ -99,11 +99,13 @@ type HeaderProps = {
   // 本文を貼る前の大問の配点の枠と、本文欄を押したとき（画面だけ）
   allotment?: number
   onOpenPassage?: () => void
+  // 小問のない漢字の大問の「出題する漢字を選ぶ」欄を押したとき（画面だけ）
+  onOpenKanji?: () => void
 }
 
 const PROSE_KINDS: Section['kind'][] = ['literary', 'expository', 'classical']
 
-export function SectionHeader({ section, index, numbers, allotment, onOpenPassage }: HeaderProps) {
+export function SectionHeader({ section, index, numbers, allotment, onOpenPassage, onOpenKanji }: HeaderProps) {
   const p = section.passage
   const points = section.questions.length === 0 && allotment !== undefined ? allotment : sectionPoints(section)
   return (
@@ -113,6 +115,11 @@ export function SectionHeader({ section, index, numbers, allotment, onOpenPassag
       {!p && PROSE_KINDS.includes(section.kind) && (
         <button type="button" className="passage passage-slot" onClick={onOpenPassage} disabled={!onOpenPassage}>
           本文欄<span>（押して本文を貼り付けてください）</span>
+        </button>
+      )}
+      {section.kind === 'kanji' && section.questions.length === 0 && (
+        <button type="button" className="passage passage-slot kanji-slot" onClick={onOpenKanji} disabled={!onOpenKanji}>
+          出題する漢字を選ぶ<span>（漢字テストでやった語などを入れてください）</span>
         </button>
       )}
       {p?.kind === 'kanbun' && <Kanbun passage={p} numbers={numbers} />}

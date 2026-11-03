@@ -17,6 +17,7 @@ const SHORT_KINDS: Section['kind'][] = ['kanji', 'grammar']
 export type PaperActions = {
   allotments?: Record<string, number>
   onOpenPassage?: (sectionId: string) => void
+  onOpenKanji?: (sectionId: string) => void
 }
 
 export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
@@ -30,6 +31,7 @@ export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
         section={section} index={si} numbers={numbers}
         allotment={actions.allotments?.[section.id]}
         onOpenPassage={actions.onOpenPassage && (() => actions.onOpenPassage!(section.id))}
+        onOpenKanji={actions.onOpenKanji && (() => actions.onOpenKanji!(section.id))}
       />
     )
     blocks.push({ key: `${section.id}:h`, node: header, newPage, keepWithNext: true })
