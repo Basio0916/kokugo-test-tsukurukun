@@ -1,20 +1,27 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { plainText } from './ai/anchor'
-import { gradeOf, requestDraft, requestGrammar, requestKanji, type DraftStates } from './ai/client'
+import { defaultPoints, type Idea } from './ai/addQuestion'
+import { draftable, gradeOf, materialOf, requestDraft, requestGrammar, requestIdeas, requestKanji, type DraftStates } from './ai/client'
 import type { DraftResponse } from './ai/draft'
 import { AiDraftPanel } from './AiDraft'
+import { AddQuestion } from './edit/AddQuestion'
+import { blankQuestion, type OwnFormat } from './edit/addQuestionModel'
 import { AddSection, InstructionEditor, TestInfoEditor, type NewSection } from './edit/Dialogs'
-import { appendSection, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction } from './edit/operations'
+import { MarkQuestion } from './edit/MarkQuestion'
+import { readPassageSelection, type PassageSelection } from './edit/selection'
+import { appendSection, insertQuestion, moveQuestion, moveSection, newSectionId, removeQuestion, removeSection, replaceQuestion, setInstruction } from './edit/operations'
 import { QuestionEditor } from './edit/QuestionEditor'
 import { rescalePoints } from './edit/rescale'
 import type { QuestionAction, SectionAction } from './edit/Tools'
 import { TotalsBar } from './edit/TotalsBar'
 import { markNumbers, sectionPoints } from './model/derive'
-import type { ProsePassage, Section, Test } from './model/schema'
+import type { ProsePassage, Question, Section, Test } from './model/schema'
 import { kansuji } from './paper/kansuji'
 import { Paper } from './paper/Paper'
 import { longTest } from './sample/longTest'
 import { sampleTest } from './sample/sampleTest'
+import { findGroup } from './catalog/catalog'
+import { kanjiStandardOf } from './start/kinds'
 import { kanjiCandidates } from './start/kanjiCandidates'
 import { KanjiWords } from './start/KanjiWords'
 import { PastePassage } from './start/PastePassage'
@@ -48,6 +55,18 @@ export function App() {
   const [adding, setAdding] = useState(false)
   const [totalsMessage, setTotalsMessage] = useState<string | null>(null)
   const [tooWide, setTooWide] = useState<string[]>([])
+  // 小問を足す: 足し方を選んでいる位置、入れる前に直している案・自分で書いている小問、本文の選択、線を引いて作る箇所
+  const [addingAt, setAddingAt] = useState<{ sectionId: string; at: number } | null>(null)
+  const [reviewing, setReviewing] = useState<{ sectionId: string; at: number; question: Question; section?: Section; note?: string; own: boolean } | null>(null)
+  const [selected, setSelected] = useState<PassageSelection | null>(null)
+  const [marking, setMarking] = useState<PassageSelection | null>(null)
+
+  // 紙面の本文を選ぶと「傍線を引いて小問を作る」を出す
+  useEffect(() => {
+    const onUp = () => setTimeout(() => setSelected(readPassageSelection()), 0)
+    document.addEventListener('mouseup', onUp)
+    return () => document.removeEventListener('mouseup', onUp)
+  }, [])
 
   const openPassage = useCallback((sectionId: string) => setPasting(sectionId), [])
   const openKanji = useCallback((sectionId: string) => setChoosingKanji(sectionId), [])
@@ -130,7 +149,36 @@ export function App() {
     unconfirm(sectionId)
   }, [])
 
-  const editing = useMemo(() => ({ confirmed, onSection, onQuestion }), [confirmed, onSection, onQuestion])
+  const onAddQuestion = useCallback((sectionId: string, at: number) => setAddingAt({ sectionId, at }), [])
+  const editing = useMemo(() => ({ confirmed, onSection, onQuestion, onAddQuestion }), [confirmed, onSection, onQuestion, onAddQuestion])
+
+  // 小問を at の位置に入れる。AI の案で本文に傍線部が増えたときは、大問をその本文に置き換えてから入れる
+  function putQuestion(sectionId: string, at: number, question: Question, section?: Section): string[] {
+    if (!test) return []
+    const r = insertQuestion(test, sectionId, at, question, section)
+    if (!r.ok) return r.errors
+    setTest(r.test)
+    unconfirm(sectionId)
+    return []
+  }
+
+  // 線を引いて作った小問は、本文の順になる位置に入れる（傍線部の番号が問の順に並ぶように）
+  function positionByMark(idea: Idea): number {
+    const numbers = markNumbers({ ...idea.section, questions: [...idea.section.questions, idea.question] })
+    const first = (q: Question) => Math.min(...q.stem.flatMap(s => (s.kind === 'markRef' && numbers.has(s.id) ? [numbers.get(s.id)!] : [])))
+    const mine = first(idea.question)
+    return idea.section.questions.filter(q => first(q) < mine).length
+  }
+
+  // 自分で書く小問の既定の観点と指導事項
+  function defaultsFor(section: Section): { kanten: Question['kanten']; standard: string } {
+    const grade = test && gradeOf(test)
+    if (section.kind === 'kanji') return { kanten: 'knowledge', standard: grade ? kanjiStandardOf(grade) : '(1)ウ' }
+    if (section.kind === 'grammar') return { kanten: 'knowledge', standard: section.questions[0]?.standard ?? '(1)オ' }
+    const material = materialOf(section)
+    const group = grade && material ? findGroup(grade, material) : undefined
+    return { kanten: 'thinking', standard: group?.standards.find(c => c.startsWith('C(1)')) ?? section.questions[0]?.standard ?? 'C(1)イ' }
+  }
 
   function addSection(added: NewSection) {
     if (!test) return
@@ -240,6 +288,75 @@ export function App() {
           onClose={() => setEditingInfo(false)}
         />
       )}
+      {selected && !marking && draftable(test.sections.find(s => s.id === selected.sectionId) ?? test.sections[0]) && (
+        <button
+          type="button" className="mark-float"
+          // 選んだところの下に出す。画面の外に出ないように収める
+          style={{ left: Math.max(8, Math.min(selected.x, window.innerWidth - 220)), top: Math.max(8, Math.min(selected.y + 6, window.innerHeight - 48)) }}
+          onMouseDown={e => e.preventDefault()}
+          onClick={() => { setMarking(selected); setSelected(null) }}
+        >傍線を引いて小問を作る</button>
+      )}
+      {marking && (() => {
+        const section = test.sections.find(s => s.id === marking.sectionId)!
+        return (
+          <MarkQuestion
+            title={`${labelOf(section.id)}の本文に線を引いて小問を作る`}
+            quote={marking.quote} before={marking.before}
+            request={how => requestIdeas(test, section, subtotalOf(section), how)}
+            onReview={idea => {
+              setMarking(null)
+              setReviewing({ sectionId: section.id, at: positionByMark(idea), question: idea.question, section: idea.section, note: idea.adjustments && `AI が整えたところ: ${idea.adjustments}`, own: false })
+            }}
+            onClose={() => setMarking(null)}
+          />
+        )
+      })()}
+      {addingAt && (() => {
+        const section = test.sections.find(s => s.id === addingAt.sectionId)!
+        return (
+          <AddQuestion
+            title={`${labelOf(section.id)}の問${kansuji(addingAt.at + 1)}として小問を追加`}
+            section={section}
+            aiAvailable={draftable(section)}
+            request={how => requestIdeas(test, section, subtotalOf(section), how)}
+            onPick={idea => {
+              const errors = putQuestion(section.id, addingAt.at, idea.question, idea.section)
+              if (errors.length) return window.alert(errors.join('\n'))
+              setAddingAt(null)
+            }}
+            onReview={idea => {
+              setReviewing({ sectionId: section.id, at: addingAt.at, question: idea.question, section: idea.section, own: false })
+              setAddingAt(null)
+            }}
+            onOwn={(format: OwnFormat) => {
+              const { kanten, standard } = defaultsFor(section)
+              const id = `${section.id}-w${Date.now().toString(36)}`
+              setReviewing({ sectionId: section.id, at: addingAt.at, question: blankQuestion(format, id, defaultPoints(section, subtotalOf(section), test.info.pointStep), standard, kanten), own: true })
+              setAddingAt(null)
+            }}
+            onClose={() => setAddingAt(null)}
+          />
+        )
+      })()}
+      {reviewing && (() => {
+        const section = reviewing.section ?? test.sections.find(s => s.id === reviewing.sectionId)!
+        return (
+          <QuestionEditor
+            title={`${labelOf(reviewing.sectionId)}の問${kansuji(reviewing.at + 1)}として入れる小問`}
+            question={reviewing.question}
+            numbers={markNumbers({ ...section, questions: [...section.questions, reviewing.question] })}
+            submitLabel="この問題で入れる"
+            note={reviewing.note}
+            onSubmit={q => {
+              const errors = putQuestion(reviewing.sectionId, reviewing.at, q, reviewing.section)
+              if (!errors.length) setReviewing(null)
+              return errors
+            }}
+            onClose={() => setReviewing(null)}
+          />
+        )
+      })()}
       {adding && gradeOf(test) && (
         <AddSection grade={gradeOf(test)!} onSubmit={addSection} onClose={() => setAdding(false)} />
       )}

@@ -25,6 +25,8 @@ export type PaperActions = {
     confirmed: Set<string>
     onSection: (sectionId: string, action: SectionAction | 'instruction') => void
     onQuestion: (sectionId: string, questionId: string, action: QuestionAction) => void
+    // 小問のすき間の「＋ 小問を追加」。at は差し込む位置（0 なら問一の前）
+    onAddQuestion: (sectionId: string, at: number) => void
   }
 }
 
@@ -45,10 +47,15 @@ export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
     )
     const editing = actions.editing
     const name = `【${kansuji(si + 1)}】`
+    // 本文を貼る前の大問と作文には、小問を足さない
+    const addable = section.kind !== 'composition' && !(section.questions.length === 0 && !section.passage && section.kind !== 'kanji' && section.kind !== 'grammar')
+    const addButton = (at: number) => editing && addable && (
+      <button type="button" className="blk-add" onClick={() => editing.onAddQuestion(section.id, at)} aria-label={`${name}の問${kansuji(at + 1)}として小問を追加`}>＋ 小問を追加</button>
+    )
     blocks.push({
       key: `${section.id}:h`,
       node: editing
-        ? <>{header}<SectionTools name={name} confirmed={editing.confirmed.has(section.id)} onAction={a => editing.onSection(section.id, a)} /></>
+        ? <>{header}<SectionTools name={name} confirmed={editing.confirmed.has(section.id)} onAction={a => editing.onSection(section.id, a)} />{addButton(0)}</>
         : header,
       newPage,
       keepWithNext: true,
@@ -58,7 +65,7 @@ export function buildBlocks(test: Test, actions: PaperActions = {}): Block[] {
       blocks.push({
         key: `${section.id}:${q.id}`,
         node: editing
-          ? <>{view}<QuestionTools name={`${name}問${kansuji(qi + 1)}`} onAction={a => editing.onQuestion(section.id, q.id, a)} /></>
+          ? <>{view}<QuestionTools name={`${name}問${kansuji(qi + 1)}`} onAction={a => editing.onQuestion(section.id, q.id, a)} />{addButton(qi + 1)}</>
           : view,
         newPage: false,
         keepWithNext: false,

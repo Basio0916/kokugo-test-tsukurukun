@@ -2,7 +2,7 @@ import { stem } from '../model/notation.js'
 import { Section, type Question, type StemSegment } from '../model/schema.js'
 import { anchorMarks, plainText } from './anchor.js'
 import { allocatePoints } from './points.js'
-import type { SectionProposal } from './proposal.js'
+import type { ProposedQuestion, SectionProposal } from './proposal.js'
 
 /*
  * AI の返答を、テストのデータの大問に組み立てて検証する。
@@ -31,32 +31,10 @@ export function toSection(base: Section, proposal: SectionProposal, pointStep: n
   const points = allocatePoints(proposal.questions.map(q => Math.min(5, Math.max(1, q.weight))), subtotal, pointStep)
   if (!points) errors.push(`小問が多すぎて、小計${subtotal}点を${pointStep}点刻みで配れない`)
 
-  const questions = proposal.questions.map((p, i): Question => {
-    if (WRITTEN_NUMBER.test(p.stem)) errors.push(`${label(i)}: 問い文に番号や記号を文字で書いている（{傍線部:A}・{範囲} の記法を使う）`)
-    const segments: StemSegment[] = stem(p.stem).map(s => {
-      if (s.kind !== 'markRef') return s
-      const id = anchored.ids.get(s.id)
-      if (!id) errors.push(`${label(i)}: 問い文が参照する傍線部${s.id}が marks にない`)
-      return { ...s, id: id ?? s.id }
-    })
-    // 正答は番号ではなく選択肢の文で受け取る（番号だと 0 と 1 のどちらから数えたかで一つずれても、検証で見つからない）
-    const correct = p.correctChoice === undefined ? -1 : (p.choices ?? []).indexOf(p.correctChoice)
-    if (p.format === 'choice' && correct === -1) errors.push(`${label(i)}: 正答（correctChoice）が選択肢のどれとも一致しない（選択肢の文をそのまま書く）`)
-    if (p.format === 'extract' && p.answer && !passageText.includes(p.answer)) errors.push(`${label(i)}: 抜き出しの答え「${p.answer}」が本文にない`)
-    if (p.format !== 'choice' && !p.answer) errors.push(`${label(i)}: 正答・模範解答（answer）がない`)
-    return {
-      id: `${base.id}-q${i + 1}`,
-      format: p.format,
-      stem: segments,
-      ...(p.choices && { choices: p.choices }),
-      ...(correct !== -1 && { correct }),
-      ...(p.charLimit !== undefined && { charLimit: p.charLimit }),
-      ...(p.answer && { answer: p.answer }),
-      ...(p.rubric && { rubric: p.rubric }),
-      points: points?.[i] ?? pointStep,
-      kanten: p.kanten,
-      standard: p.standard,
-    }
+  const questions = proposal.questions.map((p, i) => {
+    const built = buildQuestion(p, `${base.id}-q${i + 1}`, label(i), anchored.ids, passageText, points?.[i] ?? pointStep)
+    errors.push(...built.errors)
+    return built.question
   })
 
   const parsed = Section.safeParse({ ...base, passage: { ...base.passage, segments: anchored.segments }, questions })
@@ -71,5 +49,38 @@ export function toSection(base: Section, proposal: SectionProposal, pointStep: n
     ok: true,
     section: parsed.data,
     rationales: proposal.questions.map((p, i) => ({ questionId: questions[i].id, rationale: p.rationale, standard: p.standard })),
+  }
+}
+
+/** AI が提案した小問一つを、テストのデータの小問に組み立てる。ids は AI の傍線部のキー → システムの識別子 */
+export function buildQuestion(p: ProposedQuestion, id: string, label: string, ids: Map<string, string>, passageText: string, points: number): { question: Question; errors: string[] } {
+  const errors: string[] = []
+  if (WRITTEN_NUMBER.test(p.stem)) errors.push(`${label}: 問い文に番号や記号を文字で書いている（{傍線部:A}・{範囲} の記法を使う）`)
+  const segments: StemSegment[] = stem(p.stem).map(s => {
+    if (s.kind !== 'markRef') return s
+    const markId = ids.get(s.id)
+    if (!markId) errors.push(`${label}: 問い文が参照する傍線部${s.id}が marks にない`)
+    return { ...s, id: markId ?? s.id }
+  })
+  // 正答は番号ではなく選択肢の文で受け取る（番号だと 0 と 1 のどちらから数えたかで一つずれても、検証で見つからない）
+  const correct = p.correctChoice === undefined ? -1 : (p.choices ?? []).indexOf(p.correctChoice)
+  if (p.format === 'choice' && correct === -1) errors.push(`${label}: 正答（correctChoice）が選択肢のどれとも一致しない（選択肢の文をそのまま書く）`)
+  if (p.format === 'extract' && p.answer && !passageText.includes(p.answer)) errors.push(`${label}: 抜き出しの答え「${p.answer}」が本文にない`)
+  if (p.format !== 'choice' && !p.answer) errors.push(`${label}: 正答・模範解答（answer）がない`)
+  return {
+    errors,
+    question: {
+      id,
+      format: p.format,
+      stem: segments,
+      ...(p.choices && { choices: p.choices }),
+      ...(correct !== -1 && { correct }),
+      ...(p.charLimit !== undefined && { charLimit: p.charLimit }),
+      ...(p.answer && { answer: p.answer }),
+      ...(p.rubric && { rubric: p.rubric }),
+      points,
+      kanten: p.kanten,
+      standard: p.standard,
+    },
   }
 }

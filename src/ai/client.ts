@@ -3,6 +3,7 @@ import type { Section, Test } from '../model/schema'
 import type { DraftedRationale, DraftRequest, DraftResponse } from './draft'
 import type { GrammarDraftRequest } from './grammarDraft'
 import type { KanjiDraftRequest } from './kanjiDraft'
+import type { QuestionDraftRequest, QuestionDraftResponse } from './questionDraft'
 
 /* ブラウザから大問の生成を頼む。サーバー側の関数（/api/draft-section）を呼ぶ */
 
@@ -28,12 +29,12 @@ export function draftable(section: Section): boolean {
   return (section.kind === 'literary' || section.kind === 'expository') && materialOf(section) !== undefined
 }
 
-async function post(path: string, body: unknown): Promise<DraftResponse> {
+async function post<R = DraftResponse>(path: string, body: unknown): Promise<R> {
   try {
     const res = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
-    return (await res.json()) as DraftResponse
+    return (await res.json()) as R
   } catch {
-    return { ok: false, errors: ['サーバーに接続できませんでした'] }
+    return { ok: false, errors: ['サーバーに接続できませんでした'] } as R
   }
 }
 
@@ -52,4 +53,10 @@ export function requestKanji(test: Test, section: Section, subtotal: number, wor
 export function requestGrammar(test: Test, section: Section, subtotal: number, materials: string[]): Promise<DraftResponse> {
   const body: GrammarDraftRequest = { grade: gradeOf(test)!, materials, pointStep: test.info.pointStep, subtotal, section }
   return post('/api/draft-grammar', body)
+}
+
+/** 小問を一つ足す案を頼む（おすすめ・形式を選ぶ・線を引く） */
+export function requestIdeas(test: Test, section: Section, subtotal: number, how: QuestionDraftRequest['how']): Promise<QuestionDraftResponse> {
+  const body: QuestionDraftRequest = { grade: gradeOf(test)!, material: materialOf(section)!, pointStep: test.info.pointStep, subtotal, section, how }
+  return post<QuestionDraftResponse>('/api/draft-question', body)
 }
