@@ -115,3 +115,31 @@ export function toClassicalSection(base: Section, proposal: ClassicalProposal, p
     ...(proposal.suggestions?.length && { suggestions: proposal.suggestions }),
   }
 }
+
+/**
+ * 傍線部を残したまま、地の文の親字にルビを付ける（本文を直して外れたルビの付け直し用）。すでにルビのある字と、
+ * blocked の傍線部（仮名遣いを問う傍線部）の中には付けない。親字が見つからない・読みがひらがなでないものは理由を返す
+ */
+export function applyRuby(segments: ProseSegment[], ruby: ClassicalProposal['ruby'], blocked: Set<string> = new Set()): { segments: ProseSegment[]; errors: string[] } {
+  const errors: string[] = []
+  let out = segments
+  for (const r of ruby) {
+    if (!KANJI.test(r.base)) { errors.push(`ルビの親字「${r.base}」に漢字がない`); continue }
+    if (!HIRAGANA.test(r.reading)) { errors.push(`ルビ「${r.base}（${r.reading}）」の読みがひらがなだけでない`); continue }
+    let found = false
+    const split = <T extends ProseSegment>(s: T): Array<T | Inline> => {
+      if (s.kind !== 'text' || !s.text.includes(r.base)) return [s]
+      found = true
+      return s.text.split(r.base).flatMap((part, i): Inline[] => [
+        ...(i > 0 ? [{ kind: 'ruby' as const, base: r.base, reading: r.reading }] : []),
+        ...(part ? [{ kind: 'text' as const, text: part }] : []),
+      ])
+    }
+    out = out.flatMap((s): ProseSegment[] => {
+      if (s.kind === 'mark') return [blocked.has(s.id) ? s : { ...s, children: s.children.flatMap(c => split(c) as typeof s.children) }]
+      return split(s) as ProseSegment[]
+    })
+    if (!found) errors.push(`ルビの親字「${r.base}」が、ルビの付いていない本文の中にない（仮名遣いを問う傍線部の中にも付けない）`)
+  }
+  return { segments: out, errors }
+}

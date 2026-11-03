@@ -76,8 +76,8 @@ export function readLine(notation: string, white: string): Result<{ chars: Kanbu
   return { ok: true, chars }
 }
 
-// 句の字を、元の句の傍線部と同じ位置で包み直す
-function rewrap(old: KanbunToken[], chars: KanbunChar[]): KanbunToken[] {
+/** 句の字を、元の句の傍線部と同じ位置で包み直す（字の並びは同じ） */
+export function rewrap(old: KanbunToken[], chars: KanbunChar[]): KanbunToken[] {
   const out: KanbunToken[] = []
   let i = 0
   for (const t of old) {

@@ -1,4 +1,5 @@
 import { markNumbers, markRefsOf } from '../model/derive.js'
+import { lineText } from '../model/kanbun.js'
 import type { ProseSegment, Section } from '../model/schema.js'
 import { circled } from '../paper/kansuji.js'
 
@@ -185,10 +186,19 @@ export function rebuildPassage(segments: ProseSegment[], text: string): Rebuilt 
 
 export type Issue = { key: string; text: string }
 
-const markText = (section: Section, id: string) => {
-  if (section.passage?.kind !== 'prose') return undefined
-  const m = section.passage.segments.find(s => s.kind === 'mark' && s.id === id)
-  return m?.kind === 'mark' ? passageToText(m.children) : undefined
+// 傍線部の文字（文章はルビの親字、漢文は送り仮名と返り点を除いた字）
+const markTexts = (section: Section): Map<string, string> => {
+  const p = section.passage
+  if (p?.kind === 'prose') return new Map(p.segments.flatMap(s => (s.kind === 'mark' ? [[s.id, passageToText(s.children)] as const] : [])))
+  if (p?.kind === 'kanbun') return new Map(p.lines.flat().flatMap(t => (t.kind === 'mark' ? [[t.id, lineText(t.children)] as const] : [])))
+  return new Map()
+}
+
+// 本文の文字（段落・句の区切りは除く）
+const plainOf = (section: Section) => {
+  const p = section.passage
+  if (p?.kind === 'prose') return passageToText(p.segments).replace(/\n/g, '')
+  return p?.kind === 'kanbun' ? p.lines.map(lineText).join('') : ''
 }
 
 /**
@@ -196,18 +206,19 @@ const markText = (section: Section, id: string) => {
  * acked は小問ごとの、先生が「このままにする」とした key。
  */
 export function passageIssues(before: Section, after: Section, acked: Record<string, string[]> = {}): Record<string, Issue[]> {
-  if (before.passage?.kind !== 'prose' || after.passage?.kind !== 'prose') return {}
-  const oldText = passageToText(before.passage.segments).replace(/\n/g, '')
-  const newText = passageToText(after.passage.segments).replace(/\n/g, '')
+  if (!before.passage || before.passage.kind !== after.passage?.kind) return {}
+  const oldText = plainOf(before)
+  const newText = plainOf(after)
   const oldNumbers = markNumbers(before), newNumbers = markNumbers(after)
-  const oldMarks = new Set(before.passage.segments.flatMap(s => (s.kind === 'mark' ? [passageToText(s.children)] : [])))
+  const oldMarkTexts = markTexts(before), newMarkTexts = markTexts(after)
+  const oldMarks = new Set(oldMarkTexts.values())
   const result: Record<string, Issue[]> = {}
   for (const q of after.questions) {
     const issues: Issue[] = []
     for (const id of markRefsOf(q)) {
-      const was = markText(before, id)
+      const was = oldMarkTexts.get(id)
       if (was === undefined) continue
-      const now = markText(after, id)
+      const now = newMarkTexts.get(id)
       if (now === undefined) issues.push({ key: `gone:${id}`, text: `傍線部${circled(oldNumbers.get(id) ?? 0)}「${was}」が本文から消えました` })
       else if (now !== was) issues.push({ key: `changed:${id}:${now}`, text: `傍線部${circled(newNumbers.get(id) ?? 0)}の文字が「${was}」から「${now}」に変わりました` })
     }

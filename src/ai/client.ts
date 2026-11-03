@@ -1,5 +1,6 @@
 import type { Grade } from '../catalog/schema'
 import type { Section, Test } from '../model/schema'
+import type { AnnotateRequest, AnnotateResponse } from './annotate'
 import type { ChatRequest, ChatResponse, Selection } from './chat'
 import type { CompositionDraftRequest } from './compositionDraft'
 import type { DraftRequest, DraftResponse } from './draft'
@@ -98,4 +99,9 @@ export function requestChat(test: Test, selection: Selection | undefined, histor
 /** 本文を直したあと、選択肢・模範解答と本文の食い違いを AI に確かめてもらう */
 export function requestPassageCheck(body: PassageCheckRequest): Promise<PassageCheckResponse> {
   return post<PassageCheckResponse>('/api/check-passage', body)
+}
+
+/** 本文を直して外れた漢文の訓読・古文のルビを付け直してもらう */
+export function requestAnnotate(body: AnnotateRequest): Promise<AnnotateResponse> {
+  return post<AnnotateResponse>('/api/annotate', body)
 }
