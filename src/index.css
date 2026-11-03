@@ -1,0 +1,25 @@
+body {
+  margin: 0;
+  background: #e8ebf0;
+  color: #1b2130;
+  font-family: "BIZ UDPGothic", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+}
+
+.app-bar {
+  display: flex;
+  gap: 16px;
+  align-items: baseline;
+  padding: 10px 16px;
+  background: #fff;
+  border-bottom: 1px solid #d2d8e1;
+}
+
+.app-bar span {
+  font-size: 13px;
+  color: #5a6375;
+}
+
+@media print {
+  body { background: #fff; }
+  .app-bar { display: none; }
+}
