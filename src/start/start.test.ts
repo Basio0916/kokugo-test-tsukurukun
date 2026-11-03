@@ -5,7 +5,7 @@ import { itemPlan } from '../ai/items'
 import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, materialsOf } from './kinds'
 import { kanjiCandidates, splitWords } from './kanjiCandidates'
 import { pastedKanbun, pastedPassage, workOf } from './passage'
-import { buildSkeleton } from './skeleton'
+import { blankComposition, buildSkeleton } from './skeleton'
 
 const info = { year: '令和八年度', name: '学年末テスト', grade: '二年', fullMarks: 100, minutes: 50, pointStep: 1 as const }
 
@@ -151,5 +151,13 @@ describe('漢文の白文を貼る', () => {
     expect(p.lines.map(l => l.map(t => (t.kind === 'char' ? t.char : '')).join(''))).toEqual(['春眠不覚暁', '処処聞啼鳥', '夜来風雨声', '花落知多少'])
     expect(p.notes).toEqual(['＊啼鳥……鳴いている鳥。', '＊夜来……昨夜から。'])
     expect(pastedKanbun('春暁', '', ' \n ', '')).toBeNull()
+  })
+})
+
+describe('加えた直後の作文の大問', () => {
+  it('決まった条件の作文の問を一つ持ち、テストのデータとして正しい', () => {
+    const s = blankComposition('sakubun2', 10)
+    expect(s.questions[0]).toMatchObject({ format: 'composition', charLimit: 200, points: 10, conditions: ['二段落で書くこと。', '百六十字以上、二百字以内で書くこと。'] })
+    expect(Test.safeParse({ info, sections: [s] }).success).toBe(true)
   })
 })

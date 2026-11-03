@@ -32,6 +32,17 @@ export function instructionFor(kind: Section['kind']): string {
   return '次の文章を読んで、あとの問いに答えなさい。'
 }
 
+/** 加えた直後の作文の大問（AI が題と条件を作るまでの、決まった条件の作文の問） */
+export function blankComposition(id: string, points: number): Section {
+  return {
+    id, kind: 'composition', instruction: 'あなたの考えを、次の条件にしたがって書きなさい。',
+    questions: [{
+      id: `${id}-c1`, format: 'composition', stem: [], charLimit: 200, points, kanten: 'thinking', standard: 'C(1)オ',
+      conditions: ['二段落で書くこと。', '百六十字以上、二百字以内で書くこと。'],
+    }],
+  }
+}
+
 export const KANJI_SECTION_ID = 'kanji'
 export const GRAMMAR_SECTION_ID = 'grammar'
 

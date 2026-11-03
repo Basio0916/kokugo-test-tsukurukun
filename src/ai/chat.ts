@@ -177,7 +177,7 @@ export function toChatResult(test: Test, answer: ChatAnswer): Checked<ChatResult
     case 'redraftSection': {
       const section = sectionOf(change.sectionId)
       if (!section) return { ok: false, errors: [`大問 ${change.sectionId} がテストにない`] }
-      if (!redraftable(section)) return { ok: false, errors: [`大問 ${change.sectionId} は本文を持つ文章・古文・漢文の大問ではないので、作り直せない`] }
+      if (!redraftable(section)) return { ok: false, errors: [`大問 ${change.sectionId} は本文を持つ文章・古文・漢文の大問か作文の大問ではないので、作り直せない`] }
       return { ok: true, ...base, change }
     }
     case 'reorderSections': {
