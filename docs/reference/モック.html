@@ -1,0 +1,1973 @@
+<title>国語テストつくるくん</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDMincho:wght@400;700&family=BIZ+UDPGothic:wght@400;700&display=swap">
+<style>
+/* Layout: 会話（左）で相談し、紙面（右）が育っていく二画面。紙面は印刷物なのでどちらのテーマでも白地に墨色 */
+:root{
+  --bg:#E8EBF0; --surface:#FFFFFF; --surface-2:#F3F5F8; --ink:#1B2130; --muted:#5A6375; --line:#D2D8E1;
+  --accent:#2C4A8C; --accent-ink:#FFFFFF; --accent-soft:#E2E8F6;
+  --kanten-k:#2C4A8C; --kanten-s:#2F7D77;
+  --ok:#2D7A4F; --ok-soft:#E0F0E6; --warn:#995A00; --warn-soft:#F8EAD3; --danger:#A3322B;
+  --note-bg:#FFF7DF; --note-line:#E6D29C; --note-ink:#5A4512;
+  --paper:#FFFFFF; --paper-ink:#141414; --paper-ghost:#2C4A8C; --paper-ghost-bg:rgba(44,74,140,.07); --paper-flash:rgba(255,206,84,.55); --paper-sub:#EAEAEA;
+  --paper-shadow:0 1px 2px rgba(20,30,50,.14),0 10px 28px rgba(20,30,50,.10);
+  --font-ui:"BIZ UDPGothic","Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif;
+  --font-paper:"BIZ UDMincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif JP",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11141A; --surface:#1A1E26; --surface-2:#232934; --ink:#E5E9F0; --muted:#9AA4B5; --line:#2F3642;
+    --accent:#93ABEB; --accent-ink:#0E1424; --accent-soft:#26314B;
+    --kanten-k:#93ABEB; --kanten-s:#6FC3BA;
+    --ok:#7CC79A; --ok-soft:#1D3327; --warn:#E3B062; --warn-soft:#3A2D18; --danger:#F09A92;
+    --note-bg:#2E2817; --note-line:#4E4325; --note-ink:#EED9A3;
+    --paper-shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.45);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11141A; --surface:#1A1E26; --surface-2:#232934; --ink:#E5E9F0; --muted:#9AA4B5; --line:#2F3642;
+  --accent:#93ABEB; --accent-ink:#0E1424; --accent-soft:#26314B;
+  --kanten-k:#93ABEB; --kanten-s:#6FC3BA;
+  --ok:#7CC79A; --ok-soft:#1D3327; --warn:#E3B062; --warn-soft:#3A2D18; --danger:#F09A92;
+  --note-bg:#2E2817; --note-line:#4E4325; --note-ink:#EED9A3;
+  --paper-shadow:0 1px 2px rgba(0,0,0,.5),0 10px 28px rgba(0,0,0,.45);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.6}
+button,select,textarea,input{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{height:100%;display:flex;flex-direction:column;gap:10px;padding-block:10px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
+.logo{flex:none;display:grid;place-items:center;width:30px;height:30px;border:2px solid var(--accent);color:var(--accent);font-family:var(--font-paper);font-weight:700;font-size:16px;border-radius:4px}
+.brand b{font-size:16px;letter-spacing:.04em}
+.badge{flex:none;font-size:11px;padding:2px 8px;border-radius:999px;background:var(--warn-soft);color:var(--warn);font-weight:700}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer;line-height:1.3;text-align:left}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:700}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.big{padding:12px 16px;font-size:15px;width:100%;text-align:center}
+.banner{font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 12px}
+.main{flex:1;min-height:0;overflow:auto}
+
+/* 範囲選択 */
+.scope{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,360px);gap:14px;align-items:start;max-width:1120px;margin:0 auto}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px}
+.h1{font-size:20px;margin:0 0 4px;text-wrap:balance}
+.h2{font-size:15px;margin:0 0 10px}
+.h3{font-size:13px;margin:16px 0 8px}
+.lead{margin:0 0 14px;color:var(--muted)}
+.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.field{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.field select,.field input{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:14px;color:var(--ink);min-width:0;width:100%}
+.field .unit-in{display:flex;align-items:center;gap:6px;color:var(--ink);font-size:14px}
+.units{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.ug{border:1px solid var(--line);border-radius:10px;padding:6px 12px 8px;margin:0;min-width:0}
+.ug legend{font-size:12px;color:var(--muted);padding:0 4px;font-weight:700}
+.unit{display:flex;align-items:flex-start;gap:8px;padding:5px 0;cursor:pointer}
+.unit input{margin-top:4px;accent-color:var(--accent);flex:none}
+.unit .u-b{display:flex;flex-direction:column;min-width:0}
+.unit .u-meta{font-size:11.5px;color:var(--muted)}
+.unit .u-code{font-size:11px;color:var(--accent);font-weight:700}
+.unit.na .u-name{color:var(--muted)}
+.fine{font-size:12px;color:var(--muted);margin:12px 0 0}
+.toast{margin:10px 0 0;padding:8px 12px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:13px}
+.skel{list-style:none;margin:0 0 14px;padding:0;display:flex;flex-direction:column;gap:6px}
+.skel li{display:flex;gap:10px;align-items:baseline;padding:8px 10px;background:var(--surface-2);border-radius:8px}
+.skel .n{font-family:var(--font-paper);font-weight:700;flex:none}
+.skel .k{margin-left:auto;font-size:11px;color:var(--muted);flex:none}
+.skel .empty{color:var(--muted);background:transparent;border:1px dashed var(--line)}
+.goals{display:flex;flex-direction:column;gap:8px;font-size:12.5px}
+.goals .g-u{font-weight:700;margin:0}
+.goals ul{margin:2px 0 0;padding-left:1.1em}
+.goals li{margin:2px 0}
+.g-k{font-weight:700;white-space:nowrap}
+.g-k.k{color:var(--kanten-k)}.g-k.s{color:var(--kanten-s)}
+
+/* エディタ */
+.editor{height:100%;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:12px}
+.mview{display:none;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.mview button{flex:1;border:0;background:transparent;padding:8px;cursor:pointer;position:relative}
+.mview button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.mview .dot{position:absolute;top:7px;margin-left:4px;width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.chat{display:flex;flex-direction:column;min-height:0;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.chat-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.chat-h b{font-size:14px;margin-right:auto}
+.ctx{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--accent-soft);color:var(--accent);border-radius:999px;padding:3px 4px 3px 10px;font-weight:700}
+.ctx button{border:0;background:transparent;cursor:pointer;color:inherit;width:20px;height:20px;border-radius:50%;line-height:1}
+.msgs{flex:1;min-height:0;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:12px}
+.msg{display:flex;gap:8px;align-items:flex-start}
+.msg .who{flex:none;width:26px;height:26px;border-radius:6px;background:var(--accent-soft);color:var(--accent);font-size:11px;font-weight:700;display:grid;place-items:center}
+.msg .body{min-width:0;background:var(--surface-2);border-radius:10px;padding:10px 12px;font-size:13.5px;display:flex;flex-direction:column;gap:8px}
+.msg .body p{margin:0}
+.msg.me{justify-content:flex-end}
+.msg.me .body{background:var(--accent);color:var(--accent-ink);max-width:88%}
+.msg .warn{color:var(--warn);font-weight:700}
+.acts{display:flex;flex-wrap:wrap;gap:6px}
+.notes{background:var(--note-bg);border:1px solid var(--note-line);color:var(--note-ink);border-radius:8px;padding:8px 10px;font-size:12.5px}
+.notes p{font-weight:700;margin:0 0 2px}
+.notes ul{margin:0;padding-left:1.2em}
+.mini{margin:0;padding-left:1.3em}
+.typing .dots{display:inline-flex;gap:4px;padding:4px 0}
+.typing .dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing .dots i:nth-child(2){animation-delay:.15s}.typing .dots i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+.composer{border-top:1px solid var(--line);padding:10px 12px 12px;display:flex;flex-direction:column;gap:8px;max-height:60%;overflow:auto}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 11px;font-size:12.5px;cursor:pointer;text-align:left}
+.chip:hover{border-color:var(--accent)}
+.chip.sug{border-style:dashed;color:var(--accent)}
+.chip.danger{color:var(--danger)}
+.chips-label{font-size:11px;color:var(--muted);width:100%}
+.inrow{display:flex;gap:8px;align-items:flex-end}
+.inrow textarea{flex:1;min-width:0;resize:none;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);font-size:14px;line-height:1.5}
+.hint{font-size:11px;color:var(--muted);margin:0}
+
+.paper-area{position:relative;min-width:0;min-height:0;overflow:auto;border-radius:12px}
+.ptools{position:sticky;top:0;left:0;z-index:3;background:var(--bg);display:flex;flex-direction:column;gap:8px;padding-bottom:10px}
+.ptools-row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.tabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface)}
+.tabs button{border:0;background:transparent;padding:7px 12px;font-size:13px;cursor:pointer}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--surface);font-weight:700}
+.settings{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.settings label{display:inline-flex;align-items:center;gap:4px}
+.settings input,.settings select{width:74px;padding:4px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink);font-size:13px;font-variant-numeric:tabular-nums}
+.settings select{width:auto}
+.meter{display:flex;flex-direction:column;gap:4px;min-width:220px;flex:1;max-width:420px}
+.mt-bar{display:flex;height:8px;border-radius:4px;overflow:hidden;background:var(--line)}
+.mt-bar span{transition:flex .4s}
+.mt-k{background:var(--kanten-k)}.mt-s{background:var(--kanten-s)}
+.mt-nums{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mt-nums b{color:var(--ink)}
+.mt-nums .off b{color:var(--warn)}
+.sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.sw.k{background:var(--kanten-k)}.sw.s{background:var(--kanten-s)}
+.mt-t{margin-left:auto}
+.outline{display:flex;flex-wrap:wrap;gap:6px}
+.oc{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:4px 9px;font-size:12px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.oc b{font-family:var(--font-paper)}
+.oc.add{border-style:dashed;color:var(--accent);font-weight:700}
+.oc .st{font-size:11px;border-radius:999px;padding:0 6px}
+.oc .st-fixed{background:var(--ok-soft);color:var(--ok)}
+.oc .st-prop{background:var(--accent-soft);color:var(--accent)}
+.oc .st-wait{background:var(--surface-2);color:var(--muted)}
+.selbar{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;background:var(--accent-soft);color:var(--accent);border-radius:8px;padding:6px 10px}
+.selbar .btn{padding:4px 10px;font-size:12px}
+.selbar .muted{font-size:11px}
+.selbar .btn.danger{color:var(--danger)}
+.selbar .chk-note{color:var(--warn);font-weight:700}
+.oc .st-warn{background:var(--warn-soft);color:var(--warn)}
+/* 本文を直す欄。傍線部は色を付けて見せ、文字と一緒に動く */
+.pe{border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface);color:var(--ink);font-family:var(--font-paper);font-size:15px;line-height:2.1;min-height:8em;white-space:pre-wrap;outline:none}
+.pe:focus{border-color:var(--accent)}
+.pe-m{background:var(--accent-soft);border-bottom:2px solid var(--accent);border-radius:2px}
+.pe-m::before{content:attr(data-label);font-family:var(--font-ui);font-size:.68em;font-weight:700;color:var(--accent);margin-right:2px;user-select:none}
+.pe-warn{margin:0;padding:6px 10px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;font-weight:700}
+/* 紙面で直接入力・編集するためのポップアップ */
+.modal-bg{position:fixed;inset:0;z-index:50;background:rgba(14,19,30,.45);display:flex;align-items:center;justify-content:center;padding-block:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.modal{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:14px;box-shadow:0 20px 50px rgba(10,15,30,.3);width:100%;max-width:760px;max-height:100%;overflow:auto;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.modal-h{margin:0;font-weight:700;font-size:15px}
+.modal label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);min-width:0}
+.modal textarea,.modal input,.modal select{border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--surface);color:var(--ink);font-size:14px}
+.modal textarea{font-family:var(--font-paper);line-height:1.7;resize:vertical}
+.mq{border:1px solid var(--line);border-radius:10px;padding:8px 10px 10px;margin:0;display:flex;flex-direction:column;gap:6px;min-width:0}
+.mq legend{font-family:var(--font-paper);font-weight:700;padding:0 4px}
+.pp-note{margin:0;font-size:12px;color:var(--muted)}
+.mtabs{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:flex-start}
+.mtabs button{border:0;background:var(--surface);padding:7px 12px;font-size:13px;cursor:pointer}
+.mtabs button+button{border-left:1px solid var(--line)}
+.mtabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:700}
+.cands{display:flex;flex-direction:column;gap:8px}
+.cand{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.cand-h{margin:0;font-weight:700}
+.cand-s{margin:0;font-family:var(--font-paper);font-size:13.5px}
+.cand-m{margin:0;font-size:12px;color:var(--muted)}
+.cand .btn{align-self:flex-start}
+.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.formgrid .btn{display:flex;flex-direction:column;gap:2px;padding:10px 12px}
+.formgrid small{font-size:11px;color:var(--muted)}
+.own-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.markbtn{position:fixed;z-index:40;border:0;border-radius:999px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:13px;padding:8px 14px;box-shadow:0 6px 18px rgba(10,15,30,.25);cursor:pointer}
+@media (max-width:560px){.formgrid,.own-row{grid-template-columns:minmax(0,1fr)}}
+
+/* 紙面 */
+.pages{display:flex;flex-direction:column;gap:18px;padding:2px 2px 28px}
+.page-wrap{position:relative;flex:none;margin-inline:auto;width:calc(1092px*var(--s,1));height:calc(772px*var(--s,1))}
+.page{position:absolute;left:0;top:0;width:1092px;height:772px;transform:scale(var(--s,1));transform-origin:0 0;background:var(--paper);color:var(--paper-ink);box-shadow:var(--paper-shadow);font-family:var(--font-paper)}
+.page-no{position:absolute;bottom:16px;left:0;right:0;text-align:center;font-size:11px;color:#777}
+.pin{position:absolute;inset:44px 46px 50px 46px;writing-mode:vertical-rl;font-size:14px;line-height:1.82;overflow:hidden}
+.pin p{margin:0}
+.cover .c-term{font-size:.92em}
+.cover .c-title{font-size:2em;font-weight:700;letter-spacing:.6em;margin-block:.25em .15em}
+.cover .c-notes{font-size:.78em;margin-block-start:.6em}
+.rule{block-size:0;border-block-end:1px solid var(--paper-ink);margin-block:0 1.1em}
+.sec{margin-block-end:1.3em}
+.sec-h{margin-block-end:.4em;border-radius:3px}
+.sec-h.clickable-h{cursor:pointer}
+.sec-h.clickable-h:hover{background:var(--paper-ghost-bg)}
+.sec.sel-sec>.sec-h{outline:2px solid var(--paper-ghost);outline-offset:2px;background:var(--paper-ghost-bg)}
+.sec-h b,.ql{font-weight:700}
+.pt{font-size:.72em}
+.passage{border:1px solid var(--paper-ink);padding:1em .9em;margin-block:.3em 1em}
+.passage p{text-indent:1em}
+.passage .src{text-indent:0;text-align:end;font-size:.78em;margin-block-start:.8em}
+.bs{border-right:1px solid currentColor;padding-right:1px}
+.kt{font-weight:700}
+.mk{font-size:.92em}
+.gh{border-right:1.5px dashed var(--paper-ghost);background:var(--paper-ghost-bg)}
+.kanshi{padding:1.2em 1.4em}
+.kanshi p{text-indent:0}
+.ks-title{font-weight:700;margin-block-end:.6em}
+.ks-title span{font-weight:400;padding-inline-start:4em}
+.ks-line{font-size:1.18em;line-height:2.7;padding-inline-start:2em}
+.kc{position:relative;display:inline-block;line-height:1}
+.kc .ok{position:absolute;top:52%;right:-54%;font-size:.48em;line-height:1.02;writing-mode:vertical-rl;white-space:nowrap}
+.kc .kten{position:absolute;top:60%;left:-48%;font-size:.48em;line-height:1}
+.kanshi .bs{padding-right:.75em}
+.ks-notes{font-size:.78em;margin-block-start:1em}
+.q{border-radius:3px}
+.addq{block-size:1.15em;display:flex;align-items:center;justify-content:center;cursor:pointer;border-radius:3px;font-family:var(--font-ui);font-size:.72em;color:transparent;white-space:nowrap}
+.addq:hover,.addq:focus-visible{color:var(--paper-ghost);background:var(--paper-ghost-bg);outline:1px dashed var(--paper-ghost)}
+@media (hover:none){.addq{color:rgba(44,74,140,.5)}}
+.q.clickable{cursor:pointer}
+.q.clickable:hover{background:var(--paper-ghost-bg)}
+.q.sel{outline:2px solid var(--paper-ghost);outline-offset:2px;background:var(--paper-ghost-bg)}
+.q.needs-check{outline:1.5px dashed #C98A1B;outline-offset:2px}
+.chk{font-family:var(--font-ui);font-size:.68em;font-weight:700;background:#FBE6BE;color:#7A4A00;border:1px solid #E0B460;border-radius:3px;padding:.15em .1em;margin-block-end:.3em}
+.proposed .q{color:var(--paper-ghost)}
+.cond{padding-inline-start:1em}
+.placeholder{border:1.5px dashed #9AA3B5;color:#6B7385;padding:1em;margin-block:.3em 1em;display:flex;flex-direction:column;gap:.4em;font-family:var(--font-ui);inline-size:60%}
+.placeholder .ph-sub{font-size:.8em}
+.placeholder.ph-click{cursor:pointer}
+.placeholder.ph-click:hover{border-color:var(--paper-ghost);color:var(--paper-ghost);background:var(--paper-ghost-bg)}
+.custom-note{font-family:var(--font-ui);color:#8a6200}
+.end{margin-block-start:1.5em;font-size:.85em}
+.flash{animation:flash 1.8s ease-out}
+@keyframes flash{from{background:var(--paper-flash)}to{background:transparent}}
+
+/* 解答用紙 */
+.as{position:absolute;inset:34px 30px 40px 30px;display:flex;flex-direction:row-reverse;align-items:flex-start;gap:8px;--c:18px;font-size:10px;line-height:1.25}
+.as-title{writing-mode:vertical-rl;font-size:16px;font-weight:700;letter-spacing:.12em;white-space:nowrap}
+.as-side{display:flex;flex-direction:column;gap:8px;width:50px}
+.as-name{writing-mode:vertical-rl;border:1px solid currentColor;height:380px;display:flex;justify-content:space-around;align-items:center;font-size:13px;padding:6px 0}
+.as-kan{border:1px solid currentColor}
+.as-kan div{display:flex;flex-direction:column;padding:3px 4px;font-size:10px}
+.as-kan div+div{border-top:1px solid currentColor}
+.as-kan b{text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.as-sec{border:1px solid currentColor;display:flex;flex-direction:column}
+.as-prop{border-style:dashed;color:var(--paper-ghost)}
+.as-sh{text-align:center;padding:2px 0;border-bottom:1px solid currentColor;font-size:12px}
+.as-sb{display:flex;flex-direction:row-reverse;align-items:flex-start}
+.as-q{display:flex;flex-direction:column}
+.as-q+.as-q{border-right:1px solid currentColor}
+.as-qh{text-align:center;background:var(--paper-sub);border-bottom:1px solid currentColor;padding:2px 0;white-space:nowrap;font-size:8.5px;letter-spacing:-.08em}
+.as-its{display:flex;flex-direction:row-reverse}
+.as-it{display:flex;flex-direction:column}
+.as-it+.as-it{border-right:1px solid currentColor}
+.as-ih{text-align:center;border-bottom:1px solid currentColor;font-size:9.5px;padding:1px 0}
+.as-box{width:var(--c)}
+.as-grid{display:flex;flex-direction:row-reverse}
+.as-col{display:flex;flex-direction:column}
+.as-col+.as-col{border-right:1px solid currentColor}
+.as-cell{width:var(--c);height:var(--c);border-bottom:1px dotted #9a9a9a}
+.as-cell:last-child{border-bottom:0}
+.as-score{border-top:1px solid currentColor;text-align:right;padding:1px 4px;background:var(--paper-sub);font-variant-numeric:tabular-nums}
+.as-wait{writing-mode:vertical-rl;padding:8px 4px;color:#777;font-family:var(--font-ui)}
+
+/* 模範解答・採点基準 */
+.mohan{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto}
+.mohan table{border-collapse:collapse;width:100%;min-width:680px;font-size:13px}
+.mohan th,.mohan td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+.mohan th{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.mohan .grp td{background:var(--surface-2);font-weight:700;font-family:var(--font-paper)}
+.mohan .num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.mohan ul{margin:0;padding-left:1.1em}
+.mohan .ans{font-family:var(--font-paper)}
+.mohan tfoot td{font-weight:700;border-bottom:0}
+.mohan small{display:block;color:var(--muted);font-weight:400}
+.kt-k{color:var(--kanten-k);font-weight:700;white-space:nowrap}.kt-s{color:var(--kanten-s);font-weight:700;white-space:nowrap}
+.muted{color:var(--muted)}
+
+@media (max-width:899px){
+  .editor{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .mview{display:flex}
+  .editor[data-view="chat"] .paper-area{display:none}
+  .editor[data-view="paper"] .chat{display:none}
+  .scope{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:560px){
+  .fields,.units{grid-template-columns:minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){
+  .flash,.typing .dots i{animation:none}
+  .mt-bar span{transition:none}
+}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand"><span class="logo" aria-hidden="true">国</span><b>国語テストつくるくん</b><span class="badge">モック</span></div>
+    <button type="button" class="btn" id="reset">最初からやり直す</button>
+  </header>
+  <p class="banner">モックです。AIの返答は決まった台本で動きます。本文や問い文は紙面で直接入力・編集し、AIへの相談は左の会話から行います。小問のすき間にカーソルを合わせると、小問を追加できます。</p>
+  <div class="main" id="main"></div>
+</div>
+<div class="modal-bg" id="modal" hidden></div>
+<button type="button" class="markbtn" id="markbtn" hidden>傍線を引いて小問を作る</button>
+
+<script>
+const $ = (s, el = document) => el.querySelector(s);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, reduced ? 0 : ms));
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KD = '〇一二三四五六七八九';
+function kan(n) {
+  if (n === 0) return '〇';
+  let s = '';
+  const h = Math.floor(n / 100), t = Math.floor(n % 100 / 10), o = n % 10;
+  if (h) s += (h > 1 ? KD[h] : '') + '百';
+  if (t) s += (t > 1 ? KD[t] : '') + '十';
+  if (o) s += KD[o];
+  return s;
+}
+function kanPt(n) {
+  if (Number.isInteger(n)) return kan(n);
+  const w = Math.floor(n);
+  return (w ? kan(w) : '〇') + '・五';
+}
+const num = n => Number.isInteger(n) ? String(n) : n.toFixed(1);
+const circ = n => String.fromCharCode(0x245F + n);
+const KANA = 'アイウエオカキク';
+const KANTEN = { k: { s: '知・技', l: '知識・技能' }, s: { s: '思・判・表', l: '思考・判断・表現' } };
+
+/* ---------- 光村図書 二年 の単元（令和7年度版 年間指導計画例より） ---------- */
+const UNITS = [
+  { m: '4月', items: [{ id: 'mienai', name: '見えないだけ', g: '詩', h: 1 }, { id: 'ice', name: 'アイスプラネット', g: '小説', h: 4 }, { id: 'bunpo1', name: '文法1 自立語', g: '文法', h: 2 }] },
+  { m: '5月', items: [{ id: 'makura', name: '枕草子', g: '古文', h: 3 }, { id: 'kumazemi', name: 'クマゼミ増加の原因を探る', g: '説明文', h: 4 }] },
+  { m: '6月', items: [{ id: 'kanji1', name: '漢字1 熟語の構成', g: '漢字', h: 1 }, { id: 'tanka', name: '短歌に親しむ／短歌を味わう', g: '短歌', h: 5 }, { id: 'chikara', name: '言葉の力', g: '随筆', h: 2 }] },
+  { m: '7月', items: [{ id: 'kotoba1', name: '言葉1 類義語・対義語・多義語', g: '語彙', h: 2 }] },
+  { m: '9月', items: [{ id: 'humanoid', name: 'ヒューマノイド', h: 4 }, { id: 'jinonai', name: '字のない葉書', g: '随筆', h: 3 }, { id: 'keigo', name: '言葉2 敬語', g: '敬語', h: 1 }] },
+  { m: '10月', items: [{ id: 'kanji2', name: '漢字2 同じ訓・同じ音をもつ漢字', g: '漢字', h: 1 }, { id: 'moai', name: 'モアイは語る――地球の未来', g: '説明文', h: 5 }, { id: 'tsukiyo', name: '月夜の浜辺', g: '詩', h: 1 }] },
+  { m: '11月', items: [{ id: 'ougi', name: '扇の的――「平家物語」から', g: '古文', h: 3, ok: true }, { id: 'ninnaji', name: '仁和寺にある法師――「徒然草」から', g: '古文', h: 3 }, { id: 'kanshi', name: '漢詩の風景', g: '漢詩', h: 3, ok: true }, { id: 'bansan', name: '君は「最後の晩餐」を知っているか', g: '評論', h: 5 }] },
+  { m: '12月', items: [{ id: 'katsuyou', name: '文法2 用言の活用', g: '文法', h: 2, ok: true }] },
+  { m: '1月', items: [{ id: 'meros', name: '走れメロス', g: '小説', h: 8, ok: true }, { id: 'bunpo3', name: '文法3 付属語', g: '文法', h: 2 }] },
+  { m: '2月', items: [{ id: 'kotoba3', name: '言葉3 話し言葉と書き言葉', g: '言葉', h: 2 }, { id: 'kanji3', name: '漢字3 送り仮名', g: '漢字', h: 2 }] },
+  { m: '3月', items: [{ id: 'kagi', name: '鍵', h: 2 }] },
+];
+const GOALS = {
+  kanji: [['k', '(1)ウ', '常用漢字を読み、学年別漢字配当表の漢字を書いて、文や文章の中で使う']],
+  katsuyou: [['k', '(1)オ', '単語の活用、助詞や助動詞などの働き、文の構成について理解する']],
+  meros: [['k', '(1)エ', '語句の量を増し、語感を磨き語彙を豊かにする'], ['s', 'C(1)イ', '登場人物の言動の意味などについて考えて、内容を解釈する'], ['s', 'C(1)オ', '読んで考えたことを知識や経験と結び付け、考えを広げたり深めたりする'], ['s', 'B(1)ウ', '表現の効果を考えて描写するなど、考えが伝わる文章になるよう工夫する']],
+  ougi: [['k', '(3)ア', '作品の特徴を生かして朗読するなどして、古典の世界に親しむ'], ['k', '(3)イ', '現代語訳や語注などを手がかりに読み、古典に表れたものの見方や考え方を知る'], ['s', 'C(1)イ', '登場人物の言動の意味などについて考えて、内容を解釈する']],
+  kanshi: [['k', '(3)ア', '作品の特徴を生かして朗読するなどして、古典の世界に親しむ'], ['k', '(3)イ', '現代語訳や語注などを手がかりに読み、古典に表れたものの見方や考え方を知る'], ['s', 'C(1)エ', '観点を明確にして漢詩を比較するなどし、構成や表現の効果について考える']],
+};
+const SOURCE_URL = 'https://www.mitsumura-tosho.co.jp/kyokasho/c-kokugo/keikaku';
+const BASE = { kanji: 20, katsuyou: 16, meros: 24, ougi: 20, kanshi: 20, sakubun: 20 };
+const SUPPORTED = ['kanji', 'katsuyou', 'meros', 'ougi', 'kanshi'];
+
+/* ---------- テストのデータ（配点は百点満点の目安。満点に合わせて割り振る） ---------- */
+const KANJI_SEC = {
+  id: 'kanji', kind: 'kanji', outline: '漢字の読み書き', instruction: '次の問いに答えなさい。', stage: 'text', status: 'fixed',
+  questions: [
+    { id: 'k1', type: 'kanji', kanten: 'k', code: '(1)ウ', perItem: 2, stem: '次の傍線部の漢字の読みを、ひらがなで書きなさい。',
+      items: [{ text: '人を[[欺]]くことはしない。', answer: 'あざむ' }, { text: '[[濁流]]を泳ぎ切る。', answer: 'だくりゅう' }, { text: '[[刑吏]]に引き立てられる。', answer: 'けいり' }, { text: '[[磯]]に打ち寄せる波。', answer: 'いそ' }, { text: '見事に的を[[射]]る。', answer: 'い' }] },
+    { id: 'k2', type: 'kanji', kanten: 'k', code: '(1)ウ', perItem: 2, katakana: true, stem: '次の傍線部のかたかなを、漢字に直して書きなさい。',
+      items: [{ text: '友との[[ヤクソク]]を守る。', answer: '約束' }, { text: '友の[[シンライ]]にこたえる。', answer: '信頼' }, { text: '[[メイヨ]]ある勝利を手にする。', answer: '名誉' }, { text: '走り続けて[[ヒロウ]]がたまる。', answer: '疲労' }, { text: '小舟が波間に[[タダヨ]]う。', answer: '漂' }] },
+  ],
+};
+const GRAMMAR_SEC = {
+  id: 'katsuyou', kind: 'grammar', outline: '文法２「用言の活用」', instruction: '次の問いに答えなさい。', stage: 'text', status: 'fixed',
+  questions: [
+    { id: 'g1', type: 'choice', kanten: 'k', code: '(1)オ', perItem: 2, inline: true, shortChoices: true,
+      stem: '次の①〜③の動詞の活用の種類を、あとの{range}からそれぞれ選び、記号で答えなさい。',
+      items: [{ text: '走る', answer: 'ア' }, { text: '起きる', answer: 'イ' }, { text: '来る', answer: 'エ' }],
+      choices: ['五段活用', '上一段活用', '下一段活用', 'カ行変格活用'] },
+    { id: 'g2', type: 'form', kanten: 'k', code: '(1)オ', perItem: 2, stem: '次の①〜③の傍線部の動詞の活用形を書きなさい。',
+      items: [{ text: '友を[[信じれ]]ば、道は開ける。', answer: '仮定形' }, { text: 'メロスは野を[[越え]]て走った。', answer: '連用形' }, { text: '約束を[[守る]]とき、人は強くなる。', answer: '連体形' }] },
+    { id: 'g3', type: 'term', kanten: 'k', code: '(1)オ', perItem: 2, stem: '次の①・②の文から形容詞を一つ抜き出し、終止形に直して書きなさい。',
+      items: [{ text: '空は青く澄んでいた。', answer: '青い' }, { text: '水は思ったより冷たかった。', answer: '冷たい' }] },
+  ],
+};
+const Q3DESC = {
+  id: 'q3', type: 'desc', charLimit: 40, kanten: 's', code: 'C(1)イ', points: 10,
+  planRef: '{n:m3}「メロスには政治がわからぬ」', plan: 'メロスの人物像（記述・四十字以内）',
+  stem: '{m3}「メロスには政治がわからぬ」とありますが、メロスはどのような人物として描かれていますか。本文中の言葉を使って、四十字以内で書きなさい。',
+  answer: '政治のことはわからない村の牧人だが、邪悪に対しては人一倍に敏感な人物。',
+  rubric: ['「政治がわからない」「村の牧人である」など、素朴な人物であることが書けている', '「邪悪に対しては人一倍に敏感」であることが書けている', '本文の言葉を使い、四十字以内で「〜人物。」の形にまとめている'],
+};
+const DATA = {
+  meros: {
+    name: '走れメロス', kind: 'bungaku', instruction: '次の文章を読んで、あとの問いに答えなさい。',
+    passage: { source: '太宰治「走れメロス」より', text: 'メロスは<m1>激怒した</m1>。必ず、かの<m2>邪智暴虐</m2>の王を除かなければならぬと決意した。<m3>メロスには政治がわからぬ</m3>。メロスは、村の牧人である。笛を吹き、羊と遊んで暮して来た。けれども邪悪に対しては、人一倍に敏感であった。きょう未明メロスは村を出発し、野を越え山越え、十里はなれた此のシラクスの市にやって来た。' },
+    questions: [
+      { id: 'q1', type: 'extract', charLimit: 11, kanten: 's', code: 'C(1)イ', points: 4,
+        planRef: '{n:m1}「激怒した」', plan: '決意した内容を抜き出す（十一字）',
+        stem: '{m1}「激怒した」とありますが、激怒したメロスは何をしようと決意しましたか。本文中から十一字で抜き出しなさい。',
+        answer: '王を除かなければならぬ', rubric: ['「王を除かなければならぬ」と一字もちがわずに書けていれば正答'] },
+      { id: 'q2', type: 'choice', kanten: 'k', code: '(1)エ', points: 4,
+        planRef: '{n:m2}「邪智暴虐」', plan: '語句の意味（選択）',
+        stem: '{m2}「邪智暴虐」の意味として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['知恵がはたらき、人々をよく治めること。', '悪知恵がはたらき、乱暴で残虐なこと。', '知識は乏しいが、正直で心が優しいこと。', '力ばかり強く、乱暴で考えが浅いこと。'], correct: 1,
+        easier: { i: 3, text: '体が弱く、何事にも臆病なこと。', msg: '{L}のエを、「邪智暴虐」とはっきり違う意味に変えました。「乱暴」という言葉で迷わせる選択肢がなくなるので、正答率は上がるはずです。' },
+        extra: '人を疑わず、誰とでも打ち解けること。' },
+      { id: 'q3', type: 'choice', kanten: 's', code: 'C(1)イ', points: 4,
+        planRef: '{n:m3}「メロスには政治がわからぬ」', plan: 'メロスの人物像（選択）',
+        stem: '{m3}「メロスには政治がわからぬ」とありますが、本文から読み取れるメロスの人物像として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['政治には詳しくないが、悪を許さない素朴な人物。', '政治に詳しく、王の考えをよく理解している人物。', '村の暮らしに不満をもち、都に出たがっている人物。', '気が弱く、悪いことに見て見ぬふりをする人物。'], correct: 0,
+        extra: '笛の名人として、市でも名を知られている人物。' },
+      { id: 'q4', type: 'choice', kanten: 's', code: 'C(1)エ', points: 6,
+        planRef: '冒頭の一文', plan: '表現の効果（選択）',
+        stem: 'この文章が「メロスは激怒した。」という短い一文で始まっていることの効果として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['主人公の強い怒りをいきなり示し、読者を物語に引き込む効果。', '物語の時代や場所を、くわしく説明する効果。', 'メロスが落ち着いた性格であることを示す効果。', '王の立場から出来事を語り、話に客観性をもたせる効果。'], correct: 0,
+        extra: '物語の結末を、先に読者に知らせておく効果。' },
+    ],
+    alts: {
+      q4: { id: 'q4', type: 'choice', kanten: 's', code: 'C(1)イ',
+        planRef: '本文全体', plan: '本文の内容に合うもの（選択）',
+        stem: '本文の内容に合うものとして最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['メロスは村の牧人で、笛を吹き、羊と遊んで暮らしてきた。', 'メロスは政治にくわしく、王のやり方をよく知っていた。', 'メロスは前の日の夕方に村を出て、シラクスの市に着いた。', 'メロスは邪悪なことに対しては、ほとんど関心がなかった。'], correct: 0,
+        extra: 'メロスは市に住む友人に会うために、村を出てきた。',
+        regenMsg: '{L}を作り直しました。単元の指導目標「C(1)イ」に合わせて、本文の内容を正しく読み取れているかを問う形にしています。' },
+    },
+    textMsg: '走れメロスの本文から、四問を書きました。単元の指導目標「C(1)イ 登場人物の言動の意味などについて考えて、内容を解釈する」を中心にしています。<br>授業で特に力を入れたことがあれば教えてください。',
+    notes: ['問一は「かの邪智暴虐の王を…」から抜き出す答え方も出てきそうなので、十一字と指定して答えが一つに決まるようにしました。', '問二のエには「乱暴」を入れて紛らわしくしています。「邪智（悪知恵）」の意味まで押さえているかを見分けられます。', '問四（表現の効果）は二年の指導事項 C(1)エ にあたり、この単元の指導目標には入っていません。単元の目標に絞るなら、問四を選んで「AIに作り直してもらう」を押してください。'],
+    feedback: {
+      suggest: '授業ではメロスの人物像に力を入れました。人物像は記述で聞きたいです。',
+      apply(sec) {
+        const i = sec.questions.findIndex(q => q.id === 'q3');
+        const before = qPts(sec.questions[i]);
+        const q = scaleQ(clone(Q3DESC));
+        q.flash = true; sec.questions[i] = q;
+        return [before, qPts(q)];
+      },
+      textReply: ([b, a]) => `問三を記述（四十字以内）に書き換えました。授業の中心とのことなので、配点は${kanPt(b)}点から${kanPt(a)}点にしています。模範解答と採点基準も作り直しました。`,
+    },
+  },
+  ougi: {
+    name: '扇の的', kind: 'kobun', instruction: '次の古文（「平家物語」の一節）を読んで、あとの問いに答えなさい。',
+    passage: { source: '「平家物語」より', text: 'ころは二月十八日の<m1>酉{とり}の刻{こく}</m1>ばかりのことなるに、をりふし北風激しくて、磯{いそ}打つ波も高かりけり。舟は、揺り上げ<m2>揺りすゑ</m2><m3>漂へ</m3>ば、扇もくしに定まらずひらめいたり。沖には平家、舟を一面に並べて見物す。陸{くが}には源氏、くつばみを並べてこれを見る。<m4>いづれもいづれも晴れならずといふことぞなき</m4>。' },
+    questions: [
+      { id: 'o1', type: 'choice', kanten: 'k', code: '(3)イ', points: 4, shortChoices: true,
+        planRef: '{n:m1}「酉の刻」', plan: '古典の時刻（選択）',
+        stem: '{m1}「酉の刻」は、現在のおよそ何時ごろですか。最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['午前六時ごろ', '正午ごろ', '午後六時ごろ', '午前零時ごろ'], correct: 2, extra: '午後十時ごろ' },
+      { id: 'o2', type: 'kana', kanten: 'k', code: '(3)ア', perItem: 3, refItems: true,
+        items: [{ ref: 'm2', answer: 'ゆりすえ' }, { ref: 'm3', answer: 'ただよえ' }],
+        planRef: '{n:m2}「揺りすゑ」・{n:m3}「漂へ」', plan: '現代仮名遣い（ひらがな）',
+        stem: '{m2}「揺りすゑ」・{n:m3}「漂へ」を現代仮名遣いに直し、すべてひらがなで書きなさい。' },
+      { id: 'o3', type: 'choice', kanten: 's', code: 'C(1)イ', points: 6,
+        planRef: '{n:m4}「いづれもいづれも…」', plan: '文の意味（選択）',
+        stem: '{m4}の意味として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['源氏も平家も、晴れがましく思わない者はいなかった。', '源氏も平家も、天気が晴れないことを残念がっていた。', '平家の人々だけが、晴れがましい気持ちでいた。', '源氏の人々だけが、晴れがましい気持ちでいた。'], correct: 0,
+        extra: '源氏も平家も、早く戦いを終わらせたいと思っていた。' },
+      { id: 'o4', type: 'grid', charLimit: 2, kanten: 'k', code: '(3)ア', points: 4,
+        planRef: '「沖には平家…陸には源氏…」', plan: '表現技法（漢字二字）',
+        stem: '「沖には平家、舟を一面に並べて見物す。陸には源氏、くつばみを並べてこれを見る。」のように、組み立ての似た文を並べる表現技法を何といいますか。漢字二字で書きなさい。',
+        answer: '対句' },
+    ],
+    alts: {
+      o1: { id: 'o1', type: 'choice', kanten: 'k', code: '(3)イ', shortChoices: true,
+        planRef: '「をりふし」', plan: '古語の意味（選択）',
+        stem: '本文中の「をりふし」の意味として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['ちょうどその時', '時々', '季節ごとに', '久しぶりに'], correct: 0, extra: 'もう少しで',
+        regenMsg: '{L}を作り直しました。今の言葉の「折節（時々）」と意味が違う古語を問う形にして、イを紛らわしい選択肢にしています。' },
+    },
+    textMsg: '扇の的の本文から、四問を書きました。単元の指導目標（(3)ア 古典の世界に親しむ／(3)イ 語注などを手がかりに読む／C(1)イ 言動の意味を考えて内容を解釈する）に合わせています。',
+    notes: ['問二は「ゑ→え」と「へ→え」を一問ずつ確かめられる組み合わせにしました。', '問三は「ぞ〜なき」の言い方から、両軍とも晴れがましく思っていると読み取れるかがポイントです。'],
+  },
+  kanshi: {
+    name: '漢詩の風景', kind: 'kanbun', instruction: '次の漢詩を読んで、あとの問いに答えなさい。',
+    passage: { kanshi: true, title: '春暁', author: '孟浩然',
+      lines: ['春眠不[レ]覚(エ)[レ]暁(ヲ)', '処処聞(ク)[二]啼鳥(ヲ)[一]', '夜来風雨(ノ)声', '<m1>花落(ツルコト)知(ル)多少</m1>'],
+      notes: ['＊啼鳥……鳴いている鳥。', '＊夜来……昨夜から。'] },
+    questions: [
+      { id: 'h1', type: 'grid', charLimit: 4, kanten: 'k', code: '(3)ア', points: 4,
+        planRef: '詩全体', plan: '詩の形式（漢字四字）',
+        stem: 'この漢詩の形式を何といいますか。漢字四字で書きなさい。', answer: '五言絶句' },
+      { id: 'h2', type: 'box', boxLen: 8, kanten: 'k', code: '(3)ア', points: 4,
+        planRef: '第一句「春眠不覚暁」', plan: '返り点に従った書き下し文',
+        stem: '第一句「春眠不覚暁」を、返り点に従って書き下し文に直しなさい。',
+        answer: '春眠暁を覚えず', rubric: ['「春眠暁を覚えず」と、送り仮名まで正しく書けていれば正答'] },
+      { id: 'h3', type: 'choice', kanten: 'k', code: '(3)イ', points: 4,
+        planRef: '{n:m1}「花落知多少」', plan: '結句に表れた作者の思い（選択）',
+        stem: '{m1}「花落知多少」には、作者のどのような思いが表れていますか。語注を参考にして、最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['昨夜の風雨で、どれほどの花が散ってしまったのだろうかと気にかける思い。', '花が散ることなど、少しも気にかけていないという思い。', '散った花の数を、正確に数えて書き留めておきたいという思い。', '雨がやんだので、早く花見に出かけたいとはやる思い。'], correct: 0,
+        extra: '散る前に、もう一度友人と花見をしたかったという思い。' },
+      { id: 'h4', type: 'term', kanten: 's', code: 'C(1)エ', perItem: 4, noItemText: true,
+        items: [{ answer: '啼鳥' }, { answer: '風雨' }],
+        planRef: '第二句・第三句', plan: '耳で感じ取ったもの（抜き出し二つ）',
+        stem: 'この詩で、作者が寝床の中で耳にしたものを、詩の中からそれぞれ漢字二字で二つ抜き出しなさい。' },
+    ],
+    alts: {
+      h4: { id: 'h4', type: 'box', boxLen: 6, kanten: 's', code: 'C(1)エ',
+        planRef: '詩の構成', plan: '転句にあたる句（抜き出し）',
+        stem: 'この詩は起承転結の構成になっています。転句にあたる句を、詩の中から返り点や送り仮名を除いて抜き出しなさい。',
+        answer: '夜来風雨声', rubric: ['「夜来風雨声」と書けていれば正答'],
+        regenMsg: '{L}を作り直しました。単元の指導目標「C(1)エ 構成や表現の効果について考える」に合わせて、起承転結の構成を問う形にしています。' },
+    },
+    textMsg: '漢詩の風景から「春暁」を選んで、四問を書きました。単元の指導目標（(3)ア 古典の世界に親しむ／(3)イ 語注などを手がかりに読む／C(1)エ 構成や表現の効果について考える）に合わせています。',
+    notes: ['返り点と送り仮名は AI が付けています。教科書の訓読と違うところがあれば直してください。', '問二は、レ点が二つ続く句を選んで、返り点の読み方を確かめる問題にしました。', '問三は、語注の「夜来＝昨夜から」を手がかりにすると、作者が散った花を気にかけていると読み取れます。'],
+  },
+};
+function sakubunSec(pts) {
+  const withMeros = !!S('meros');
+  return {
+    id: 'sakubun', kind: 'sakubun', outline: '作文', stage: 'text', status: 'proposed',
+    instruction: (withMeros ? '「走れメロス」で、メロスは友との約束を守るために走り続けました。' : '') + '「人を信じること」について、あなたが考えたことを、次の条件にしたがって書きなさい。',
+    questions: [{ id: 'c1', type: 'comp', charLimit: 200, kanten: 's', code: 'C(1)オ・B(1)ウ', points: pts, flash: true,
+      conditions: ['二段落で書くこと。第一段落には自分の体験や見聞きしたことを、第二段落にはそれをふまえた自分の考えを書くこと。', '百六十字以上、二百字以内で書くこと。'],
+      answer: '（解答例は省略）',
+      rubric: ['条件一（二段落・段落ごとの内容）を満たしている', '条件二（百六十字以上、二百字以内）を満たしている', '体験と考えが結びついている', '誤字がなく、原稿用紙を正しく使っている'] }],
+  };
+}
+
+/* ---------- 小問を足すときの AI の案（配点は百点満点の目安） ---------- */
+const CANDS = {
+  meros: [
+    { cid: 'mc1', form: 'desc', why: '指導目標 C(1)オ（考えを広げ深める）を問う設問がまだないので出しています。',
+      q: { type: 'desc', charLimit: 50, kanten: 's', code: 'C(1)オ', points: 6, planRef: '本文全体', plan: 'メロスの人物像への自分の考え（記述・五十字以内）',
+        stem: '「邪悪に対しては、人一倍に敏感であった」メロスについて、あなたはどう考えますか。本文の内容をふまえて、五十字以内で書きなさい。',
+        answer: '（解答例）自分に関係のないことでも悪を見過ごさない点はすばらしいが、思い込みで行動しないよう気をつけたい。',
+        rubric: ['本文の内容（邪悪に敏感であること）をふまえている', '自分の考えがはっきり書けている', '五十字以内で書けている'] } },
+    { cid: 'mc2', form: 'extract', why: '本文から正しく言葉を拾えるかを、短い抜き出しで確かめます。',
+      q: { type: 'extract', charLimit: 4, kanten: 's', code: 'C(1)イ', points: 2, planRef: '本文', plan: 'メロスの仕事（抜き出し・四字）',
+        stem: 'メロスの仕事は何ですか。本文中から四字で抜き出しなさい。', answer: '村の牧人' } },
+    { cid: 'mc3', form: 'choice', why: '表現から場面の様子を読み取る力を、選択問題で確かめます。',
+      q: { type: 'choice', kanten: 's', code: 'C(1)イ', points: 4, planRef: '「野を越え山越え」', plan: '表現から読み取れること（選択）',
+        stem: '「野を越え山越え」という表現から読み取れることとして最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['遠い道のりを、休まずに進んできたこと。', '野山の景色を、ゆっくり楽しんできたこと。', '道に迷い、同じ所を行き来していたこと。', '山の上から、市の様子を眺めていたこと。'], correct: 0 } },
+  ],
+  ougi: [
+    { cid: 'oc1', form: 'choice', why: '源氏と平家の様子を読み取れているかを確かめます（C(1)イ）。',
+      q: { type: 'choice', kanten: 's', code: 'C(1)イ', points: 4, planRef: '「沖には平家…陸には源氏…」', plan: '場面の様子（選択）',
+        stem: '「沖には平家、舟を一面に並べて見物す。陸には源氏、くつばみを並べてこれを見る。」から読み取れる場面の様子として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['源氏と平家が、海と陸に分かれて扇の的を見守っている様子。', '源氏と平家が、同じ舟に乗って見物している様子。', '平家だけが、扇の的に関心をもっている様子。', '源氏と平家が、激しく戦っている様子。'], correct: 0 } },
+    { cid: 'oc2', form: 'extract', why: '古文の中から様子を表す言葉を見つけられるかを確かめます。',
+      q: { type: 'extract', charLimit: 6, kanten: 's', code: 'C(1)イ', points: 3, planRef: '「扇もくしに定まらず…」', plan: '扇の様子を表す言葉（抜き出し・六字）',
+        stem: '舟が揺れて、扇がひらひらと動いている様子を表す言葉を、本文中から六字で抜き出しなさい。', answer: 'ひらめいたり' } },
+    { cid: 'oc3', form: 'knowledge', why: '語注を手がかりに古語の意味を知っているかを確かめます（(3)イ）。',
+      q: { type: 'choice', kanten: 'k', code: '(3)イ', points: 3, shortChoices: true, planRef: '「くつばみ」', plan: '古語の意味（選択）',
+        stem: '本文中の「くつばみ」の意味として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['馬の口にかませる金具', '弓に張る糸', '舟をつなぐ綱', '武士のかぶるかぶと'], correct: 0 } },
+  ],
+  kanshi: [
+    { cid: 'hc1', form: 'choice', why: '詩に描かれた季節と時間を、語注と題名から読み取れるかを確かめます。',
+      q: { type: 'choice', kanten: 'k', code: '(3)イ', points: 3, shortChoices: true, planRef: '詩全体', plan: '描かれた季節と時間（選択）',
+        stem: 'この詩に描かれている季節と時間として最も適切なものを、次の{range}から一つ選び、記号で答えなさい。',
+        choices: ['春の明け方', '春の真夜中', '秋の明け方', '秋の夕暮れ'], correct: 0 } },
+    { cid: 'hc2', form: 'extract', why: '詩の内容と句を結び付けられるかを確かめます（C(1)エ）。',
+      q: { type: 'box', boxLen: 6, kanten: 's', code: 'C(1)エ', points: 4, planRef: '第一句', plan: '寝過ごしたことがわかる句（抜き出し）',
+        stem: '作者が寝過ごしてしまったことがわかる句を、詩の中から返り点や送り仮名を除いて抜き出しなさい。', answer: '春眠不覚暁' } },
+    { cid: 'hc3', form: 'knowledge', why: '五言絶句の押韻のきまりを知っているかを確かめます（(3)ア）。',
+      q: { type: 'term', kanten: 'k', code: '(3)ア', perItem: 1, noItemText: true, items: [{ answer: '暁' }, { answer: '鳥' }, { answer: '少' }], planRef: '句末の字', plan: '韻を踏んでいる字（抜き出し）',
+        stem: 'この詩で韻を踏んでいる字を、詩の中からすべて抜き出しなさい。' } },
+  ],
+  kanji: [
+    { cid: 'kc1', form: 'knowledge', why: '送り仮名まで正しく書けるかを確かめます。',
+      q: { type: 'term', kanten: 'k', code: '(1)ウ', perItem: 2, katakana: true, plan: '漢字と送り仮名（書き）', planRef: '',
+        stem: '次の①・②の傍線部のかたかなを、漢字と送り仮名で書きなさい。',
+        items: [{ text: '約束を[[ハタス]]。', answer: '果たす' }, { text: '友を[[シンジル]]。', answer: '信じる' }] } },
+  ],
+  katsuyou: [
+    { cid: 'gc1', form: 'knowledge', why: '動詞だけでなく、形容詞の活用形も確かめます。',
+      q: { type: 'choice', kanten: 'k', code: '(1)オ', perItem: 2, shortChoices: true, plan: '形容詞の活用形（選択）', planRef: '',
+        stem: '次の①・②の傍線部の形容詞の活用形を、あとの{range}からそれぞれ選び、記号で答えなさい。',
+        items: [{ text: '空が[[青けれ]]ば、気持ちがよい。', answer: 'ウ' }, { text: '[[寒かっ]]たので、上着を着た。', answer: 'イ' }],
+        choices: ['未然形', '連用形', '仮定形', '終止形'] } },
+  ],
+};
+let uid = 0;
+const quoteOf = text => text.length > 12 ? `${text.slice(0, 5)}〜${text.slice(-3)}` : text;
+function numOf(s) {
+  if (/^[0-9０-９]+$/.test(s)) return +s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  let n = 0, cur = 0;
+  for (const ch of s) { const d = KD.indexOf(ch); if (d >= 0) cur = d; else if (ch === '十') { n += (cur || 1) * 10; cur = 0; } else if (ch === '百') { n += (cur || 1) * 100; cur = 0; } }
+  return n + cur;
+}
+// 本文に線を引いたとき、先生が自由に書いた「どんな問題にしたいか」を問い文の形に整える
+// （本番では AI が本文を読んで整える。モックでは言葉の手がかりから決まったきまりで整える）
+function refineWant(sec, text, want, forceForm, forceLim) {
+  const w = want.replace(/\s/g, ''), quote = quoteOf(text);
+  const limM = w.match(/([0-9０-９]+|[一二三四五六七八九十百]+)字/);
+  let lim = forceLim || (limM ? numOf(limM[1]) : 0);
+  const form = forceForm || (/抜き出/.test(w) ? 'extract' : /選択|記号|選ば|選ぶ/.test(w) ? 'choice' : 'desc');
+  const kind = /表現|効果|工夫|比喩|たとえ|書き方|書いたのか/.test(w) ? 'expr' : /なぜ|理由|わけ/.test(w) ? 'reason' : /気持ち|心情|思い|心の/.test(w) ? 'feeling'
+    : /人物|人柄|どんな人|性格/.test(w) ? 'character' : /指す|指して|指示/.test(w) ? 'point' : /意味|どういうこと/.test(w) ? 'meaning' : 'other';
+  const who = sec.id === 'meros' ? 'メロス' : '登場人物';
+  const head = {
+    reason: `傍線部「${quote}」とありますが、それはなぜですか。`, feeling: `傍線部「${quote}」とありますが、このときの${who}の気持ちはどのようなものですか。`,
+    character: `傍線部「${quote}」から、${who}はどのような人物だと読み取れますか。`, expr: `傍線部「${quote}」という表現には、どのような効果がありますか。`,
+    point: `傍線部「${quote}」が指している内容は何ですか。`, meaning: `傍線部「${quote}」とは、どういうことですか。`, other: `傍線部「${quote}」とは、どういうことですか。`,
+  }[kind];
+  if (form !== 'choice' && !lim) lim = form === 'extract' ? 15 : 30;
+  const tail = form === 'extract' ? `本文中から${kan(lim)}字以内で抜き出しなさい。` : form === 'choice' ? '最も適切なものを、次のア〜エから一つ選び、記号で答えなさい。' : `本文中の言葉を使って、${kan(lim)}字以内で書きなさい。`;
+  const kanten = kind === 'meaning' && form === 'choice' ? 'k' : 's';
+  const goals = GOALS[sec.id] || [];
+  const goal = goals.find(g => g[0] === kanten);
+  const code = kind === 'expr' ? 'C(1)エ' : goal ? goal[1] : kanten === 'k' ? '(1)エ' : 'C(1)イ';
+  const short = want.length > 24 ? want.slice(0, 22) + '…' : want;
+  const notes = [`先生の「${esc(short)}」を、生徒が答える形の問い文にしました。`];
+  if (kind === 'other') notes.push('何を問いたいかを読み取りきれなかったので、「どういうことか」を問う形にしています。違っていたら書き直してください。');
+  if (form !== 'choice' && !limM && !forceLim) notes.push(`答えの長さがそろうよう、「${kan(lim)}字以内」と字数を指定しました。`);
+  if (form === 'desc') notes.push('答えの根拠を本文から探せるよう、「本文中の言葉を使って」を入れました。');
+  if (form === 'choice') notes.push('選択肢は、本文をもとに AI が作ります（モックではひな形です）。');
+  if (kind === 'expr' && !goals.some(g => g[1] === 'C(1)エ')) notes.push('表現の効果（C(1)エ）は、この単元の指導目標には入っていません。');
+  notes.push('模範解答と採点基準も、あわせて作ります（モックでは省略）。');
+  const what = { reason: '理由', feeling: '気持ち', character: '人物像', expr: '表現の効果', point: '指している内容', meaning: '意味', other: '内容の理解' }[kind];
+  const plan = what + (form === 'choice' ? '（選択）' : form === 'extract' ? `（抜き出し・${kan(lim)}字以内）` : `（記述・${kan(lim)}字以内）`);
+  return { form, lim, stem: head + tail, kanten, code, points: snap((form === 'desc' ? 6 : 4) * state.f), plan, notes };
+}
+
+/* ---------- 状態 ---------- */
+const state = {
+  screen: 'scope', units: new Set(['meros', 'ougi', 'kanshi', 'katsuyou', 'kanji']),
+  year: '令和八年度', term: '第三学期　学年末テスト', full: 100, time: 50, step: 1, f: 1,
+  sections: [], chat: [], typing: false, busy: false, selected: null, modal: null, expect: null, sugs: [],
+  sakubunOffered: false, lastDeleted: null, view: 'chat', paperDot: false, tab: 'mondai',
+};
+const S = id => state.sections.find(s => s.id === id);
+const qPts = q => q.perItem ? q.perItem * q.items.length : q.points;
+const sPts = s => s.questions.reduce((a, q) => a + qPts(q), 0);
+function totals() {
+  let k = 0, s = 0;
+  for (const sec of state.sections) for (const q of sec.questions) { if (q.kanten === 'k') k += qPts(q); else s += qPts(q); }
+  return { k, s, t: k + s };
+}
+const ptsLabel = q => q.perItem ? `各${kanPt(q.perItem)}点` : `${kanPt(q.points)}点`;
+const snap = (x, step = state.step) => Math.max(step, Math.round(x / step) * step);
+function scaleQ(q, f = state.f) {
+  if (q.perItem) q.perItem = snap(q.perItem * f); else q.points = snap(q.points * f);
+  return q;
+}
+const complete = () => state.sakubunOffered && !state.sections.some(s => s.stage === 'empty');
+function rescale(target, skip = []) {
+  const step = state.step;
+  const qs = [];
+  state.sections.forEach(s => { if (!skip.includes(s.id) && s.stage !== 'empty') qs.push(...s.questions); });
+  const cur = qs.reduce((a, q) => a + qPts(q), 0);
+  if (!cur || cur === target) return;
+  const before = new Map(qs.map(q => [q, qPts(q)]));
+  const r = target / cur;
+  qs.forEach(q => { if (q.perItem) q.perItem = snap(q.perItem * r, step); else q.points = snap(q.points * r, step); });
+  let d = target - qs.reduce((a, q) => a + qPts(q), 0);
+  const singles = qs.filter(q => !q.perItem).sort((a, b) => b.points - a.points);
+  for (let i = 0; Math.abs(d) >= step / 2 && singles.length && i < 2000; i++) {
+    const q = singles[i % singles.length];
+    if (d > 0) { q.points += step; d -= step; } else if (q.points > step) { q.points -= step; d += step; }
+  }
+  qs.forEach(q => { if (qPts(q) !== before.get(q)) q.flash = true; });
+}
+function passageText(sec) { return sec.passage.text || sec.passage.lines.join(''); }
+// 傍線は、どれかの設問が参照しているものだけを、本文の順に①②…と数える
+function refsOf(q) {
+  const ids = [];
+  [q.stem, q.planRef].forEach(t => t && [...t.matchAll(/\{(?:n:)?(m\d)\}/g)].forEach(m => ids.push(m[1])));
+  if (q.mark) ids.push(q.mark);
+  if (q.items) q.items.forEach(it => it.ref && ids.push(it.ref));
+  return [...new Set(ids)];
+}
+function usedMarks(sec) { return new Set(sec.questions.flatMap(refsOf)); }
+function markIds(sec) { const used = usedMarks(sec); return [...passageText(sec).matchAll(/<m(\d)>/g)].map(x => 'm' + x[1]).filter(m => used.has(m)); }
+function markPosOf(sec, q) {
+  const src = passageText(sec);
+  const ps = refsOf(q).map(id => src.indexOf(`<${id}>`)).filter(p => p >= 0);
+  return ps.length ? Math.min(...ps) : -1;
+}
+// 画面に出ている「傍線部①」などを、保存用の {m1} に戻す
+function tokenize(text, ids, q) {
+  let t = text.replace(/傍線部([①-⑨])|([①-⑨])(?=「)/g, (all, a, b) => { const id = ids[(a || b).charCodeAt(0) - 0x2460]; return id ? (a ? `{${id}}` : `{n:${id}}`) : all; });
+  if (q && q.choices) t = t.replace(`ア〜${KANA[q.choices.length - 1]}`, '{range}');
+  return t;
+}
+function markNum(sec, m) { return markIds(sec).indexOf(m) + 1; }
+function fill(t, sec, q) {
+  return t.replace(/\{(n:)?(m\d)\}/g, (_, n, m) => { const k = markNum(sec, m); return k ? (n ? '' : '傍線部') + circ(k) : '傍線部（消えた傍線）'; })
+    .replace('{range}', q && q.choices ? `ア〜${KANA[q.choices.length - 1]}` : '');
+}
+function secLabel(sec) { return `【${kan(state.sections.indexOf(sec) + 1)}】`; }
+function qLabel(sec, q) { return sec.kind === 'sakubun' ? '作文' : `問${kan(sec.questions.indexOf(q) + 1)}`; }
+function unitName(id) { return id === 'kanji' ? '漢字' : UNITS.flatMap(g => g.items).find(u => u.id === id).name; }
+
+/* ---------- 範囲選択 ---------- */
+function skeletonList() {
+  const out = [];
+  if (state.units.has('kanji')) out.push(['漢字の読み書き', '漢字']);
+  if (state.units.has('katsuyou')) out.push(['文法２「用言の活用」', '文法']);
+  if (state.units.has('meros')) out.push(['走れメロス', '文学的文章']);
+  if (state.units.has('ougi')) out.push(['扇の的', '古文']);
+  if (state.units.has('kanshi')) out.push(['漢詩の風景', '漢文']);
+  return out;
+}
+function unitHTML(u) {
+  const codes = GOALS[u.id] ? GOALS[u.id].map(g => g[1]).join('・') : '';
+  return `<label class="unit${u.ok ? '' : ' na'}" for="u-${u.id}"><input type="checkbox" id="u-${u.id}" data-unit="${u.id}"${state.units.has(u.id) ? ' checked' : ''}>
+    <span class="u-b"><span class="u-name">${u.name}</span><span class="u-meta">${u.g ? u.g + '・' : ''}${u.h}時間</span>${codes ? `<span class="u-code">${codes}</span>` : ''}</span></label>`;
+}
+function renderScope() {
+  $('#main').innerHTML = `<section class="scope">
+    <div class="card">
+      <h1 class="h1">テストの範囲を選ぶ</h1>
+      <p class="lead">テストの名前や満点を入れて、テストに入れる単元にチェックを付けてください。</p>
+      <div class="fields">
+        <label class="field" for="f-tb"><span>教科書</span><select id="f-tb"><option>光村図書「国語」（令和七年度版）</option><option disabled>東京書籍（モックでは選べません）</option><option disabled>教育出版（モックでは選べません）</option><option disabled>三省堂（モックでは選べません）</option></select></label>
+        <label class="field" for="f-gr"><span>学年</span><select id="f-gr"><option disabled>一年</option><option selected>二年</option><option disabled>三年</option></select></label>
+        <label class="field" for="f-year"><span>年度</span><input id="f-year" type="text" value="${esc(state.year)}"></label>
+        <label class="field" for="f-tt"><span>テストの名前</span><input id="f-tt" type="text" value="${esc(state.term)}" placeholder="例：前期中間テスト、二学期期末考査"></label>
+        <label class="field" for="f-full"><span>満点</span><span class="unit-in"><input id="f-full" type="number" min="10" max="200" step="5" value="${state.full}" list="full-list">点</span></label>
+        <label class="field" for="f-time"><span>試験時間</span><span class="unit-in"><input id="f-time" type="number" min="10" max="120" step="5" value="${state.time}">分</span></label>
+        <label class="field" for="f-step"><span>配点の刻み</span><select id="f-step"><option value="1"${state.step === 1 ? ' selected' : ''}>一点刻み</option><option value="0.5"${state.step === .5 ? ' selected' : ''}>〇・五点刻み</option></select></label>
+        <datalist id="full-list"><option value="50"></option><option value="100"></option></datalist>
+      </div>
+      <div class="units">${UNITS.map(g => `<fieldset class="ug"><legend>${g.m}</legend>${g.items.map(unitHTML).join('')}</fieldset>`).join('')}
+        <fieldset class="ug"><legend>漢字</legend><label class="unit" for="u-kanji"><input type="checkbox" id="u-kanji" data-unit="kanji"${state.units.has('kanji') ? ' checked' : ''}><span class="u-b"><span>選んだ単元の新出漢字から、漢字の大問を作る</span><span class="u-code">(1)ウ</span></span></label></fieldset>
+      </div>
+      <p class="toast" id="scope-toast" hidden></p>
+      <p class="fine">モックで設問まで作れるのは、走れメロス・扇の的・漢詩の風景・文法２ 用言の活用です。ほかの単元は一覧の確認用です。</p>
+    </div>
+    <aside class="card">
+      <h2 class="h2">できあがる骨組み</h2>
+      <ol class="skel" id="skel"></ol>
+      <button type="button" class="btn primary big" id="build">この範囲で骨組みを作る</button>
+      <h3 class="h3">この範囲の指導目標</h3>
+      <div class="goals" id="goals"></div>
+      <p class="fine">出典：<a href="${SOURCE_URL}" target="_blank" rel="noopener">光村図書「令和7年度版 中学校国語 年間指導計画例（二年）」</a>。指導目標は短くまとめています。</p>
+    </aside>
+  </section>`;
+  renderSkel();
+}
+function renderSkel() {
+  const list = skeletonList();
+  $('#skel').innerHTML = list.length
+    ? list.map(([n, k], i) => `<li><span class="n">大問${kan(i + 1)}</span><span>${n}</span><span class="k">${k}</span></li>`).join('')
+    : '<li class="empty">単元を選ぶと、ここに大問が並びます</li>';
+  $('#build').disabled = !list.length;
+  const ids = SUPPORTED.filter(id => state.units.has(id));
+  $('#goals').innerHTML = ids.length ? ids.map(id => `<div><p class="g-u">${unitName(id)}</p><ul>${GOALS[id].map(([k, c, t]) => `<li><span class="g-k ${k}">${KANTEN[k].s} ${c}</span>　${t}</li>`).join('')}</ul></div>`).join('') : '<p class="muted">単元を選ぶと表示されます。</p>';
+}
+
+/* ---------- 紙面 ---------- */
+function itemText(t, q) { return t.replace(/\[\[(.+?)\]\]/g, (_, w) => `<span class="bs${q.katakana ? ' kt' : ''}">${w}</span>`); }
+function kanbunHTML(s) {
+  let out = '', i = 0;
+  while (i < s.length) {
+    if (s[i] === '<') { const j = s.indexOf('>', i); out += s.slice(i, j + 1); i = j + 1; continue; }
+    const c = s[i++]; let ok = '', kt = '';
+    if (s[i] === '(') { const j = s.indexOf(')', i); ok = s.slice(i + 1, j); i = j + 1; }
+    if (s[i] === '[') { const j = s.indexOf(']', i); kt = s.slice(i + 1, j); i = j + 1; }
+    const gap = Math.max(.55, ok.length * .5 - .2);
+    out += `<span class="kc" style="margin-inline-end:${gap}em">${c}${ok ? `<span class="ok">${ok}</span>` : ''}${kt ? `<span class="kten">${kt}</span>` : ''}</span>`;
+  }
+  return out;
+}
+function markWrap(sec, t, ghost) {
+  const used = usedMarks(sec);
+  return t.replace(/<m(\d)>(.*?)<\/m\1>/g, (_, n, inner) => used.has('m' + n) ? `<span class="mk">${circ(markNum(sec, 'm' + n))}</span><span class="bs${ghost ? ' gh' : ''}">${inner}</span>` : inner);
+}
+function plainOf(d) {
+  const p = d.passage;
+  if (p.kanshi) return p.lines.map(l => l.replace(/<\/?m\d>/g, '').replace(/\([^)]*\)|\[[^\]]*\]/g, '')).join('\n');
+  return p.text.replace(/<\/?m\d>/g, '').replace(/\{[^}]*\}/g, '');
+}
+const norm = s => s.replace(/\s/g, '');
+function passageHTML(sec) {
+  if (sec.stage === 'empty') {
+    if (sec.customText) return `<div class="passage"><p>${esc(sec.customText).replace(/\n/g, '<br>')}</p><p class="src custom-note">（モックでは、この本文からは設問を作れません）</p></div>`;
+    return `<div class="placeholder ph-click" data-pp="${sec.id}" role="button" tabindex="0" aria-label="${secLabel(sec)}の本文を入れる"><p>本文欄</p><p class="ph-sub">ここをクリックして、教材CDの本文を貼り付けてください</p></div>`;
+  }
+  const ghost = sec.status === 'proposed';
+  const p = sec.passage;
+  if (p.kanshi) {
+    return `<div class="passage kanshi"><p class="ks-title">${p.title}<span>${p.author}</span></p>${p.lines.map(l => `<p class="ks-line">${markWrap(sec, kanbunHTML(l), ghost)}</p>`).join('')}<div class="ks-notes">${p.notes.map(n => `<p>${n}</p>`).join('')}</div></div>`;
+  }
+  const t = markWrap(sec, p.text.replace(/(.)\{([^}]+)\}/g, '<ruby>$1<rt>$2</rt></ruby>'), ghost);
+  return `<div class="passage"><p>${t}</p><p class="src">（${p.source}）</p></div>`;
+}
+const isSel = (sid, qid) => state.selected && state.selected.s === sid && state.selected.q === qid;
+function qHTML(sec, q, qi) {
+  const lab = `問${kan(qi + 1)}`;
+  const cls = ['q'];
+  if (q.flash) cls.push('flash');
+  cls.push('clickable');
+  if (isSel(sec.id, q.id)) cls.push('sel');
+  if (q.check) cls.push('needs-check');
+  let h = q.check ? '<p><span class="chk">要確認</span></p>' : '';
+  if (q.type === 'comp') {
+    h += q.conditions.map((c, i) => `<p class="cond"><b>条件${kan(i + 1)}</b>　${c}</p>`).join('');
+  } else {
+    h += `<p class="stem"><b class="ql">${lab}</b>　${fill(q.stem, sec, q)}<span class="pt">（${ptsLabel(q)}）</span></p>`;
+    if (q.items && !q.refItems && !q.noItemText) {
+      h += q.inline
+        ? `<p class="item">${q.items.map((it, i) => `${circ(i + 1)}　${itemText(it.text, q)}`).join('　　')}</p>`
+        : q.items.map((it, i) => `<p class="item">${circ(i + 1)}　${itemText(it.text, q)}</p>`).join('');
+    }
+    if (q.choices) {
+      h += q.shortChoices
+        ? `<p class="choice">${q.choices.map((c, i) => `${KANA[i]}　${c}`).join('　　')}</p>`
+        : q.choices.map((c, i) => `<p class="choice">${KANA[i]}　${c}</p>`).join('');
+    }
+  }
+  return `<div class="${cls.join(' ')}" data-s="${sec.id}" data-q="${q.id}" role="button" tabindex="0" aria-label="${secLabel(sec)}${qLabel(sec, q)}を選んで相談する">${h}</div>`;
+}
+function secHTML(sec) {
+  const pts = sec.stage === 'empty' ? '' : `<span class="pt">（${kanPt(sPts(sec))}点）</span>`;
+  const hasPassage = ['bungaku', 'kobun', 'kanbun'].includes(sec.kind);
+  const cls = ['sec'];
+  if (sec.status === 'proposed' && sec.stage !== 'empty') cls.push('proposed');
+  if (isSel(sec.id, null)) cls.push('sel-sec');
+  return `<section class="${cls.join(' ')}" id="sec-${sec.id}">
+    <p class="sec-h clickable-h" data-sh="${sec.id}" role="button" tabindex="0" aria-label="${secLabel(sec)}${sec.outline}を選んで相談する"><b>${secLabel(sec)}</b>　${sec.instruction}${pts}</p>
+    ${hasPassage ? passageHTML(sec) : ''}
+    ${addZone(sec, 0)}${sec.questions.map((q, i) => qHTML(sec, q, i) + addZone(sec, i + 1)).join('')}
+  </section>`;
+}
+// 小問のすき間。カーソルを合わせると「＋ 小問を追加」が出る
+function addZone(sec, at) {
+  if (sec.stage !== 'text' || sec.kind === 'sakubun') return '';
+  return `<div class="addq" data-addq="${sec.id}" data-at="${at}" role="button" tabindex="0" aria-label="${secLabel(sec)}の問${kan(at + 1)}として小問を追加">＋ 小問を追加</div>`;
+}
+function coverHTML() {
+  return `<div class="cover">
+    <p class="c-term">${esc(state.year)}　${esc(state.term)}</p>
+    <p class="c-title">国語</p>
+    <p>（二年）　時間　${kan(state.time)}分</p>
+    <div class="c-notes"><p>《注意》</p><p>一、先生の合図があるまで、この問題用紙を開いてはいけません。</p><p>二、答えは、すべて解答用紙に記入しなさい。</p><p>三、字は、ていねいに、はっきりと書きなさい。</p><p>四、${kan(state.full)}点満点です。配点は各問題のはじめに示してあります。</p></div>
+  </div><div class="rule"></div>`;
+}
+function mondaiHTML() {
+  // 一枚目は表紙と、先頭に続く短い大問（漢字・文法）。それ以外は大問ごとに改ページ
+  const short = s => s.kind === 'kanji' || s.kind === 'grammar';
+  const pages = [coverHTML()];
+  let front = true;
+  state.sections.forEach((s, i) => {
+    if (front && (short(s) || i === 0)) { pages[0] += secHTML(s); if (!short(s)) front = false; }
+    else { front = false; pages.push(secHTML(s)); }
+  });
+  pages[pages.length - 1] += '<p class="end">（問題は以上です。見直しをしましょう。）</p>';
+  return pages.map((p, i) => `<div class="page-wrap"><div class="page"><div class="pin">${p}</div><div class="page-no">${i + 1}</div></div></div>`).join('');
+}
+function asQ(sec, q, qi) {
+  const box = (n, label) => `<div class="as-it">${label ? `<div class="as-ih">${label}</div>` : ''}<div class="as-box" style="height:calc(var(--c) * ${n})"></div></div>`;
+  const grid = n => {
+    const cols = Math.ceil(n / 20);
+    return `<div class="as-it"><div class="as-grid">${Array.from({ length: cols }, (_, c) => `<div class="as-col">${'<div class="as-cell"></div>'.repeat(Math.min(20, n - 20 * c))}</div>`).join('')}</div></div>`;
+  };
+  let body = '';
+  switch (q.type) {
+    case 'kanji': body = q.items.map((_, i) => box(4, circ(i + 1))).join(''); break;
+    case 'choice': body = q.items ? q.items.map((_, i) => box(2, circ(i + 1))).join('') : box(2); break;
+    case 'form': case 'term': body = q.items.map((_, i) => box(3, circ(i + 1))).join(''); break;
+    case 'kana': body = q.items.map(it => box(5, circ(markNum(sec, it.ref)))).join(''); break;
+    case 'box': body = box(q.boxLen); break;
+    default: body = grid(q.charLimit);
+  }
+  return `<div class="as-q"><div class="as-qh">${sec.kind === 'sakubun' ? '作文' : '問' + kan(qi + 1)}</div><div class="as-its">${body}</div></div>`;
+}
+function kaitouHTML() {
+  const t = totals();
+  const secs = state.sections.map((s, si) => {
+    if (s.stage === 'empty') return `<div class="as-sec as-prop"><div class="as-sh">${kan(si + 1)}</div><div class="as-wait">本文待ち</div></div>`;
+    return `<div class="as-sec${s.status === 'proposed' ? ' as-prop' : ''}"><div class="as-sh">${kan(si + 1)}</div><div class="as-sb">${s.questions.map((q, qi) => asQ(s, q, qi)).join('')}</div><div class="as-score">／${num(sPts(s))}</div></div>`;
+  }).join('');
+  return `<div class="page-wrap"><div class="page"><div class="as">
+    <div class="as-title">${esc(state.year)}　${esc(state.term)}　国語</div>
+    <div class="as-side"><div class="as-name"><span>二年</span><span>組</span><span>番</span><span>氏名</span></div>
+      <div class="as-kan"><div><span>知・技</span><b>／${num(t.k)}</b></div><div><span>思・判・表</span><b>／${num(t.s)}</b></div><div><span>計</span><b>／${state.full}</b></div></div></div>
+    ${secs}
+  </div></div></div>`;
+}
+function mohanHTML() {
+  const t = totals();
+  const rows = state.sections.map(s => {
+    const head = `<tr class="grp"><td colspan="5">${secLabel(s)}　${s.outline}</td></tr>`;
+    if (s.stage === 'empty') return head + `<tr><td colspan="5" class="muted">本文を貼ると、設問と一緒に作られます。</td></tr>`;
+    return head + s.questions.map(q => {
+      let ans;
+      if (q.items) ans = q.items.map((it, i) => `${q.refItems ? circ(markNum(s, it.ref)) : circ(i + 1)} ${it.answer}`).join('　');
+      else if (q.type === 'choice') ans = KANA[q.correct];
+      else ans = q.answer;
+      const rub = q.rubric ? `<ul>${q.rubric.map(r => `<li>${r}</li>`).join('')}</ul>` : (q.type === 'choice' ? '記号が合っていれば正答' : '答えが一致していれば正答');
+      return `<tr><td>${qLabel(s, q)}</td><td class="ans">${ans}</td><td class="num">${ptsLabel(q)}</td><td><span class="kt-${q.kanten}">${KANTEN[q.kanten].l}</span><small>${q.code}</small></td><td>${rub}</td></tr>`;
+    }).join('');
+  }).join('');
+  return `<div class="mohan"><table><thead><tr><th>設問</th><th>正答・模範解答</th><th>配点</th><th>観点・指導事項</th><th>採点基準</th></tr></thead><tbody>${rows}</tbody>
+    <tfoot><tr><td colspan="5">知識・技能 ${num(t.k)}点　／　思考・判断・表現 ${num(t.s)}点　／　合計 ${num(t.t)}点（満点 ${state.full}点）</td></tr></tfoot></table></div>`;
+}
+function statusOf(s) {
+  if (s.stage === 'empty') return ['wait', '本文待ち'];
+  const n = s.questions.filter(q => q.check).length;
+  if (n) return ['warn', `要確認 ${n}`];
+  if (s.status === 'fixed') return ['fixed', '確定'];
+  return ['prop', '相談中'];
+}
+
+/* ---------- エディタ ---------- */
+function renderEditor() {
+  $('#main').innerHTML = `<div class="editor" id="editor" data-view="${state.view}">
+    <nav class="mview" aria-label="表示の切り替え"><button type="button" data-view="chat" aria-pressed="${state.view === 'chat'}">会話</button><button type="button" data-view="paper" aria-pressed="${state.view === 'paper'}">紙面<span class="dot" id="pdot" hidden></span></button></nav>
+    <aside class="chat">
+      <div class="chat-h"><b>AIと相談</b><span id="ctx"></span></div>
+      <div class="msgs" id="msgs" aria-live="polite"></div>
+      <div class="composer">
+        <div class="chips" id="quick"></div>
+        <div class="chips" id="sugs"></div>
+        <div class="inrow"><textarea id="inp" rows="2" placeholder="AIに相談する（例：大問二と三を入れ替えて）"></textarea><button type="button" class="btn primary" id="send">送信</button></div>
+        <p class="hint">⌘ / Ctrl + Enter でも送信できます</p>
+      </div>
+    </aside>
+    <main class="paper-area" id="parea">
+      <div class="ptools">
+        <div class="ptools-row">
+          <div class="tabs" role="group" aria-label="表示する紙"><button type="button" data-tab="mondai">問題用紙</button><button type="button" data-tab="kaitou">解答用紙</button><button type="button" data-tab="mohan">模範解答・採点基準</button></div>
+          <div class="settings"><label for="e-full">満点<input id="e-full" type="number" min="10" max="200" step="5" value="${state.full}" list="full-list2">点</label><label for="e-time">時間<input id="e-time" type="number" min="10" max="120" step="5" value="${state.time}">分</label><label for="e-step">刻み<select id="e-step"><option value="1"${state.step === 1 ? ' selected' : ''}>一点</option><option value="0.5"${state.step === .5 ? ' selected' : ''}>〇・五点</option></select></label><datalist id="full-list2"><option value="50"></option><option value="100"></option></datalist></div>
+          <div class="meter" id="meter"></div>
+        </div>
+        <div class="outline" id="outline"></div>
+        <div class="selbar" id="selbar" hidden></div>
+      </div>
+      <div class="pages" id="pages"></div>
+    </main>
+  </div>`;
+  new ResizeObserver(applyScale).observe($('#parea'));
+  $('#parea').addEventListener('scroll', () => { $('#markbtn').hidden = true; });
+  renderMsgs(); renderComposer(); renderPaper();
+}
+function applyScale() {
+  const pa = $('#parea'); if (!pa) return;
+  const w = pa.clientWidth - 8;
+  const s = Math.max(.5, Math.min(1, w / 1092));
+  $('#pages').style.setProperty('--s', s.toFixed(4));
+}
+function renderPaper(keepScroll = true) {
+  const pa = $('#parea'); if (!pa) return;
+  const top = pa.scrollTop, left = pa.scrollLeft;
+  const t = totals();
+  $('#meter').innerHTML = `<div class="mt-bar" aria-hidden="true"><span class="mt-k" style="flex:${t.k}"></span><span class="mt-s" style="flex:${t.s}"></span></div>
+    <div class="mt-nums"><span><i class="sw k"></i>知・技 <b>${num(t.k)}</b></span><span><i class="sw s"></i>思・判・表 <b>${num(t.s)}</b></span><span class="mt-t${complete() && t.t !== state.full ? ' off' : ''}">合計 <b>${num(t.t)}</b> ／ 満点 ${state.full}点</span></div>`;
+  $('#outline').innerHTML = state.sections.map(s => { const [c, l] = statusOf(s); return `<button type="button" class="oc" data-goto="${s.id}"><b>${secLabel(s)}</b>${s.outline}<span class="st st-${c}">${l}</span></button>`; }).join('') + '<button type="button" class="oc add" id="add-sec">＋ 大問を追加</button>';
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.tab === state.tab)));
+  $('#pages').innerHTML = state.tab === 'mondai' ? mondaiHTML() : state.tab === 'kaitou' ? kaitouHTML() : mohanHTML();
+  if (state.tab === 'mondai') reflowPages();
+  applyScale();
+  if (keepScroll) { pa.scrollTop = top; pa.scrollLeft = left; }
+  if (state.view === 'chat' && matchMedia('(max-width: 899px)').matches) state.paperDot = true;
+  const dot = $('#pdot'); if (dot) dot.hidden = !state.paperDot;
+  renderSelbar();
+}
+// 紙面からはみ出した小問を、次のページへ送る（大問の途中で改ページする）
+function reflowPages() {
+  const pagesEl = $('#pages');
+  const over = pin => pin.scrollWidth > pin.clientWidth + 1;
+  for (let wi = 0; wi < pagesEl.children.length && wi < 30; wi++) {
+    const wrap = pagesEl.children[wi], pin = wrap.querySelector('.pin');
+    if (!over(pin) || pin.children.length < 1) continue;
+    const next = wrap.cloneNode(true), npin = next.querySelector('.pin');
+    npin.innerHTML = '';
+    wrap.after(next);
+    for (let guard = 0; over(pin) && guard < 200; guard++) {
+      const last = pin.lastElementChild; if (!last) break;
+      const movable = last.matches('section.sec') ? [...last.children].filter(c => c.matches('.q, .addq')) : [];
+      if (movable.length && (movable.length > 1 || last.children.length > movable.length)) {
+        let cont = npin.firstElementChild;
+        if (!cont || cont.dataset.cont !== last.id) { cont = document.createElement('section'); cont.className = `${last.className} cont`; cont.dataset.cont = last.id; npin.prepend(cont); }
+        cont.prepend(movable[movable.length - 1]);
+      } else if (pin.children.length > 1) npin.prepend(last);
+      else break;
+    }
+    if (!npin.children.length) next.remove();
+  }
+  [...pagesEl.querySelectorAll('.page-no')].forEach((el, i) => { el.textContent = i + 1; });
+}
+function renderSelbar() {
+  const el = $('#selbar'); if (!el) return;
+  const sec = selSec();
+  if (!sec) { el.hidden = true; el.innerHTML = ''; return; }
+  const q = selQ();
+  el.hidden = false;
+  const b = (k, l, cls = '') => `<button type="button" class="btn${cls}" data-sb="${k}">${l}</button>`;
+  const i = q ? sec.questions.indexOf(q) : state.sections.indexOf(sec);
+  const n = q ? sec.questions.length : state.sections.length;
+  const hasText = ['bungaku', 'kobun', 'kanbun'].includes(sec.kind) && sec.stage === 'text';
+  const ops = q
+    ? b('editq', '文面を直す') + (i > 0 ? b('qup', '前へ') : '') + (i < n - 1 ? b('qdown', '後ろへ') : '') + b('qdel', '削除', ' danger')
+    : (hasText ? b('ptext', '本文を直す') : '') + (sec.stage === 'text' && sec.kind !== 'sakubun' ? b('addq', '＋ 小問を追加') : '') + (i > 0 ? b('sup', '前へ') : '') + (i < n - 1 ? b('sdown', '後ろへ') : '') + b('sdel', '削除', ' danger');
+  const chk = q && q.check ? `<span class="chk-note">要確認：${q.check.join('／')}</span>` : '';
+  el.innerHTML = `<span>選択中：<b>${secLabel(sec)}${q ? qLabel(sec, q) : sec.outline}</b></span>${chk}${ops}${b('ask', 'AIに相談する')}<span class="muted">${q ? 'ダブルクリックでも文面を直せます' : '見出しをダブルクリックすると指示文を直せます'}</span>`;
+}
+/* 紙面で直接入力・編集するポップアップ（本文の貼り付け、文面の書き換え、小問の追加） */
+function openModal(p) { state.modal = p; renderModal(); }
+function closeModal() { state.modal = null; renderModal(); }
+const FORMS = [['choice', '記号で選ぶ問題'], ['extract', '本文から抜き出す問題'], ['desc', '書いて説明する問題'], ['knowledge', '語句・知識の問題']];
+const availCands = sec => (CANDS[sec.id] || []).filter(c => !(sec.usedCands || []).includes(c.cid));
+function renderModal() {
+  const bg = $('#modal');
+  const p = state.modal, sec = p && S(p.s);
+  const q = sec && p.q ? sec.questions.find(x => x.id === p.q) : null;
+  if (!p || !sec || (p.type === 'q' && !q)) { state.modal = null; bg.hidden = true; bg.innerHTML = ''; return; }
+  bg.hidden = false;
+  const btns = label => `<div class="acts"><button type="button" class="btn primary" id="pp-save">${label}</button><button type="button" class="btn" id="pp-cancel">やめる</button></div>`;
+  let h = '';
+  if (p.type === 'passage') {
+    const d = DATA[sec.id], kanshi = d.passage.kanshi;
+    h = `<p class="modal-h" id="modal-h">${secLabel(sec)}${sec.outline}の本文を入れる</p>
+      <label for="pp-text">${kanshi ? '白文（返り点と送り仮名は AI が付けて紙面に表示します）' : '本文（教材CDからコピーして貼り付け）'}<textarea id="pp-text" rows="${kanshi ? 5 : 7}">${esc(sec.customText || plainOf(d))}</textarea></label>
+      <p class="pp-note">モックでは、入っているサンプルの本文のまま入れると続きを試せます。</p>${btns('紙面に入れる')}`;
+  } else if (p.type === 'sec') {
+    h = `<p class="modal-h" id="modal-h">${secLabel(sec)}${sec.outline}の指示文を直す</p>
+      <label for="pp-stem">指示文<textarea id="pp-stem" rows="2">${esc(sec.instruction)}</textarea></label>${btns('紙面に反映する')}`;
+  } else if (p.type === 'ptext') {
+    const kanshi = sec.passage.kanshi;
+    h = `<p class="modal-h" id="modal-h">${secLabel(sec)}${sec.outline}の本文を直す</p>
+      ${kanshi
+        ? `<label for="pe-lines">白文（一行に一句。返り点と送り仮名は、直した句だけ AI が付け直します）<textarea id="pe-lines" rows="5">${esc(plainLines(sec).join('\n'))}</textarea></label>`
+        : `<p class="pp-note">色の付いた部分が傍線部です。傍線は文字に付いているので、前後を直しても一緒に動きます。</p><div class="pe" id="pe-text" contenteditable="true" role="textbox" aria-multiline="true" aria-label="本文">${editorHTML(sec)}</div>`}
+      <p class="pe-warn" id="pe-warn" hidden></p>
+      <p class="pp-note">保存すると、傍線部・抜き出しの答え・問い文が引用している言葉が本文と食い違っていないかを確かめ、食い違った小問に「要確認」の印を付けます。</p>
+      ${btns('本文を保存する')}`;
+  } else if (p.type === 'q') {
+    const stemText = q.type === 'comp' ? q.conditions.join('\n') : fill(q.stem, sec, q);
+    h = `<p class="modal-h" id="modal-h">${secLabel(sec)}${qLabel(sec, q)}の文面を直す</p>
+      <label for="pp-stem">${q.type === 'comp' ? '条件（一行に一つ）' : '問い文'}<textarea id="pp-stem" rows="4">${esc(stemText)}</textarea></label>
+      ${q.choices && !q.items ? `<label for="pp-ch">選択肢（一行に一つ。上からア、イ、ウ…）<textarea id="pp-ch" rows="${q.choices.length + 1}">${esc(q.choices.join('\n'))}</textarea></label>` : ''}${btns('紙面に反映する')}`;
+  } else if (p.type === 'add') {
+    const avail = availCands(sec), tab = p.tab || 'rec';
+    const tabBtn = (k, l) => `<button type="button" data-addtab="${k}" aria-pressed="${tab === k}">${l}</button>`;
+    let body = '';
+    if (tab === 'rec') {
+      body = avail.length ? `<p class="pp-note">単元の指導目標のうち、まだ問えていないところを中心に、AIが案を出しています。</p><div class="cands">${avail.map(c => `<div class="cand"><p class="cand-h">${c.q.plan}</p><p class="cand-s">${fill(c.q.stem, sec, c.q)}</p><p class="cand-m">${KANTEN[c.q.kanten].l}（${c.q.code}）・${c.why}</p><button type="button" class="btn primary" data-addcand="${c.cid}">これを入れる</button></div>`).join('')}</div>`
+        : '<p class="pp-note">この大問のおすすめは、モックではもう残っていません。「自分で書く」から足せます。</p>';
+    } else if (tab === 'form') {
+      body = `<p class="pp-note">形式を選ぶと、AIがその形式で小問を作ります。</p><div class="formgrid">${FORMS.map(([k, l]) => { const c = avail.filter(x => x.form === k).length; return `<button type="button" class="btn" data-addform="${k}"${c ? '' : ' disabled'}>${l}<small>${c ? 'AIが作ります' : 'モックでは案がありません'}</small></button>`; }).join('')}</div>`;
+    } else {
+      body = `<label for="ao-form">形式<select id="ao-form"><option value="choice">記号で選ぶ</option><option value="desc" selected>書いて説明する（字数あり）</option><option value="extract">本文から抜き出す（字数あり）</option><option value="box">答えを書く</option></select></label>
+        <label for="ao-stem">問い文<textarea id="ao-stem" rows="3" placeholder="例：メロスが激怒したのはなぜですか。三十字以内で書きなさい。"></textarea></label>
+        <label for="ao-ch">選択肢（記号で選ぶときだけ。一行に一つ）<textarea id="ao-ch" rows="4"></textarea></label>
+        <div class="own-row"><label for="ao-lim">字数<input id="ao-lim" type="number" min="1" max="400" value="30"></label><label for="ao-pts">配点<input id="ao-pts" type="number" min="0.5" step="0.5" value="4"></label><label for="ao-kt">観点<select id="ao-kt"><option value="k">知識・技能</option><option value="s" selected>思考・判断・表現</option></select></label></div>
+        <div class="acts"><button type="button" class="btn primary" id="ao-add">この小問を入れる</button></div>`;
+    }
+    const hint = ['bungaku', 'kobun'].includes(sec.kind) ? '<p class="pp-note">本文に線を引いて作ることもできます。紙面の本文をドラッグして選ぶと「傍線を引いて小問を作る」が出ます。</p>' : '';
+    h = `<p class="modal-h" id="modal-h">${secLabel(sec)}に小問を追加する（問${kan(p.at + 1)}として入ります）</p>
+      <div class="mtabs" role="group" aria-label="小問の足し方">${tabBtn('rec', 'AIのおすすめから選ぶ')}${tabBtn('form', '形式を選んでAIに作ってもらう')}${tabBtn('own', '自分で書く')}</div>
+      ${body}${hint}<div class="acts"><button type="button" class="btn" id="pp-cancel">閉じる</button></div>`;
+  } else if (p.type === 'mark' && p.step !== 'review') {
+    h = `<p class="modal-h" id="modal-h">本文の「${esc(quoteOf(p.text))}」に傍線を引いて、小問を作る</p>
+      <label for="mk-want">この傍線部で、どんな問題にしたいですか？　思いついたまま書いてください<textarea id="mk-want" rows="3" placeholder="例：メロスがどんな人物なのか、この部分から考えさせたい">${esc(p.want || '')}</textarea></label>
+      <p class="pp-note">書き方の例：「なぜ怒ったのかを三十字くらいで書かせたい」「この表現のよさに気づかせたい」「記号で選ばせたい」</p>
+      <div class="acts"><button type="button" class="btn primary" id="mk-refine">AIに問題の形にしてもらう</button><button type="button" class="btn" id="pp-cancel">やめる</button></div>`;
+  } else if (p.type === 'mark') {
+    const d = p.draft;
+    const opt = (v, l, cur) => `<option value="${v}"${v === cur ? ' selected' : ''}>${l}</option>`;
+    h = `<p class="modal-h" id="modal-h">AIが問題の形に整えました</p>
+      <p class="pp-note">先生が書いたこと：「${esc(p.want)}」</p>
+      <label for="mk-stem">問い文（そのまま直せます。傍線部の番号は、入れるときに自動で付きます）<textarea id="mk-stem" rows="4">${esc(d.stem)}</textarea></label>
+      <div class="own-row"><label for="mk-form">形式<select id="mk-form">${opt('desc', '書いて説明する', d.form)}${opt('extract', '本文から抜き出す', d.form)}${opt('choice', '記号で選ぶ', d.form)}</select></label>
+        <label for="mk-lim">字数<input id="mk-lim" type="number" min="1" max="400" value="${d.lim || ''}"${d.form === 'choice' ? ' disabled' : ''}></label>
+        <label for="mk-pts">配点<input id="mk-pts" type="number" min="0.5" step="0.5" value="${d.points}"></label></div>
+      <label for="mk-kt">観点<select id="mk-kt">${opt('k', '知識・技能', d.kanten)}${opt('s', '思考・判断・表現', d.kanten)}</select></label>
+      <div class="notes"><p>AIが整えたところ</p><ul>${d.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>
+      <p class="pp-note">形式や字数を変えると、問い文を整え直します。</p>
+      <div class="acts"><button type="button" class="btn primary" id="mk-insert">この問題で入れる</button><button type="button" class="btn" id="mk-back">書き直して、もう一度整えてもらう</button><button type="button" class="btn" id="pp-cancel">やめる</button></div>`;
+  }
+  bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-h">${h}</div>`;
+  const ta = bg.querySelector('textarea, [contenteditable]'); if (ta) ta.focus({ preventScroll: true });
+}
+function clearFlash() { state.sections.forEach(s => s.questions.forEach(q => { delete q.flash; })); }
+function focusSec(id) {
+  if (state.tab !== 'mondai') { state.tab = 'mondai'; renderPaper(false); }
+  const el = document.getElementById('sec-' + id); if (!el) return;
+  const wrap = el.closest('.page-wrap');
+  const pa = $('#parea');
+  pa.scrollTo({ top: wrap.offsetTop - $('.ptools').offsetHeight - 4, behavior: reduced ? 'auto' : 'smooth' });
+  if (pa.scrollWidth > pa.clientWidth) pa.scrollLeft = pa.scrollWidth;
+}
+
+/* ---------- 会話 ---------- */
+function msgHTML(m, i) {
+  if (m.who === 'me') return `<div class="msg me"><div class="body"><p>${m.html}</p></div></div>`;
+  let h = `<p>${m.html}</p>`;
+  if (m.notes) h += `<div class="notes"><p>気づいたこと</p><ul>${m.notes.map(n => `<li>${n}</li>`).join('')}</ul></div>`;
+  if (m.actions && m.actions.length) h += `<div class="acts">${m.actions.map((a, j) => `<button type="button" class="btn${a.primary ? ' primary' : ''}" data-msg="${i}" data-act="${j}"${m.used ? ' disabled' : ''}>${a.label}</button>`).join('')}</div>`;
+  return `<div class="msg ai"><div class="who" aria-hidden="true">AI</div><div class="body">${h}</div></div>`;
+}
+function renderMsgs() {
+  const el = $('#msgs'); if (!el) return;
+  el.innerHTML = state.chat.map(msgHTML).join('') + (state.typing ? `<div class="msg ai typing"><div class="who" aria-hidden="true">AI</div><div class="body"><span class="dots" aria-label="考えています"><i></i><i></i><i></i></span></div></div>` : '');
+  el.scrollTop = el.scrollHeight;
+}
+const selSec = () => state.selected && S(state.selected.s);
+const selQ = () => { const s = selSec(); return s && state.selected.q ? s.questions.find(x => x.id === state.selected.q) : null; };
+function quickList() {
+  const sec = selSec(); if (!sec) return [];
+  const step = kanPt(state.step);
+  const q = selQ();
+  // 会話には AI に頼む操作だけを置く。削除や並べ替えは紙面のバーから行う
+  if (!q) {
+    const acts = [];
+    if (sec.stage !== 'empty') acts.push(['regenSec', 'AIに作り直してもらう']);
+    if (sec.stage === 'text' && sec.kind !== 'sakubun') acts.push(['addcand', '小問をAIに足してもらう']);
+    return acts;
+  }
+  const acts = [];
+  if (q.type === 'choice' && !q.items) acts.push(['easier', 'もう少し易しく'], ['five', '選択肢を五つに'], ['desc', '記述問題にする']);
+  acts.push(['regen', 'AIに作り直してもらう'], ['addcand', 'この後ろに小問を足してもらう'], ['minus', `配点を${step}点下げる`], ['plus', `配点を${step}点上げる`]);
+  return acts;
+}
+function renderComposer() {
+  if (!$('#quick')) return;
+  const sec = selSec(), q = selQ();
+  $('#ctx').innerHTML = sec ? `<span class="ctx">選択中：${secLabel(sec)}${q ? qLabel(sec, q) : sec.outline}<button type="button" id="unsel" aria-label="選択を外す">×</button></span>` : '';
+  const qs = quickList();
+  $('#quick').innerHTML = qs.length ? `<span class="chips-label">${q ? 'この小問についてAIに頼む' : 'この大問についてAIに頼む'}</span>` + qs.map(([k, l]) => `<button type="button" class="chip" data-quick="${k}">${l}</button>`).join('') : '';
+  $('#sugs').innerHTML = state.sugs.length ? `<span class="chips-label">こう伝えてみる</span>` + state.sugs.map((s, i) => `<button type="button" class="chip sug" data-sug="${i}">${s}</button>`).join('') : '';
+}
+async function ai(html, opts = {}) {
+  state.typing = true; renderMsgs();
+  await sleep(700);
+  state.typing = false;
+  if (opts.actions && opts.actions.length) state.chat.forEach(m => { if (m.actions) m.used = true; });
+  state.chat.push({ who: 'ai', html, ...opts });
+  renderMsgs();
+}
+function me(text) { state.chat.push({ who: 'me', html: esc(text) }); renderMsgs(); }
+async function run(fn) {
+  if (state.busy) return;
+  state.busy = true;
+  try { await fn(); } finally { state.busy = false; clearFlash(); }
+}
+const confirmAct = id => ({ label: `大問${kan(state.sections.indexOf(S(id)) + 1)}を確定する`, fn: 'confirm', arg: id, primary: true });
+// 本文は紙面の本文欄から入れる。会話のボタンは本文欄を開くだけ
+const openAct = id => ({ label: `大問${kan(state.sections.indexOf(S(id)) + 1)}の本文欄を開く`, fn: 'openPassage', arg: id, primary: true, silent: true, keep: true });
+const fitAct = () => ({ label: `配点を満点（${state.full}点）に合わせる`, fn: 'fit' });
+function reopen(sec) {
+  if (sec.status !== 'fixed') return '';
+  sec.status = 'proposed';
+  return `確定を外して直しています。よければもう一度確定してください。`;
+}
+function nextPrompt() {
+  const empty = state.sections.find(s => s.stage === 'empty');
+  if (empty) return { html: `次は大問${kan(state.sections.indexOf(empty) + 1)}（${DATA[empty.id].name}）です。紙面の大問${kan(state.sections.indexOf(empty) + 1)}の本文欄をクリックして、教材CDの本文を貼ってください。入れてもらえれば、一緒に設問を考えます。`, actions: [openAct(empty.id)] };
+  if (!state.sakubunOffered) {
+    state.sakubunOffered = true;
+    const total = totals().t, full = state.full;
+    const pts = snap(BASE.sakubun * state.f);
+    const why = S('meros') ? '走れメロスの指導目標に「C(1)オ 読んで考えたことを知識や経験と結び付け、考えを広げたり深めたりする」があるので、「人を信じること」をテーマにした作文で確かめるのはどうでしょう。' : '「人を信じること」をテーマにした作文を入れるのはどうでしょう。';
+    const fit = total + pts === full ? 'ちょうど満点になります' : `ほかの設問の配点も調整して、合計を満点の${kan(full)}点にそろえます`;
+    return { html: `ここまでで、合計は${kanPt(total)}点です（満点は${kan(full)}点）。<br>${why}<br>作文を${kanPt(pts)}点で入れると、${fit}。作文の大問を足しますか？`,
+      actions: [{ label: '作文の大問を足す', fn: 'addSaku', arg: pts, primary: true }, { label: '作文は入れない', fn: 'noSaku' }] };
+  }
+  const t = totals().t;
+  const off = t !== state.full;
+  return { html: `これでテスト一式がそろいました。${off ? `<br><span class="warn">合計が${kanPt(t)}点で、満点（${kan(state.full)}点）と合っていません。</span>` : ''}<br>解答用紙と模範解答・採点基準も、問題用紙と同じデータから作っているので、番号や配点がずれません。大問の見出しや設問をクリックすれば、あとからでも直せます。`,
+    actions: [...(off ? [fitAct()] : []), { label: '解答用紙を見る', fn: 'tab', arg: 'kaitou' }, { label: '模範解答・採点基準を見る', fn: 'tab', arg: 'mohan' }] };
+}
+function newSection(id) {
+  if (id === 'kanji') { const s = clone(KANJI_SEC); s.questions.forEach(q => scaleQ(q)); return s; }
+  if (id === 'katsuyou') { const s = clone(GRAMMAR_SEC); s.questions.forEach(q => scaleQ(q)); return s; }
+  if (id === 'sakubun') return sakubunSec(snap(BASE.sakubun * state.f));
+  const d = DATA[id];
+  return { id, kind: d.kind, outline: d.name, instruction: d.instruction, stage: 'empty', status: 'proposed', passage: null, questions: [] };
+}
+const ACTIONS = {
+  async paste(id) {
+    const sec = S(id), d = DATA[id];
+    if (!sec) return;
+    delete sec.customText;
+    sec.passage = clone(d.passage);
+    sec.alts = clone(d.alts || {});
+    sec.questions = clone(d.questions).map(q => Object.assign(scaleQ(q), { flash: true }));
+    sec.stage = 'text';
+    sec.status = 'proposed';
+    renderPaper(); focusSec(id);
+    if (d.feedback) { state.expect = id; state.sugs = [d.feedback.suggest]; renderComposer(); }
+    await ai(d.textMsg, { notes: d.notes, actions: [confirmAct(id)] });
+  },
+  async confirm(id) {
+    const sec = S(id); if (!sec) return;
+    sec.status = 'fixed';
+    if (state.expect === id) { state.expect = null; state.sugs = []; }
+    renderPaper(); renderComposer();
+    const n = nextPrompt();
+    await ai(`大問${kan(state.sections.indexOf(sec) + 1)}を確定しました。<br>${n.html}`, { actions: n.actions });
+  },
+  async addSaku(pts) {
+    state.sections.push(sakubunSec(pts));
+    const adjust = totals().t !== state.full;
+    if (adjust) rescale(state.full - pts, ['sakubun']);
+    renderPaper(); focusSec('sakubun');
+    await ai(`大問${kan(state.sections.length)}に作文を入れました。${adjust ? `あわせて、ほかの設問の配点を少しずつ調整して、合計を${kan(state.full)}点にそろえています（色が変わった設問）。` : ''}テーマと条件は、授業に合わせて変えられます。`,
+      { notes: [`字数は「百六十字以上、二百字以内」にしています。${kan(state.time)}分のうち十五分ほどで書ける量です。`], actions: [confirmAct('sakubun')] });
+  },
+  async noSaku() {
+    const adjust = totals().t !== state.full;
+    if (adjust) { rescale(state.full); renderPaper(); }
+    const n = nextPrompt();
+    await ai(`作文は入れずにおきます。${adjust ? `かわりに、ほかの設問の配点を調整して、合計を${kan(state.full)}点にそろえました。` : ''}<br>${n.html}`, { actions: n.actions });
+  },
+  async fit() {
+    rescale(state.full); renderPaper();
+    await ai(`配点を調整して、合計を満点の${kan(state.full)}点にそろえました（色が変わった設問）。`);
+  },
+  async undo() {
+    const d = state.lastDeleted; if (!d) return;
+    state.sections.splice(Math.min(d.i, state.sections.length), 0, d.sec);
+    state.lastDeleted = null;
+    renderPaper(); focusSec(d.sec.id);
+    await ai(`${secLabel(d.sec)}${d.sec.outline}を元に戻しました。`);
+  },
+  async addMenu() {
+    const missing = SUPPORTED.filter(id => !S(id));
+    const acts = missing.map(id => ({ label: id === 'kanji' ? '漢字の読み書き' : id === 'katsuyou' ? '文法２ 用言の活用' : DATA[id].name, fn: 'addSec', arg: id }));
+    if (!S('sakubun')) acts.push({ label: '作文', fn: 'addSec', arg: 'sakubun' });
+    acts.push({ label: '仁和寺にある法師', fn: 'addNA', arg: 'ninnaji' }, { label: '君は「最後の晩餐」を知っているか', fn: 'addNA', arg: 'bansan' }, { label: '文法3 付属語', fn: 'addNA', arg: 'bunpo3' });
+    await ai(`どの大問を足しますか？${missing.length ? '' : '<br>（選んだ単元はすべて入っています。ほかの単元から選べます）'}`, { actions: acts });
+  },
+  async addSec(id) {
+    if (S(id)) { await ai(`${id === 'sakubun' ? '作文' : unitName(id)}はもう入っています。`); return; }
+    const sec = newSection(id);
+    sec.status = 'proposed';
+    const sak = state.sections.findIndex(s => s.id === 'sakubun');
+    if (sak >= 0 && id !== 'sakubun') state.sections.splice(sak, 0, sec); else state.sections.push(sec);
+    if (id === 'sakubun') state.sakubunOffered = true;
+    renderPaper(); focusSec(id);
+    const L = `大問${kan(state.sections.indexOf(sec) + 1)}`;
+    if (sec.stage === 'empty') { await ai(`${L}として${sec.outline}を足しました。後ろの大問の番号も一つずつずれています。紙面の本文欄に本文を入れてください。`, { actions: [openAct(id)] }); return; }
+    const t = totals().t, off = complete() && t !== state.full;
+    await ai(`${L}として${sec.outline}を足しました。合計は${kanPt(t)}点です。${off ? '<br><span class="warn">満点と合わなくなったので、配点を調整しますか？</span>' : ''}`, { actions: [confirmAct(id), ...(off ? [fitAct()] : [])] });
+  },
+  async openPassage(id) {
+    if (!S(id) || S(id).stage !== 'empty') return;
+    focusSec(id); openModal({ type: 'passage', s: id });
+  },
+  async addNA(unitId) { await ai(`（モック）「${unitName(unitId)}」の大問は、モックでは作れません。本番では、本文を貼れば同じ流れで作れます。`); },
+  async addCandAct(arg) { const [sid, cid, at] = arg.split('|'); await addCand(sid, cid, +at); },
+  // 本文を直したあとの「要確認」への対応
+  async fixQ(arg) {
+    const [sid, qid] = arg.split('|'), sec = S(sid), q = sec && sec.questions.find(x => x.id === qid);
+    if (!q || !q.check) return;
+    const L = qLabel(sec, q);
+    const pairs = Object.entries(q.fix || {});
+    const rest = q.check.filter(c => !c.startsWith('傍線部の文字が'));
+    pairs.forEach(([o, n]) => { ['stem', 'planRef'].forEach(k => { if (q[k]) q[k] = q[k].split(`「${o}」`).join(`「${n}」`).split(`「${quoteOf(o)}」`).join(`「${quoteOf(n)}」`); }); });
+    q.flash = true;
+    if (rest.length) {
+      q.check = rest; q.fix = {};
+      await afterFlag(sec, `${pairs.length ? `${L}は、問い文の引用を新しい傍線部に合わせました。ただ、次の点は` : `${L}の次の点は、`}AIだけでは直せませんでした：${rest.join('／')}。<br>（モック）本番では、AIが本文から答えや言葉を探し直して直します。ここでは「このままにする」か「消す」を選んでください。`);
+      return;
+    }
+    delete q.check; delete q.fix;
+    await afterFlag(sec, `${L}の問い文を、新しい傍線部「${pairs.map(([, n]) => quoteOf(n)).join('」「')}」に合わせて直しました。選択肢と模範解答も見直しています（モックでは省略）。`);
+  },
+  async keepQ(arg) {
+    const [sid, qid] = arg.split('|'), sec = S(sid), q = sec && sec.questions.find(x => x.id === qid);
+    if (!q) return;
+    q.ack = [...(q.ack || []), ...(q.check || [])];
+    delete q.check; delete q.fix;
+    await afterFlag(sec, `${qLabel(sec, q)}は、このままにします。次に本文を直したときも、同じ点はもう知らせません。`);
+  },
+  async delQ(arg) {
+    const [sid, qid] = arg.split('|'), sec = S(sid);
+    if (!sec) return;
+    await doDeleteQ(sid, qid);
+    if (sec.questions.some(q => q.check)) await afterFlag(sec, '');
+  },
+  async undoQ() {
+    const d = state.lastDeletedQ, sec = d && S(d.sid); if (!sec) return;
+    sec.questions.splice(Math.min(d.i, sec.questions.length), 0, Object.assign(d.q, { flash: true }));
+    state.lastDeletedQ = null;
+    renderPaper(); renderComposer();
+    await ai(`${secLabel(sec)}の問${kan(d.i + 1)}を元に戻しました。`);
+  },
+  async tab(name) { state.tab = name; state.view = 'paper'; state.paperDot = false; syncView(); renderPaper(false); },
+};
+async function applyFeedback(id) {
+  const sec = S(id), d = DATA[id];
+  const ba = d.feedback.apply(sec);
+  sec.fbDone = true; state.expect = null; state.sugs = [];
+  const re = reopen(sec);
+  renderComposer(); renderPaper(); focusSec(id);
+  await ai(d.feedback.textReply(ba) + (re ? '<br>' + re : ''), { actions: [confirmAct(id)] });
+}
+/* 大問の並べ替え・削除 */
+function moveSec(id, dir) {
+  const i = state.sections.findIndex(s => s.id === id), j = i + dir;
+  if (i < 0 || j < 0 || j >= state.sections.length) return false;
+  [state.sections[i], state.sections[j]] = [state.sections[j], state.sections[i]];
+  return true;
+}
+async function doMove(id, dir) {
+  const before = state.sections.findIndex(s => s.id === id);
+  if (!moveSec(id, dir)) { await ai('それ以上は動かせません。'); return; }
+  renderPaper(); renderComposer(); focusSec(id);
+  const sec = S(id);
+  await ai(`${sec.outline}を大問${kan(before + 1)}から大問${kan(before + 1 + dir)}に移しました。大問の番号と解答用紙の並びも入れ替わっています。`);
+}
+async function doSwap(a, b) {
+  const n = state.sections.length;
+  if (a < 1 || b < 1 || a > n || b > n || a === b) { await ai(`大問は${kan(n)}までです。番号を確かめてください。`); return; }
+  [state.sections[a - 1], state.sections[b - 1]] = [state.sections[b - 1], state.sections[a - 1]];
+  renderPaper(); renderComposer(); focusSec(state.sections[Math.min(a, b) - 1].id);
+  await ai(`大問${kan(a)}と大問${kan(b)}を入れ替えました。今は大問${kan(a)}が${state.sections[a - 1].outline}、大問${kan(b)}が${state.sections[b - 1].outline}です。解答用紙の並びも入れ替わっています。`);
+}
+async function doDelete(id) {
+  const i = state.sections.findIndex(s => s.id === id); if (i < 0) return;
+  const label = `大問${kan(i + 1)}（${state.sections[i].outline}）`;
+  const [sec] = state.sections.splice(i, 1);
+  state.lastDeleted = { sec, i };
+  if (state.selected && state.selected.s === id) state.selected = null;
+  if (state.modal && state.modal.s === id) state.modal = null;
+  if (state.expect === id) { state.expect = null; state.sugs = []; }
+  renderPaper(); renderComposer(); renderModal();
+  const t = totals().t;
+  const off = complete() && t !== state.full;
+  await ai(`${label}を削除しました。後ろの大問の番号は一つずつ繰り上がっています。合計は${kanPt(t)}点です。`, { actions: [...(off ? [fitAct()] : []), { label: '元に戻す', fn: 'undo' }] });
+}
+/* 作り直し */
+// 作り直しの別案は大問ごとに持ち、作り直すたびに今の設問と入れ替える（配点の合計は引き継ぐ）
+function swapAlt(sec, q) {
+  const alt = sec.alts && sec.alts[q.id];
+  if (!alt) return null;
+  const next = clone(alt);
+  if (!next.perItem) next.points = qPts(q);
+  next.flash = true;
+  const prev = clone(q); delete prev.flash; delete prev.easyDone;
+  sec.alts[q.id] = Object.assign(prev, { regenMsg: prev.regenMsg || '{L}を作り直しました。' });
+  sec.questions[sec.questions.indexOf(q)] = next;
+  return next;
+}
+const mockMsg = (L, what) => `（モック）本番では、${L}を「${what}」の方向で作り直します。モックで実際に作り直せるのは、走れメロスの問四、扇の的の問一、漢詩の風景の問四などです。`;
+async function quick(kind) {
+  const sec = selSec(); if (!sec) return;
+  const q = selQ();
+  const L = secLabel(sec) + (q ? qLabel(sec, q) : '');
+  if (kind === 'addcand') return offerCands(sec, q ? sec.questions.indexOf(q) + 1 : sec.questions.length);
+  if (!q) {
+    if (kind === 'regenSec') {
+      const changed = sec.questions.filter(x => sec.alts && sec.alts[x.id]).map(x => sec.questions.indexOf(x));
+      if (!changed.length) { await ai(mockMsg(L, '別の問い方で')); return; }
+      changed.forEach(i => swapAlt(sec, sec.questions[i]));
+      const re = reopen(sec);
+      renderPaper(); focusSec(sec.id);
+      await ai(`${L}の文面を作り直しました。単元の指導目標に合わせて、${changed.map(i => `問${kan(i + 1)}`).join('・')}を別の問い方にしています（色が変わった設問）。${re ? '<br>' + re : ''}`, { actions: [confirmAct(sec.id)] });
+      return;
+    }
+    return;
+  }
+  if (kind === 'plus' || kind === 'minus') {
+    const before = qPts(q), d = kind === 'plus' ? state.step : -state.step;
+    if (q.perItem) q.perItem = Math.max(state.step, q.perItem + d); else q.points = Math.max(state.step, q.points + d);
+    q.flash = true;
+    const re = reopen(sec);
+    renderPaper();
+    const t = totals().t;
+    await ai(`${L}の配点を${kanPt(before)}点から${kanPt(qPts(q))}点にしました。合計は${kanPt(t)}点です。${complete() && t !== state.full ? `<br><span class="warn">合計が満点（${kan(state.full)}点）と合っていません。</span>` : ''}${re ? '<br>' + re : ''}`,
+      { actions: [...(re ? [confirmAct(sec.id)] : []), ...(complete() && t !== state.full ? [fitAct()] : [])] });
+  } else if (kind === 'easier') {
+    if (q.easier && !q.easyDone) { q.choices[q.easier.i] = q.easier.text; q.easyDone = true; q.flash = true; const re = reopen(sec); renderPaper(); await ai(q.easier.msg.replace('{L}', L) + (re ? '<br>' + re : ''), re ? { actions: [confirmAct(sec.id)] } : {}); }
+    else await ai(mockMsg(L, 'もう少し易しく'));
+  } else if (kind === 'five') {
+    if (q.extra && q.choices.length === 4) { q.choices.push(q.extra); q.flash = true; const re = reopen(sec); renderPaper(); await ai(`${L}に選択肢オ「${q.extra}」を足しました。本文と照らし合わせれば、誤りだと判断できる内容にしています。${re ? '<br>' + re : ''}`, re ? { actions: [confirmAct(sec.id)] } : {}); }
+    else await ai(mockMsg(L, '選択肢を五つに'));
+  } else if (kind === 'desc') {
+    if (sec.id === 'meros' && q.id === 'q3' && !sec.fbDone) await applyFeedback('meros');
+    else await ai(mockMsg(L, '記述問題にする'));
+  } else if (kind === 'regen') {
+    const next = swapAlt(sec, q);
+    if (!next) { await ai(mockMsg(L, '別の問い方で')); return; }
+    const re = reopen(sec);
+    renderPaper();
+    await ai(next.regenMsg.replace('{L}', L) + (re ? '<br>' + re : ''), { actions: [confirmAct(sec.id)] });
+  }
+}
+async function savePassage(id) {
+  const sec = S(id), d = DATA[id];
+  const text = $('#pp-text').value.trim();
+  closeModal();
+  if (!sec || !text) return;
+  me(`（紙面の${secLabel(sec)}に本文を入れました）`);
+  if (norm(text) === norm(plainOf(d))) { await ACTIONS.paste(id); return; }
+  sec.customText = text;
+  renderPaper(); focusSec(id);
+  await ai('（モック）本番では、入れてもらった本文から設問を考えます。モックではサンプルの本文でしか設問を作れないので、サンプルに戻して続きを試してください。', { actions: [{ label: 'サンプルの本文に戻す', fn: 'paste', arg: id, primary: true }] });
+}
+async function saveEdit() {
+  const ed = state.modal; if (!ed) return;
+  if (ed.type === 'passage') return savePassage(ed.s);
+  if (ed.type === 'ptext') return savePassageEdit(ed.s);
+  const sec = S(ed.s); if (!sec) { closeModal(); return; }
+  const stem = $('#pp-stem').value.trim();
+  const ids = markIds(sec);
+  let L, note = '';
+  // 一問ぶんの問い文と選択肢を反映する。変わった問だけ色を付ける
+  const applyQ = (q, stemEl, chEl) => {
+    const before = JSON.stringify([q.stem, q.conditions, q.choices]);
+    const v = stemEl ? stemEl.value.trim() : '';
+    if (q.type === 'comp') { if (v) q.conditions = v.split('\n').map(s => s.trim()).filter(Boolean); }
+    else if (v) q.stem = tokenize(v, ids, q);
+    if (chEl && q.choices) {
+      const list = chEl.value.split('\n').map(s => s.trim()).filter(Boolean);
+      if (list.length >= 2) {
+        if (list.length !== q.choices.length) note = '選択肢の数が変わった問があるので、正答の記号を確かめてください。';
+        q.choices = list.slice(0, 8);
+        if (q.correct >= q.choices.length) q.correct = 0;
+      }
+    }
+    if (JSON.stringify([q.stem, q.conditions, q.choices]) !== before) q.flash = true;
+  };
+  if (ed.type === 'sec') {
+    if (stem) sec.instruction = stem;
+    L = secLabel(sec) + 'の指示文';
+  } else {
+    const q = sec.questions.find(x => x.id === ed.q);
+    L = secLabel(sec) + qLabel(sec, q);
+    applyQ(q, $('#pp-stem'), $('#pp-ch'));
+  }
+  closeModal();
+  const re = reopen(sec);
+  renderComposer(); renderPaper();
+  me(`（紙面で${L}を直接直しました）`);
+  await ai(`${L}を書き換えました。解答用紙と模範解答も、書き換えた文面に合わせています。${note ? `<br><span class="warn">${note}</span>` : ''}${re ? '<br>' + re : ''}`, re ? { actions: [confirmAct(sec.id)] } : {});
+}
+/* 本文を直す。傍線は文字に付いて動き、保存したら小問との食い違いを確かめる */
+function qOfMark(sec, id) { const i = sec.questions.findIndex(q => refsOf(q).includes(id)); return i >= 0 ? `問${kan(i + 1)}` : ''; }
+function editorHTML(sec) {
+  const used = usedMarks(sec);
+  return esc(sec.passage.text.replace(/(.)\{[^}]+\}/g, '$1')).replace(/&lt;m(\d)&gt;(.*?)&lt;\/m\1&gt;/g, (_, n, inner) => {
+    const id = 'm' + n;
+    return used.has(id) ? `<span class="pe-m" data-m="${id}" data-label="${circ(markNum(sec, id))}${qOfMark(sec, id)}">${inner}</span>` : inner;
+  });
+}
+function readEditor(el) {
+  let out = '';
+  const seen = new Set();
+  const walk = node => node.childNodes.forEach(n => {
+    if (n.nodeType === 3) out += n.textContent;
+    else if (n.nodeType === 1 && n.classList.contains('pe-m') && !seen.has(n.dataset.m)) {
+      seen.add(n.dataset.m);
+      if (n.textContent) out += `<${n.dataset.m}>${n.textContent}</${n.dataset.m}>`;
+    } else if (n.nodeType === 1) walk(n);
+  });
+  walk(el);
+  return out.replace(/[\n\r]/g, '');
+}
+// ルビは元の本文の順に、残っている漢字へ付け直す。付け直せなかったものは知らせる
+function reapplyRuby(src, oldSrc) {
+  const list = [...oldSrc.matchAll(/(.)\{([^}]+)\}/g)].map(m => [m[1], m[2]]);
+  let pos = 0; const lost = [];
+  for (const [b, rt] of list) {
+    const i = src.indexOf(b, pos);
+    if (i < 0) { lost.push(b); continue; }
+    src = src.slice(0, i + 1) + `{${rt}}` + src.slice(i + 1);
+    pos = i + rt.length + 3;
+  }
+  return { src, lost };
+}
+const kanbunPlain = l => l.replace(/<\/?m\d>/g, '').replace(/\([^)]*\)|\[[^\]]*\]/g, '');
+function plainLines(sec) { return sec.passage.lines.map(kanbunPlain); }
+function markTexts(src, strip) {
+  const out = {};
+  for (const m of src.matchAll(/<(m\d)>(.*?)<\/\1>/g)) out[m[1]] = strip(m[2]);
+  return out;
+}
+function checkAfterEdit(sec, oldSrc, strip) {
+  const newSrc = passageText(sec);
+  const oldT = markTexts(oldSrc, strip), newT = markTexts(newSrc, strip);
+  const plain = strip(newSrc.replace(/<\/?m\d>/g, ''));
+  const flagged = [];
+  sec.questions.forEach(q => {
+    const issues = [], fix = {};
+    refsOf(q).forEach(id => {
+      if (oldT[id] == null) return;
+      if (newT[id] == null) issues.push(`傍線部「${quoteOf(oldT[id])}」が本文から消えました`);
+      else if (newT[id] !== oldT[id]) { issues.push(`傍線部の文字が「${quoteOf(oldT[id])}」から「${quoteOf(newT[id])}」に変わりました`); fix[oldT[id]] = newT[id]; }
+    });
+    if (q.type === 'extract' && q.answer && !plain.includes(q.answer)) issues.push(`抜き出しの答え「${q.answer}」が本文に見当たりません`);
+    const olds = Object.values(oldT);
+    for (const m of (q.stem || '').replace(/\{[^}]*\}/g, '').matchAll(/「([^」]{2,})」/g)) {
+      const s = m[1];
+      if (/[〜…]/.test(s) || olds.includes(s)) continue;
+      if (!plain.includes(s.replace(/\s/g, ''))) issues.push(`問い文が引用している「${quoteOf(s)}」が本文に見当たりません`);
+    }
+    // 先生が「このままにする」と決めた点は、もう知らせない
+    const open = issues.filter(s => !(q.ack || []).includes(s));
+    if (open.length) { q.check = open; q.fix = fix; flagged.push(q); }
+  });
+  return flagged;
+}
+function flagActions(sec) {
+  return sec.questions.filter(q => q.check).flatMap(q => {
+    const L = qLabel(sec, q), arg = `${sec.id}|${q.id}`;
+    return [{ label: `${L}をAIに直してもらう`, fn: 'fixQ', arg, primary: true }, { label: `${L}はこのままにする`, fn: 'keepQ', arg }, { label: `${L}を消す`, fn: 'delQ', arg }];
+  });
+}
+function flagList(sec) { return `<ul class="mini">${sec.questions.filter(q => q.check).map(q => `<li>${qLabel(sec, q)}：${q.check.join('／')}</li>`).join('')}</ul>`; }
+async function savePassageEdit(id) {
+  const sec = S(id); if (!sec) return;
+  const oldSrc = passageText(sec);
+  let lost = [], strip;
+  if (sec.passage.kanshi) {
+    const lines = $('#pe-lines').value.split('\n').map(s => s.trim()).filter(Boolean);
+    const old = sec.passage.lines;
+    let changed = 0;
+    sec.passage.lines = lines.map((l, i) => {
+      if (old[i] && kanbunPlain(old[i]) === l) return old[i];
+      changed++;
+      const m = old[i] && old[i].match(/^<(m\d)>.*<\/\1>$/);
+      return m ? `<${m[1]}>${l}</${m[1]}>` : l;
+    });
+    if (changed) lost = ['返り点と送り仮名'];
+    strip = kanbunPlain;
+  } else {
+    const r = reapplyRuby(readEditor($('#pe-text')), oldSrc);
+    sec.passage.text = r.src; lost = r.lost.map(b => `「${b}」のルビ`);
+    strip = s => s.replace(/\{[^}]*\}/g, '');
+  }
+  closeModal();
+  me(`（紙面で${secLabel(sec)}の本文を直しました）`);
+  if (passageText(sec) === oldSrc) { await ai('本文は変わっていません。'); return; }
+  sec.questions.forEach(q => { delete q.check; });
+  const flagged = checkAfterEdit(sec, oldSrc, strip);
+  const re = reopen(sec);
+  renderPaper(); renderComposer(); focusSec(id);
+  const lostNote = lost.length ? `<br>${lost.join('・')}が外れたので、AIが付け直します（モックでは外れたままです）。` : '';
+  if (!flagged.length) {
+    await ai(`本文を直しました。傍線は文字に付いているので、前後を直した分は一緒に動いています。小問との食い違いは見つかりませんでした。${lostNote}${re ? '<br>' + re : ''}`,
+      { notes: ['（モック）本番では、選択肢や模範解答の内容が本文と合っているかも、AIが確かめます。'], actions: [confirmAct(id)] });
+    return;
+  }
+  await ai(`本文を直しました。次の小問は、本文と食い違っているかもしれません。紙面に「要確認」の印を付けています。${flagList(sec)}それぞれ、どうするか選んでください。${lostNote}`, { actions: flagActions(sec) });
+}
+async function afterFlag(sec, msg) {
+  const left = sec.questions.filter(q => q.check);
+  renderPaper(); renderComposer();
+  const head = msg ? msg + '<br>' : '';
+  if (left.length) await ai(`${head}まだ確認が必要な小問があります。${flagList(sec)}`, { actions: flagActions(sec) });
+  else await ai(`${head}これで、本文との食い違いはなくなりました。`, { actions: [confirmAct(sec.id)] });
+}
+function onEditorCaret() {
+  const warn = $('#pe-warn'), sel = getSelection();
+  if (!warn || !sel.rangeCount) return;
+  const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+  const m = node && node.closest && node.closest('.pe-m');
+  if (!m || !node.closest('#pe-text')) { warn.hidden = true; return; }
+  const sec = S(state.modal.s), q = qOfMark(sec, m.dataset.m);
+  warn.textContent = `ここは傍線部${circ(markNum(sec, m.dataset.m))}（${q}）です。書き換えると、${q}を確かめる必要が出ます。`;
+  warn.hidden = false;
+}
+/* 小問の追加・削除・並べ替え */
+const totalNote =() => complete() && totals().t !== state.full ? [fitAct()] : [];
+async function addCand(sid, cid, at) {
+  const sec = S(sid), c = (CANDS[sid] || []).find(x => x.cid === cid);
+  if (!sec || !c || (sec.usedCands || []).includes(cid)) return;
+  closeModal();
+  const q = scaleQ(clone(c.q)); q.id = 'x' + (++uid); q.flash = true;
+  const pos = Math.min(at == null ? sec.questions.length : at, sec.questions.length);
+  sec.questions.splice(pos, 0, q);
+  (sec.usedCands = sec.usedCands || []).push(cid);
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`${secLabel(sec)}の問${kan(pos + 1)}として「${c.q.plan}」を足しました。後ろの問の番号も振り直しています。合計は${kanPt(totals().t)}点です。<br>${c.why}${re ? '<br>' + re : ''}`, { actions: [confirmAct(sid), ...totalNote()] });
+}
+async function addOwn(sid, at) {
+  const sec = S(sid); if (!sec) return;
+  const stem = $('#ao-stem').value.trim();
+  if (!stem) { $('#ao-stem').focus(); return; }
+  const form = $('#ao-form').value, kt = $('#ao-kt').value;
+  const goal = (GOALS[sid] || []).find(g => g[0] === kt);
+  const q = { id: 'x' + (++uid), kanten: kt, code: goal ? goal[1] : KANTEN[kt].s, points: snap(+$('#ao-pts').value || 2), plan: '先生が書いた問題', planRef: '', answer: '（先生が入力）', flash: true };
+  if (form === 'choice') {
+    const list = $('#ao-ch').value.split('\n').map(s => s.trim()).filter(Boolean);
+    q.type = 'choice'; q.choices = list.length >= 2 ? list.slice(0, 8) : ['（選択肢）', '（選択肢）', '（選択肢）', '（選択肢）']; q.correct = 0;
+  } else if (form === 'desc' || form === 'extract') {
+    q.type = form; q.charLimit = Math.min(400, Math.max(1, Math.round(+$('#ao-lim').value || 30)));
+  } else { q.type = 'box'; q.boxLen = 6; }
+  q.stem = tokenize(stem, markIds(sec), q);
+  closeModal();
+  const pos = Math.min(at, sec.questions.length);
+  sec.questions.splice(pos, 0, q);
+  const re = reopen(sec);
+  me(`（紙面で${secLabel(sec)}に小問を書いて足しました）`);
+  renderPaper(); renderComposer();
+  await ai(`先生が書いた小問を、問${kan(pos + 1)}として入れました。解答用紙の欄も作っています。正答と採点基準は、模範解答・採点基準のタブで確かめてください。${re ? '<br>' + re : ''}`, { actions: [confirmAct(sid), ...totalNote()] });
+}
+async function offerCands(sec, at) {
+  const avail = availCands(sec);
+  if (!avail.length) { await ai(`${secLabel(sec)}に足せる案は、モックではもう残っていません。紙面の「＋ 小問を追加」から「自分で書く」で足せます。`); return; }
+  await ai(`${secLabel(sec)}に足せる小問の案です。単元の指導目標のうち、まだ問えていないところを中心に選びました。押すと問${kan(at + 1)}として入ります。`, { actions: avail.map(c => ({ label: c.q.plan, fn: 'addCandAct', arg: `${sec.id}|${c.cid}|${at}` })) });
+}
+async function doDeleteQ(sid, qid) {
+  const sec = S(sid); const i = sec ? sec.questions.findIndex(q => q.id === qid) : -1;
+  if (i < 0) return;
+  const L = `${secLabel(sec)}問${kan(i + 1)}`;
+  const [q] = sec.questions.splice(i, 1);
+  state.lastDeletedQ = { sid, q, i };
+  if (state.selected && state.selected.q === qid) state.selected = { s: sid, q: null };
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`${L}を削除しました。後ろの問の番号と、傍線の番号も振り直しています。合計は${kanPt(totals().t)}点です。${re ? '<br>' + re : ''}`, { actions: [...(re ? [confirmAct(sid)] : []), { label: '元に戻す', fn: 'undoQ' }, ...totalNote()] });
+}
+function orderNote(sec) {
+  const ps = sec.questions.map(q => markPosOf(sec, q)).filter(p => p >= 0);
+  return ps.some((p, i) => i && p < ps[i - 1]) ? ['傍線部の順と問の順がそろっていません。本文の順に並べ直すなら「本文の順に並べて」と頼んでください。'] : null;
+}
+async function doMoveQ(sid, qid, dir) {
+  const sec = S(sid); const i = sec ? sec.questions.findIndex(q => q.id === qid) : -1, j = i + dir;
+  if (i < 0 || j < 0 || j >= sec.questions.length) { await ai('それ以上は動かせません。'); return; }
+  [sec.questions[i], sec.questions[j]] = [sec.questions[j], sec.questions[i]];
+  sec.questions[j].flash = true;
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`${secLabel(sec)}の問${kan(i + 1)}を問${kan(j + 1)}に移しました。問の番号は自動で振り直しています。${re ? '<br>' + re : ''}`, { notes: orderNote(sec), actions: re ? [confirmAct(sid)] : [] });
+}
+async function doSwapQ(sec, a, b) {
+  const n = sec.questions.length;
+  if (a < 1 || b < 1 || a > n || b > n || a === b) { await ai(`${secLabel(sec)}の問は${kan(n)}までです。番号を確かめてください。`); return; }
+  [sec.questions[a - 1], sec.questions[b - 1]] = [sec.questions[b - 1], sec.questions[a - 1]];
+  sec.questions[a - 1].flash = sec.questions[b - 1].flash = true;
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`${secLabel(sec)}の問${kan(a)}と問${kan(b)}を入れ替えました。${re ? '<br>' + re : ''}`, { notes: orderNote(sec), actions: re ? [confirmAct(sec.id)] : [] });
+}
+async function sortByPassage(sec) {
+  const keyed = sec.questions.map((q, i) => ({ q, i, p: markPosOf(sec, q) }));
+  const marked = keyed.filter(x => x.p >= 0).sort((a, b) => a.p - b.p), rest = keyed.filter(x => x.p < 0);
+  sec.questions = [...marked, ...rest].map(x => x.q);
+  sec.questions.forEach(q => { q.flash = true; });
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`${secLabel(sec)}の問を、傍線部が出てくる本文の順に並べ直しました。傍線部のない問は後ろにまとめています。${re ? '<br>' + re : ''}`, { actions: re ? [confirmAct(sec.id)] : [] });
+}
+/* 本文に線を引いて小問を作る */
+function addMark(sec, text) {
+  const src = sec.passage.text;
+  const map = [], inMark = [];
+  let plain = '', inside = false;
+  for (let i = 0; i < src.length;) {
+    if (src[i] === '<') { inside = src[i + 1] !== '/'; i = src.indexOf('>', i) + 1; continue; }
+    if (src[i] === '{') { i = src.indexOf('}', i) + 1; continue; }
+    map.push(i); inMark.push(inside); plain += src[i]; i++;
+  }
+  const at = plain.indexOf(text);
+  if (at < 0) return { err: '（モック）選んだ範囲を本文の中で見つけられませんでした。ルビのない部分で試してください。' };
+  const used = usedMarks(sec);
+  for (let k = at; k < at + text.length; k++) {
+    if (inMark[k]) {
+      // 使われていない傍線（設問を消した跡）と重なる場合は、その傍線を外してから引き直す
+      const tagStart = src.lastIndexOf('<m', map[k]); const id = src.slice(tagStart + 1, tagStart + 3);
+      if (used.has(id)) return { err: '（モック）その範囲には、もう傍線が引かれています。別の範囲を選んでください。' };
+      sec.passage.text = src.replace(new RegExp(`</?${id}>`, 'g'), '');
+      return addMark(sec, text);
+    }
+  }
+  const nums = [...src.matchAll(/<m(\d)>/g)].map(x => +x[1]);
+  const n = Math.max(0, ...nums) + 1;
+  if (n > 9) return { err: '（モック）傍線はこれ以上増やせません。' };
+  const s0 = map[at];
+  let end = map[at + text.length - 1] + 1;
+  if (src[end] === '{') end = src.indexOf('}', end) + 1;
+  sec.passage.text = src.slice(0, s0) + `<m${n}>` + src.slice(s0, end) + `</m${n}>` + src.slice(end);
+  return { id: 'm' + n };
+}
+function insertPosByMark(sec, id) {
+  const p = passageText(sec).indexOf(`<${id}>`);
+  const i = sec.questions.findIndex(x => markPosOf(sec, x) > p);
+  if (i >= 0) return i;
+  let last = -1;
+  sec.questions.forEach((x, k) => { if (markPosOf(sec, x) >= 0) last = k; });
+  return last + 1;
+}
+async function createMarkQ(sid, text, want, d) {
+  const sec = S(sid);
+  closeModal();
+  if (!sec) return;
+  const quote = quoteOf(text);
+  me(`（紙面で本文の「${quote}」に線を引き、「${want}」と伝えました）`);
+  const r = addMark(sec, text);
+  if (r.err) { renderPaper(); await ai(r.err); return; }
+  // 問い文の「傍線部」を、引いた傍線への参照に置き換える（番号は自動で付く）
+  const stem = /傍線部(?![①-⑨])/.test(d.stem) ? d.stem.replace(/傍線部(?![①-⑨])/, `{${r.id}}`) : `{${r.id}}「${quote}」について、${d.stem}`;
+  const isC = d.code.startsWith('C');
+  const code = d.kanten === 'k' ? (isC ? '(1)エ' : d.code) : (isC ? d.code : 'C(1)イ');
+  const q = { id: 'x' + (++uid), mark: r.id, kanten: d.kanten, code, points: d.points,
+    planRef: `{n:${r.id}}「${quote}」`, plan: d.plan, answer: '（模範解答は AI が作ります。モックでは省略）', rubric: ['（採点基準は AI が作ります。モックでは省略）'], flash: true };
+  if (d.form === 'choice') { q.type = 'choice'; q.choices = Array(4).fill('（AIが本文から作る選択肢）'); q.correct = 0; }
+  else { q.type = d.form; q.charLimit = Math.min(400, Math.max(1, d.lim || 30)); }
+  q.stem = tokenize(stem, [], q);
+  const at = insertPosByMark(sec, r.id);
+  sec.questions.splice(at, 0, q);
+  const re = reopen(sec);
+  renderPaper(); renderComposer();
+  await ai(`本文の「${quote}」に傍線を引いて、先生の考えた問題を問${kan(at + 1)}として入れました。問は本文の順に並べ、傍線と後ろの問の番号も振り直しています。${re ? '<br>' + re : ''}`, { notes: d.notes, actions: [confirmAct(sid), ...totalNote()] });
+}
+function onSelectText(e) {
+  const btn = $('#markbtn'); if (!btn) return;
+  if (e && e.target && e.target.closest && (e.target.closest('#markbtn') || e.target.closest('#modal'))) return;
+  const sel = getSelection();
+  const hide = () => { btn.hidden = true; state.markDraft = null; };
+  if (!sel || sel.isCollapsed || !sel.rangeCount || state.screen !== 'editor') return hide();
+  const node = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement);
+  const pass = node && node.closest('.passage'), secEl = pass && pass.closest('.sec');
+  if (!pass || pass.classList.contains('kanshi') || !secEl) return hide();
+  const sid = secEl.id.replace('sec-', ''), sec = S(sid);
+  if (!sec || sec.stage !== 'text') return hide();
+  const text = sel.toString().replace(/[\s①-⑨]/g, '');
+  if (!text || text.length > 40) return hide();
+  state.markDraft = { s: sid, text };
+  const r = sel.getRangeAt(0).getBoundingClientRect();
+  btn.hidden = false;
+  btn.style.left = Math.min(innerWidth - 230, Math.max(8, r.left - 220)) + 'px';
+  btn.style.top = Math.min(innerHeight - 50, Math.max(8, r.top + r.height / 2 - 18)) + 'px';
+}
+/* 自然文での並べ替え・削除・追加 */
+const KN = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+const toN = s => KN[s] || +s;
+async function tryCommand(text) {
+  const t = text.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).replace(/\s/g, '');
+  const D = '([一二三四五六七八九1-9])';
+  let m = t.match(new RegExp(`大問${D}と(?:大問)?${D}を?(?:入れ替|交換|逆)`));
+  if (m) { await doSwap(toN(m[1]), toN(m[2])); return true; }
+  m = t.match(new RegExp(`大問${D}を?(?:削除|消)`));
+  if (m) { const s = state.sections[toN(m[1]) - 1]; if (s) await doDelete(s.id); else await ai('その番号の大問はありません。'); return true; }
+  m = t.match(new RegExp(`大問${D}を(?:一つ)?(前|上|後ろ|後|下)`));
+  if (m) { const s = state.sections[toN(m[1]) - 1]; if (s) await doMove(s.id, /前|上/.test(m[2]) ? -1 : 1); else await ai('その番号の大問はありません。'); return true; }
+  // ここから小問。「大問三の問二…」のように大問を書くか、紙面で大問を選んでおく
+  const named = t.match(new RegExp(`大問${D}の`));
+  const target = () => (named ? state.sections[toN(named[1]) - 1] : selSec());
+  const needSec = async () => { await ai('どの大問の問か分からないので、紙面で大問か小問を選んでから頼んでください。'); return true; };
+  if (/(小問|設問)/.test(t) && /(追加|足|増や)/.test(t)) {
+    const s = target(); if (!s || s.stage !== 'text') return needSec();
+    const q = selQ(); await offerCands(s, q && state.selected.s === s.id ? s.questions.indexOf(q) + 1 : s.questions.length); return true;
+  }
+  if (/本文の順/.test(t)) { const s = target(); if (!s) return needSec(); await sortByPassage(s); return true; }
+  m = t.match(new RegExp(`問${D}と問?${D}を?(?:入れ替|交換|逆)`));
+  if (m) { const s = target(); if (!s) return needSec(); await doSwapQ(s, toN(m[1]), toN(m[2])); return true; }
+  m = t.match(new RegExp(`問${D}を?(?:削除|消)`));
+  if (m) { const s = target(); if (!s) return needSec(); const q = s.questions[toN(m[1]) - 1]; if (q) await doDeleteQ(s.id, q.id); else await ai('その番号の問はありません。'); return true; }
+  m = t.match(new RegExp(`問${D}を(?:一つ)?(前|上|後ろ|後|下)`));
+  if (m) { const s = target(); if (!s) return needSec(); const q = s.questions[toN(m[1]) - 1]; if (q) await doMoveQ(s.id, q.id, /前|上/.test(m[2]) ? -1 : 1); else await ai('その番号の問はありません。'); return true; }
+  if (/(大問|作文|単元).*(追加|足し|足す|増や)/.test(t)) { await ACTIONS.addMenu(); return true; }
+  return false;
+}
+async function send() {
+  const inp = $('#inp'); const text = inp.value.trim();
+  if (!text || state.busy) return;
+  inp.value = '';
+  me(text);
+  await run(async () => {
+    if (await tryCommand(text)) return;
+    if (state.expect && DATA[state.expect].feedback && S(state.expect) && !S(state.expect).fbDone) return applyFeedback(state.expect);
+    if (state.selected) return ai(`（モック）本番では「${esc(text)}」という依頼に合わせて、${secLabel(selSec())}${selQ() ? qLabel(selSec(), selQ()) : ''}を直します。モックでは決まった変更しかできないので、上の「すぐ直す」ボタンを試してください。`);
+    return ai('（モック）この場面では、自由に書いた内容には返答できません。「大問二と三を入れ替えて」「大問四を削除して」「大問を追加したい」のような頼み方は試せます。');
+  });
+}
+async function changeSetting(kind, raw) {
+  if (kind === 'full') {
+    const v = Math.min(200, Math.max(10, Math.round(+raw || 0)));
+    if (!v || v === state.full) { $('#e-full').value = state.full; return; }
+    const old = state.full;
+    state.full = v; state.f = state.f * v / old;
+    me(`満点を${v}点にする`);
+    await run(async () => {
+      if (complete()) rescale(v);
+      else state.sections.forEach(s => s.questions.forEach(q => { const b = qPts(q); scaleQ(q, v / old); if (qPts(q) !== b) q.flash = true; }));
+      renderPaper();
+      await ai(`満点を${kan(v)}点にしました。今ある設問の配点も、それに合わせて調整しています。${complete() ? `合計は${kanPt(totals().t)}点です。` : 'まだ作っていない大問は、残りの点数で割り振ります。'}`);
+    });
+  } else if (kind === 'time') {
+    const v = Math.min(120, Math.max(10, Math.round(+raw || 0)));
+    if (!v || v === state.time) { $('#e-time').value = state.time; return; }
+    state.time = v;
+    me(`試験時間を${v}分にする`);
+    await run(async () => {
+      renderPaper();
+      await ai(`試験時間を${kan(v)}分にしました。表紙の時間も書き換えています。${v < 45 ? '今の問題の量だと時間が足りないかもしれません。設問を減らす場合は、紙面の設問を選んで相談してください。' : ''}`);
+    });
+  } else {
+    const v = +raw === .5 ? .5 : 1;
+    if (v === state.step) return;
+    state.step = v;
+    me(`配点を${v === .5 ? '〇・五点' : '一点'}刻みにする`);
+    await run(async () => {
+      renderComposer();
+      const off = complete() && totals().t !== state.full;
+      await ai(`配点の刻みを${v === .5 ? '〇・五点' : '一点'}にしました。これから配点を割り振るときは、この刻みで調整します。${v === .5 ? '問題数が多いテストでは、漢字などを各〇・五点にすると満点に収めやすくなります。' : ''}`, off ? { actions: [fitAct()] } : {});
+    });
+  }
+}
+
+/* ---------- 画面の切り替え ---------- */
+function syncView() {
+  const ed = $('#editor'); if (!ed) return;
+  ed.dataset.view = state.view;
+  ed.querySelectorAll('.mview button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === state.view)));
+  if (state.view === 'paper') {
+    state.paperDot = false; const d = $('#pdot'); if (d) d.hidden = true; applyScale();
+    const pa = $('#parea'); pa.scrollLeft = pa.scrollWidth;
+  }
+}
+function resetAll() {
+  Object.assign(state, { screen: 'scope', sections: [], chat: [], typing: false, busy: false, selected: null, modal: null, expect: null, sugs: [], sakubunOffered: false, lastDeleted: null, view: 'chat', paperDot: false, tab: 'mondai' });
+  renderScope();
+}
+function readScope() {
+  state.year = $('#f-year').value.trim() || '令和八年度';
+  state.term = $('#f-tt').value.trim() || '定期テスト';
+  state.full = Math.min(200, Math.max(10, Math.round(+$('#f-full').value || 100)));
+  state.time = Math.min(120, Math.max(10, Math.round(+$('#f-time').value || 50)));
+  state.step = +$('#f-step').value === .5 ? .5 : 1;
+  const base = SUPPORTED.filter(id => state.units.has(id)).reduce((a, id) => a + BASE[id], 0) + BASE.sakubun;
+  state.f = state.full / base;
+}
+async function startEditor() {
+  readScope();
+  state.screen = 'editor';
+  state.sections = SUPPORTED.filter(id => state.units.has(id)).map(newSection);
+  renderEditor();
+  await run(async () => {
+    const list = state.sections.map((s, i) => `<li>大問${kan(i + 1)}　${s.outline}</li>`).join('');
+    const fixed = state.sections.filter(s => s.status === 'fixed').map(s => s.kind === 'kanji' ? '漢字' : '文法');
+    await ai(`光村図書　二年「${esc(state.term)}」の範囲から、骨組みを作りました。配点は満点の${kan(state.full)}点に収まるように割り振ります。<ol class="mini">${list}</ol>`);
+    const n = nextPrompt();
+    await ai(`${fixed.length ? `${fixed.join('と')}は、選んだ単元の指導目標に合わせて問題を入れてあります。紙面の大問の見出しや設問をクリックすると、私に相談できます。ダブルクリックすると、紙面で直接書き換えられます。<br>` : ''}${n.html}`, { actions: n.actions });
+  });
+}
+
+document.addEventListener('click', e => {
+  const t = e.target;
+  if (t.closest('#reset')) { resetAll(); return; }
+  if (t.closest('#build')) { startEditor(); return; }
+  const act = t.closest('[data-act]');
+  if (act) {
+    const m = state.chat[+act.dataset.msg]; if (!m || m.used || state.busy) return;
+    const a = m.actions[+act.dataset.act];
+    if (!a.keep) m.used = true;
+    if (!a.silent) me(a.echo || a.label);
+    run(() => ACTIONS[a.fn](a.arg));
+    return;
+  }
+  const quickBtn = t.closest('[data-quick]');
+  if (quickBtn && state.selected && !state.busy) { me(quickBtn.textContent); run(() => quick(quickBtn.dataset.quick)); return; }
+  // ポップアップ
+  if (t.id === 'modal') { closeModal(); return; }
+  if (t.closest('#pp-save')) { if (!state.busy) run(saveEdit); return; }
+  if (t.closest('#pp-cancel')) { closeModal(); return; }
+  const addtab = t.closest('[data-addtab]');
+  if (addtab && state.modal) { state.modal.tab = addtab.dataset.addtab; renderModal(); return; }
+  const cand = t.closest('[data-addcand]');
+  if (cand && state.modal && !state.busy) { const { s, at } = state.modal; me('（紙面から小問を追加しました）'); run(() => addCand(s, cand.dataset.addcand, at)); return; }
+  const form = t.closest('[data-addform]');
+  if (form && state.modal && !state.busy) {
+    const { s, at } = state.modal; const c = availCands(S(s)).find(x => x.form === form.dataset.addform);
+    if (c) { me(`（紙面から「${form.firstChild.textContent}」を頼みました）`); run(() => addCand(s, c.cid, at)); }
+    return;
+  }
+  if (t.closest('#ao-add')) { if (state.modal && !state.busy) { const { s, at } = state.modal; run(() => addOwn(s, at)); } return; }
+  if (t.closest('#mk-refine')) {
+    const m = state.modal, want = $('#mk-want').value.trim();
+    if (!want) { $('#mk-want').focus(); return; }
+    Object.assign(m, { want, step: 'review', draft: refineWant(S(m.s), m.text, want) });
+    renderModal(); return;
+  }
+  if (t.closest('#mk-back')) { state.modal.step = 'ask'; renderModal(); return; }
+  if (t.closest('#mk-insert')) {
+    const m = state.modal; if (!m || state.busy) return;
+    const d = Object.assign({}, m.draft, { stem: $('#mk-stem').value.trim() || m.draft.stem, points: snap(+$('#mk-pts').value || m.draft.points), kanten: $('#mk-kt').value });
+    run(() => createMarkQ(m.s, m.text, m.want, d)); return;
+  }
+  if (t.closest('#markbtn')) {
+    const d = state.markDraft; $('#markbtn').hidden = true;
+    if (d) { getSelection().removeAllRanges(); openModal({ type: 'mark', s: d.s, text: d.text }); }
+    return;
+  }
+  // 紙面の操作
+  const ph = t.closest('[data-pp]');
+  if (ph) { openModal({ type: 'passage', s: ph.dataset.pp }); return; }
+  const addq = t.closest('[data-addq]');
+  if (addq) { openModal({ type: 'add', s: addq.dataset.addq, at: +addq.dataset.at, tab: 'rec' }); return; }
+  const sb = t.closest('[data-sb]');
+  if (sb) {
+    const sec = selSec(), q = selQ(), k = sb.dataset.sb;
+    if (!sec || state.busy) return;
+    if (k === 'editq') openModal({ type: 'q', s: sec.id, q: q.id });
+    else if (k === 'ptext') openModal({ type: 'ptext', s: sec.id });
+    else if (k === 'addq') openModal({ type: 'add', s: sec.id, at: sec.questions.length, tab: 'rec' });
+    else if (k === 'ask') { if (matchMedia('(max-width: 899px)').matches) { state.view = 'chat'; syncView(); } $('#inp').focus(); }
+    else run(() => k === 'qup' ? doMoveQ(sec.id, q.id, -1) : k === 'qdown' ? doMoveQ(sec.id, q.id, 1) : k === 'qdel' ? doDeleteQ(sec.id, q.id)
+      : k === 'sup' ? doMove(sec.id, -1) : k === 'sdown' ? doMove(sec.id, 1) : doDelete(sec.id));
+    return;
+  }
+  const sug = t.closest('[data-sug]');
+  if (sug) { const inp = $('#inp'); inp.value = state.sugs[+sug.dataset.sug]; inp.focus(); return; }
+  if (t.closest('#send')) { send(); return; }
+  if (t.closest('#unsel')) { state.selected = null; renderComposer(); renderPaper(); return; }
+  if (t.closest('#add-sec')) { if (!state.busy) { me('大問を追加したい'); run(() => ACTIONS.addMenu()); } return; }
+  const tab = t.closest('[data-tab]');
+  if (tab) { state.tab = tab.dataset.tab; renderPaper(false); $('#parea').scrollTop = 0; return; }
+  const v = t.closest('.mview [data-view]');
+  if (v) { state.view = v.dataset.view; syncView(); return; }
+  const go = t.closest('[data-goto]');
+  if (go) { focusSec(go.dataset.goto); return; }
+  const sh = t.closest('[data-sh]');
+  const q = t.closest('.q.clickable');
+  if ((sh || q) && e.detail < 2) {
+    const sid = sh ? sh.dataset.sh : q.dataset.s, qid = sh ? null : q.dataset.q;
+    state.selected = isSel(sid, qid) ? null : { s: sid, q: qid };
+    renderPaper(); renderComposer();
+  }
+});
+// ダブルクリックで、紙面の問い文・指示文をその場で書き換える
+document.addEventListener('dblclick', e => {
+  const sh = e.target.closest('[data-sh]'), q = e.target.closest('.q.clickable');
+  if (!sh && !q) return;
+  const sid = sh ? sh.dataset.sh : q.dataset.s;
+  if (S(sid).stage === 'empty') return;
+  getSelection().removeAllRanges(); $('#markbtn').hidden = true;
+  state.selected = { s: sid, q: sh ? null : q.dataset.q };
+  renderPaper(); renderComposer();
+  openModal(sh ? { type: 'sec', s: sid } : { type: 'q', s: sid, q: q.dataset.q });
+});
+document.addEventListener('keydown', e => {
+  if (e.target.id === 'inp' && e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.isComposing) { e.preventDefault(); send(); }
+  if (e.key === 'Escape' && state.modal) { closeModal(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList && ['clickable', 'clickable-h', 'ph-click', 'addq'].some(c => e.target.classList.contains(c))) { e.preventDefault(); e.target.click(); }
+});
+// 本文を直す欄で、カーソルが傍線部に入ったら注意を出す
+document.addEventListener('selectionchange', () => { if (state.modal && state.modal.type === 'ptext') onEditorCaret(); });
+// 本文をドラッグして選ぶと「傍線を引いて小問を作る」を出す
+document.addEventListener('mouseup', onSelectText);
+document.addEventListener('touchend', e => setTimeout(() => onSelectText(e), 60));
+document.addEventListener('change', e => {
+  const tg = e.target;
+  // 線を引いて作る小問：形式や字数を変えたら、問い文を整え直す
+  if ((tg.id === 'mk-form' || tg.id === 'mk-lim') && state.modal && state.modal.type === 'mark') {
+    const m = state.modal, form = $('#mk-form').value;
+    const lim = form === 'choice' ? 0 : Math.round(+$('#mk-lim').value || 0);
+    m.draft = Object.assign(refineWant(S(m.s), m.text, m.want, form, lim), { points: snap(+$('#mk-pts').value || m.draft.points), kanten: $('#mk-kt').value });
+    renderModal(); return;
+  }
+  if (tg.id === 'e-full' || tg.id === 'e-time' || tg.id === 'e-step') { if (!state.busy) changeSetting(tg.id === 'e-full' ? 'full' : tg.id === 'e-time' ? 'time' : 'step', tg.value); return; }
+  const u = tg.dataset && tg.dataset.unit;
+  if (!u) return;
+  const unit = UNITS.flatMap(g => g.items).find(x => x.id === u);
+  if (unit && !unit.ok) {
+    tg.checked = false;
+    const toast = $('#scope-toast');
+    toast.textContent = `「${unit.name}」はモックでは設問まで作れません。走れメロス・扇の的・漢詩の風景・文法２ 用言の活用で試してください。`;
+    toast.hidden = false;
+    return;
+  }
+  if (tg.checked) state.units.add(u); else state.units.delete(u);
+  renderSkel();
+});
+
+renderScope();
+// 明朝体が読み込まれたら、ページの割り付けをやり直す
+if (document.fonts) document.fonts.ready.then(() => { if (state.screen === 'editor') renderPaper(); });
+</script>

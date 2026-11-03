@@ -1,0 +1,125 @@
+/* 問題用紙。紙は B4 横（JIS 364mm × 257mm）、縦書きで右から左へ進む */
+.paper {
+  position: relative;
+  min-width: 0;
+}
+
+.paper-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0 32px;
+}
+
+.page-frame {
+  position: relative;
+  flex: none;
+  width: calc(364mm * var(--s, 1));
+  height: calc(257mm * var(--s, 1));
+}
+
+.page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 364mm;
+  height: 257mm;
+  transform: scale(var(--s, 1));
+  transform-origin: 0 0;
+  background: #fff;
+  color: #141414;
+  box-shadow: 0 1px 2px rgba(20, 30, 50, 0.14), 0 10px 28px rgba(20, 30, 50, 0.1);
+}
+
+.page-in,
+.measure {
+  writing-mode: vertical-rl;
+  font-family: "BIZ UDMincho", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-size: 11pt;
+  line-height: 1.85;
+}
+
+.page-in {
+  position: absolute;
+  inset: 14mm 15mm 17mm 15mm;
+  overflow: hidden;
+}
+
+/* 割り付けのために幅を測る場所。紙面の内側と同じ高さで、画面には出さない */
+.measure {
+  position: absolute;
+  top: 0;
+  left: -100000px;
+  height: calc(257mm - 31mm);
+  visibility: hidden;
+}
+
+.page-no {
+  position: absolute;
+  bottom: 7mm;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: "BIZ UDMincho", "Hiragino Mincho ProN", serif;
+  font-size: 9pt;
+  color: #555;
+}
+
+.blk {
+  padding-block-end: 0.9em;
+}
+
+.blk p {
+  margin: 0;
+}
+
+/* 表紙 */
+.cover .c-term { font-size: 0.92em; }
+.cover .c-title { font-size: 2em; font-weight: 700; letter-spacing: 0.6em; margin-block: 0.25em 0.15em; }
+.cover .c-notes { font-size: 0.78em; margin-block-start: 0.6em; }
+.rule { block-size: 0; border-block-end: 1px solid currentColor; margin-block-start: 0.9em; }
+
+/* 大問 */
+.sec-h { margin-block-end: 0.4em; }
+.sec-h b, .stem b, .cond b { font-weight: 700; }
+.pt { font-size: 0.72em; }
+.passage { border: 1px solid currentColor; padding: 1em 0.9em; margin-block: 0.3em 0.2em; }
+.passage p { text-indent: 1em; }
+.passage .src { text-indent: 0; text-align: end; font-size: 0.78em; margin-block-start: 0.8em; }
+
+/* 傍線は文字の右側。番号は傍線の頭に付ける */
+.bs { border-right: 1px solid currentColor; padding-right: 1px; }
+.kt { font-weight: 700; }
+.mk { font-size: 0.92em; }
+
+/* 漢文。返り点は文字の左下、送り仮名は右下 */
+.kanshi { padding: 1.2em 1.4em; }
+.kanshi p { text-indent: 0; }
+.ks-title { font-weight: 700; margin-block-end: 0.6em; }
+.ks-title span { font-weight: 400; padding-inline-start: 4em; }
+.ks-line { font-size: 1.18em; line-height: 2.7; padding-inline-start: 2em; }
+.kc { position: relative; display: inline-block; line-height: 1; }
+.kc .ok { position: absolute; top: 52%; right: -54%; font-size: 0.48em; line-height: 1.02; writing-mode: vertical-rl; white-space: nowrap; }
+.kc .kten { position: absolute; top: 60%; left: -48%; font-size: 0.48em; line-height: 1; }
+.kanshi .bs { padding-right: 0.75em; }
+.ks-notes { font-size: 0.78em; margin-block-start: 1em; }
+
+/* 小問 */
+.cond { padding-inline-start: 1em; }
+.end { font-size: 0.85em; margin-block-start: 0.6em; }
+
+/* 印刷は紙面だけを実寸で、一ページずつ */
+@page {
+  size: 364mm 257mm;
+  margin: 0;
+}
+
+@media print {
+  .measure { display: none; }
+  .paper-pages { display: block; padding: 0; }
+  /* 紙と同じ高さちょうどだと、端数で白紙のページが挟まるので、わずかに低くする */
+  .page-frame { width: 364mm; height: 256.5mm; overflow: hidden; break-after: page; }
+  .page-frame:last-child { break-after: auto; }
+  .page { transform: none; box-shadow: none; }
+}
