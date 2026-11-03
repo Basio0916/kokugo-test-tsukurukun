@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { kansuji } from './kansuji'
 import { MM, usePageScale } from './scale'
 import type { Test } from '../model/schema'
 import { buildBlocks, type BlockTarget, type PaperActions } from './blocks'
@@ -20,12 +21,21 @@ type Props = PaperActions & {
   onOpenQuestion?: (target: BlockTarget) => void
   // 本文を直したあとの要確認の小問（「大問/小問」）
   flagged?: Set<string>
+  // 確定した大問。確定していない大問の小問は、画面では薄く描く
+  confirmed?: Set<string>
+}
+
+// 大問・小問を紙面の番号で呼ぶ（【三】問二）
+function targetName(test: Test, t: BlockTarget): string {
+  const si = test.sections.findIndex(s => s.id === t.sectionId)
+  const qi = t.questionId ? test.sections[si]?.questions.findIndex(q => q.id === t.questionId) ?? -1 : -1
+  return `【${kansuji(si + 1)}】${qi >= 0 ? `問${kansuji(qi + 1)}` : ''}`
 }
 
 const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =>
   !!t && !!b && t.sectionId === b.sectionId && (!t.questionId || t.questionId === b.questionId)
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, onOpenQuestion, flagged }: Props) {
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, onOpenQuestion, flagged, confirmed }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   // 割り付けは、測ったときのブロックの並びと組にして持つ（並びが変わったら、測り直すまで前の割り付けは使わない）
@@ -63,12 +73,25 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                 {page.map(i => {
                   const b = blocks[i]
                   const isFlagged = !!b.target?.questionId && !!flagged?.has(`${b.target.sectionId}/${b.target.questionId}`)
-                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}${isFlagged ? ' blk-flagged' : ''}`
+                  const isProp = !!b.target?.questionId && !!confirmed && !confirmed.has(b.target.sectionId)
+                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}${isFlagged ? ' blk-flagged' : ''}${isProp ? ' blk-prop' : ''}`
+                  // キーボードでも選べるように（Enter・Space）。中に操作のボタンがあるので、役割は button でなく group
+                  const selectable = !!onSelect && !!b.target
+                  const label = b.target && `${targetName(test, b.target)}を選んで相談する`
                   return (
                     <div
                       className={cls} key={b.key}
                       // 大問の一覧から移るときの目印
                       data-target={b.target && (b.target.questionId ? `${b.target.sectionId}/${b.target.questionId}` : b.target.sectionId)}
+                      tabIndex={selectable ? 0 : undefined}
+                      role={selectable ? 'group' : undefined}
+                      aria-label={selectable ? label : undefined}
+                      onKeyDown={e => {
+                        if (selectable && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+                          e.preventDefault()
+                          onSelect!(b.target!)
+                        }
+                      }}
                       onDoubleClick={e => {
                         if (b.target?.questionId && onOpenQuestion && !(e.target as Element).closest('button')) onOpenQuestion(b.target)
                       }}

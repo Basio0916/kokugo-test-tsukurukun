@@ -98,7 +98,8 @@ function layoutSection(section: Section, index: number, cell: number, rows: numb
   }
   const column = Math.min(COLUMN, rows - 1)
   section.questions.forEach((q, qi) => {
-    const name = `問${kansuji(qi + 1)}`
+    // 作文の問は「作文」と書く
+    const name = q.format === 'composition' ? '作文' : `問${kansuji(qi + 1)}`
     let headed = false
     for (const piece of piecesOf(section, q, column)) {
       const need = (headed ? 0 : 1) + (piece.label ? 1 : 0) + piece.rows

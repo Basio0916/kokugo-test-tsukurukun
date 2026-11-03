@@ -24,7 +24,8 @@ function fakeIdeas(count: number, requests: unknown[] = []) {
       section: { ...req.section, passage: { ...req.section.passage, segments } },
       question: {
         id: `meros-a${n}`, format: 'short', kanten: 'thinking', standard: 'C(1)イ', points: 4, answer: '答え',
-        stem: [{ kind: 'markRef', id: 'meros-n1', form: 'label' }, { kind: 'text', text: `とありますが、どういうことですか（案${n}）。` }],
+        ...(req.how.charLimit && { charLimit: req.how.charLimit }),
+        stem: [{ kind: 'markRef', id: 'meros-n1', form: 'label' }, { kind: 'text', text: `とありますが、どういうことですか（案${n}${req.how.charLimit ? `・${req.how.charLimit}字` : ''}）。` }],
       },
       rationale: `理由${n}`,
       ...(req.how.kind === 'mark' && { adjustments: '短答にし、二十字以内にしました' }),
@@ -61,12 +62,9 @@ test('形式を選んで作ってもらい、入れる前に直す', async ({ pa
   expect(requests[0].how).toEqual({ kind: 'format', format: 'description', aim: 'メロスの人物像' })
 })
 
-test('本文に線を引いて作ると、選んだところに傍線部が付く', async ({ page }) => {
-  const requests: Array<{ how: { kind: string; quote?: string; before?: string } }> = []
-  await page.route('/api/draft-question', fakeIdeas(1, requests))
-  await openSample(page)
-  // 本文の「人一倍に敏感であった」を選ぶ
-  await page.evaluate(() => {
+// 本文の「人一倍に敏感であった」を選び、指を離す（マウスかタッチ）
+async function selectInPassage(page: Page, event: 'mouseup' | 'touchend' = 'mouseup') {
+  await page.evaluate(event => {
     const p = [...document.querySelectorAll('.page .passage[data-section="meros"] p')].find(e => e.textContent!.includes('人一倍'))!
     const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
     let node: Node | null
@@ -81,8 +79,15 @@ test('本文に線を引いて作ると、選んだところに傍線部が付�
         break
       }
     }
-    document.dispatchEvent(new MouseEvent('mouseup'))
-  })
+    document.dispatchEvent(new Event(event))
+  }, event)
+}
+
+test('本文に線を引いて作ると、選んだところに傍線部が付く', async ({ page }) => {
+  const requests: Array<{ how: { kind: string; quote?: string; before?: string } }> = []
+  await page.route('/api/draft-question', fakeIdeas(1, requests))
+  await openSample(page)
+  await selectInPassage(page)
   await page.getByRole('button', { name: '傍線を引いて小問を作る' }).click()
   const dialog = page.getByRole('dialog', { name: '【三】の本文に線を引いて小問を作る' })
   await expect(dialog).toContainText('人一倍に敏感であった')
@@ -99,6 +104,35 @@ test('本文に線を引いて作ると、選んだところに傍線部が付�
   await review.getByRole('button', { name: 'この問題で入れる' }).click()
   await expect(merosPage(page).locator('.mk')).toHaveText(['①', '②', '③', '④'])
   expect(requests[0].how).toMatchObject({ kind: 'mark', quote: '人一倍に敏感であった', before: '邪悪に対しては、' })
+})
+
+test('タッチで選んでも線を引いて作れる。形式・字数を選び直して整え直し、希望を書き直せる', async ({ page }) => {
+  const requests: Array<{ how: { kind: string; wish?: string; format?: string; charLimit?: number } }> = []
+  await page.route('/api/draft-question', fakeIdeas(1, requests))
+  await openSample(page)
+  await selectInPassage(page, 'touchend')
+  await page.getByRole('button', { name: '傍線を引いて小問を作る' }).click()
+  const mark = page.getByRole('dialog', { name: '【三】の本文に線を引いて小問を作る' })
+  await mark.getByLabel('どんな問題にしたいか').fill('メロスがどういう人か答えさせたい')
+  await mark.getByRole('button', { name: 'AI に問題の形にしてもらう' }).click()
+
+  const review = page.getByRole('dialog', { name: /として入れる小問/ })
+  await expect(review).toContainText('（案1）')
+  const reshape = review.getByRole('group', { name: '形式と字数を選び直す' })
+  await reshape.getByLabel('解答形式').selectOption({ label: '短答' })
+  await reshape.getByLabel('字数', { exact: true }).fill('40')
+  await review.getByRole('button', { name: '整え直す' }).click()
+  await expect(review.getByLabel('問い文')).toHaveValue(/（案1・40字）/)
+  expect(requests[1].how).toMatchObject({ kind: 'mark', wish: 'メロスがどういう人か答えさせたい', format: 'short', charLimit: 40 })
+
+  await review.getByRole('button', { name: '書き直して、もう一度整えてもらう' }).click()
+  const again = page.getByRole('dialog', { name: '【三】の本文に線を引いて小問を作る' })
+  await expect(again.getByLabel('どんな問題にしたいか')).toHaveValue('メロスがどういう人か答えさせたい')
+  await again.getByLabel('どんな問題にしたいか').fill('メロスの性格を二十字で書かせたい')
+  await again.getByRole('button', { name: 'AI に問題の形にしてもらう' }).click()
+  await page.getByRole('dialog', { name: /として入れる小問/ }).getByRole('button', { name: 'この問題で入れる' }).click()
+  expect(requests[2].how).toMatchObject({ kind: 'mark', wish: 'メロスの性格を二十字で書かせたい', quote: '人一倍に敏感であった' })
+  await expect(merosPage(page).locator('.mk')).toHaveText(['①', '②', '③', '④'])
 })
 
 test('漢字の大問は自分で書くだけ。書いた小問が入る', async ({ page }) => {

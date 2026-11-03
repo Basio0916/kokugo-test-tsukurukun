@@ -167,7 +167,7 @@ export function formatPrompt(p: AddQuestionContext, format: string, aim?: string
 解答形式「${format}」の小問を一つ（ideas に一つ）作ってください。${aim ? `ねらい: ${aim}` : ''}`
 }
 
-export function markPrompt(p: AddQuestionContext, quote: string, wish: string): string {
+export function markPrompt(p: AddQuestionContext, quote: string, wish: string, format?: string, charLimit?: number): string {
   return `${addContext(p)}
 
 # お願い
@@ -175,7 +175,8 @@ export function markPrompt(p: AddQuestionContext, quote: string, wish: string): 
 > ${wish}
 この希望をもとに、定期テストの問い文の形に整えた小問を一つ（ideas に一つ）作ってください。
 - 先生が線を引いた「${quote}」を marks に一字も変えずに引用し（キーは A）、問い文で {傍線部:A} として参照する
-- 解答形式や字数など、希望から整えたところを adjustments に先生向けに短く書く`
+- 解答形式や字数など、希望から整えたところを adjustments に先生向けに短く書く${format ? `
+- 解答形式は「${format}」${charLimit ? `、字数は${charLimit}字` : ''}にする（先生が選び直した）` : ''}`
 }
 
 export const CHAT_SYSTEM_PROMPT = `あなたは日本の中学校の国語の先生と一緒に、定期テストを作るアシスタントです。先生と会話しながら、テストの中身を詰めます。

@@ -13,12 +13,14 @@ type Props = {
   quote: string
   before?: string
   request: (how: QuestionDraftRequest['how']) => Promise<QuestionDraftResponse>
-  onReview: (idea: Idea) => void
+  onReview: (idea: Idea, wish: string) => void
   onClose: () => void
+  // 書き直すときの、前に書いた希望
+  initialWish?: string
 }
 
-export function MarkQuestion({ title, quote, before, request, onReview, onClose }: Props) {
-  const [wish, setWish] = useState('')
+export function MarkQuestion({ title, quote, before, request, onReview, onClose, initialWish = '' }: Props) {
+  const [wish, setWish] = useState(initialWish)
   const [waiting, setWaiting] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
@@ -29,7 +31,7 @@ export function MarkQuestion({ title, quote, before, request, onReview, onClose 
     const result = await request({ kind: 'mark', quote, ...(before && { before }), wish: wish.trim() })
     setWaiting(false)
     if (!result.ok) return setErrors(result.errors)
-    onReview(result.ideas[0])
+    onReview(result.ideas[0], wish.trim())
   }
 
   return (

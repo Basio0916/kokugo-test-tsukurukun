@@ -4,6 +4,7 @@ import { markNumbers, questionNumberOf } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
 import { toIdeas, type QuestionIdeas } from './addQuestion'
 import { addMarks, plainText } from './anchor'
+import { markPrompt } from './prompt'
 
 const meros = () => sampleTest.sections.find(s => s.id === 'meros')!
 const segments = () => {
@@ -82,5 +83,18 @@ describe('漢文の小問の案', () => {
     expect(r.ideas[0].section.passage.lines[3][0]).toMatchObject({ kind: 'mark', id: 'a' })
     const bad = toIdeas(kanshi, { ideas: [{ marks: [{ key: 'A', quote: '聞(ク)' }], question: { format: 'short', stem: '{傍線部:A}を書き下しなさい。', answer: '聞く', kanten: 'knowledge', standard: '(3)ア', weight: 1, rationale: '理由' } }] }, { pointStep: 1, subtotal: 12 })
     expect(bad.ok).toBe(false)
+  })
+})
+
+describe('線を引いて作る案の指示', () => {
+  const context = { grade: 2 as const, material: '走れメロス', standards: [], passage: '本文', marks: [], questions: [] }
+
+  it('先生が選び直した解答形式と字数を指示に入れる', () => {
+    const prompt = markPrompt(context, '人一倍に敏感であった', '理由を書かせたい', '記述', 40)
+    expect(prompt).toContain('解答形式は「記述」、字数は40字にする')
+  })
+
+  it('選び直していなければ、形式と字数は希望から AI が整える', () => {
+    expect(markPrompt(context, '人一倍に敏感であった', '理由を書かせたい')).not.toContain('解答形式は「')
   })
 })

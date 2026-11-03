@@ -23,7 +23,8 @@ export const QuestionDraftRequest = z.object({
   how: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('suggest') }),
     z.object({ kind: z.literal('format'), format: z.enum(['choice', 'extract', 'description', 'short']), aim: z.string().optional() }),
-    z.object({ kind: z.literal('mark'), quote: z.string().min(1), before: z.string().optional(), wish: z.string().min(1) }),
+    // 線を引いて作る。format・charLimit は、入れる前に直す画面で選び直したときの解答形式と字数
+    z.object({ kind: z.literal('mark'), quote: z.string().min(1), before: z.string().optional(), wish: z.string().min(1), format: z.enum(['choice', 'extract', 'description', 'short']).optional(), charLimit: z.number().int().positive().optional() }),
   ]),
 })
 export type QuestionDraftRequest = z.infer<typeof QuestionDraftRequest>
@@ -55,7 +56,7 @@ export async function draftQuestion(request: QuestionDraftRequest): Promise<Ques
   }
   const prompt = how.kind === 'suggest' ? suggestPrompt(context)
     : how.kind === 'format' ? formatPrompt(context, FORMAT_NAMES[how.format], how.aim)
-      : markPrompt(context, how.quote, how.wish)
+      : markPrompt(context, how.quote, how.wish, how.format && FORMAT_NAMES[how.format], how.charLimit)
   return draftWithRetry({
     label: `${material} 小問（${how.kind}）`,
     schema: QuestionIdeas,
