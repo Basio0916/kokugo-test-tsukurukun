@@ -22,4 +22,4 @@
 
 - [x] 4.1 テスト・型チェック・lint・ビルドを通す
 - [x] 4.2 ブラウザで、本文を貼ったあとに「出題する漢字を選ぶ」を開き、候補の一覧が出ず、項目の数が出ることを確かめる。語を少なめに入れて作り、補った語が理由に出ることを確かめる
-- [ ] 4.3 archive するときに、`openspec/specs/kanji-grammar-draft/spec.md` の Purpose から「本文から拾った候補も使って」を外し、足りない分は AI が補うことに直す
+- [x] 4.3 archive するときに、`openspec/specs/kanji-grammar-draft/spec.md` の Purpose から「本文から拾った候補も使って」を外し、足りない分は AI が補うことに直す
