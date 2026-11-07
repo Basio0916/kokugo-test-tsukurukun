@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { plainText } from './ai/anchor'
 import { defaultPoints, type Idea } from './ai/addQuestion'
 import { gradeOf, ideasAvailable, materialOf, requestChat, requestClassical, requestComposition, requestDraft, requestGrammar, requestIdeas, requestKanji, requestPassageCheck, requestAnnotate } from './ai/client'
 import type { DraftResponse } from './ai/draft'
+import { itemPlan, kanjiSplit } from './ai/items'
 import { applyChatChange } from './chat/apply'
 import { ChatPanel } from './chat/ChatPanel'
 import { chipsFor, type Chip } from './chat/chips'
@@ -39,7 +39,6 @@ import { longTest } from './sample/longTest'
 import { sampleTest } from './sample/sampleTest'
 import { findGroup } from './catalog/catalog'
 import { kanjiStandardOf } from './start/kinds'
-import { kanjiCandidates } from './start/kanjiCandidates'
 import { KanjiWords } from './start/KanjiWords'
 import { PasteKanbun } from './start/PasteKanbun'
 import { PastePassage } from './start/PastePassage'
@@ -49,9 +48,6 @@ import { StartScreen, type Skeleton } from './start/StartScreen'
 // ?sample でサンプルのテストを開く（?sample=long は小問の多いサンプル）
 const sample = new URLSearchParams(location.search).get('sample')
 const initialTest = sample === 'long' ? longTest : sample !== null ? sampleTest : null
-
-// 本文を貼った大問の本文（漢字の候補を拾うのに使う）
-const pastedTexts = (test: Test) => test.sections.flatMap(s => (s.passage?.kind === 'prose' ? [plainText(s.passage.segments)] : []))
 
 // 加えた大問の配点の枠: 同じ種類の大問の配点の枠（なければ十点）
 const DEFAULT_ALLOTMENT = 10
@@ -269,10 +265,16 @@ export function App() {
   function chooseKanji(sectionId: string, words: string[]) {
     if (!test) return
     const section = test.sections.find(s => s.id === sectionId)!
-    const candidates = kanjiCandidates(pastedTexts(test)).filter(w => !words.includes(w))
     setKanjiWords(words)
     setChoosingKanji(null)
-    void draft(section, () => requestKanji(test, section, subtotalOf(section), words, candidates))
+    void draft(section, () => requestKanji(test, section, subtotalOf(section), words))
+  }
+
+  // 漢字の大問の読みと書きの項目の数。サーバーと同じ計算で、出題する語を選ぶ画面に示す
+  function kanjiCounts(sectionId: string) {
+    const section = test?.sections.find(s => s.id === sectionId)
+    const plan = section && test ? itemPlan(subtotalOf(section), test.info.pointStep) : null
+    return plan ? kanjiSplit(plan.count) : null
   }
 
   function redraft(section: Section) {
@@ -792,8 +794,8 @@ export function App() {
       )}
       {choosingKanji && (
         <KanjiWords
-          candidates={kanjiCandidates(pastedTexts(test))}
           initial={kanjiWords}
+          counts={kanjiCounts(choosingKanji)}
           onSubmit={words => chooseKanji(choosingKanji, words)}
           onClose={() => setChoosingKanji(null)}
         />

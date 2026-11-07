@@ -94,11 +94,13 @@ export const KANJI_SYSTEM_PROMPT = `${COMMON}
 - 項目は短い例文で、出題する語を [[ ]] で一か所だけ囲む。語は一字ではなく語の単位（熟語、送り仮名の付いた語）で囲む
 - 読みの項目は [[ ]] の中を漢字のまま書き、answer はその読みをひらがなだけで書く（例: sentence「[[濁流]]を泳ぎ切る。」answer「だくりゅう」）
 - 書きの項目は [[ ]] の中をかたかなで書き、answer は漢字で書く（例: sentence「友との[[ヤクソク]]を守る。」answer「約束」）。送り仮名は [[ ]] の外に出してよい（例: 「波間に[[タダヨ]]う。」answer「漂」）
-- 出題する語は、先生が決めた語をそのまま使う。足りないときだけ「補う候補」から選ぶ。それ以外の語は使わない
+- 出題する語は、先生が決めた語をそのまま使う。先生が決めた語で項目の数が足りるときは、ほかの語を使わない
+- 先生が決めた語が項目の数より少ないときは、先生が決めた語をすべて使い、残りは中学校で習う漢字（常用漢字表にあり、小学校の学年別漢字配当表にない字）を含む、その学年に合った語を補う。読みでも書きでも、補う語には中学校で習う漢字を一字以上入れる（「複雑」「往復」のような小学校で習う字だけの語は使えない）
+- 同じ語（送り仮名だけが違う語を含む）を二つの項目で出さない
 - 例文は、中学生にわかる自然な文にし、語の意味が文脈から伝わるようにする
 - 項目の数は指定された数ちょうどにする`
 
-export function kanjiUserPrompt(p: { grade: Grade; standard: { code: string; text: string }; words: string[]; candidates: string[]; reading: number; writing: number }): string {
+export function kanjiUserPrompt(p: { grade: Grade; standard: { code: string; text: string }; words: string[]; reading: number; writing: number }): string {
   return `# 漢字の大問
 中学${p.grade}年のテストの漢字の大問です。読み ${p.reading} 項目、書き ${p.writing} 項目を作ってください。
 
@@ -106,10 +108,7 @@ export function kanjiUserPrompt(p: { grade: Grade; standard: { code: string; tex
 - ${p.standard.code}: ${p.standard.text}
 
 ## 先生が決めた語（授業の漢字テストでやった語など。これを優先して使う）
-${p.words.map(w => `- ${w}`).join('\n')}
-
-## 補う候補（先生が決めた語が足りないときだけ使う。本文から拾った、中学校で習う漢字を含む語）
-${p.candidates.length ? p.candidates.map(w => `- ${w}`).join('\n') : '（なし）'}`
+${p.words.map(w => `- ${w}`).join('\n')}`
 }
 
 export const GRAMMAR_SYSTEM_PROMPT = `${COMMON}
