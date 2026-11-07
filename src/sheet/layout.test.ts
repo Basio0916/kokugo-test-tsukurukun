@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { removeQuestion } from '../edit/operations'
-import { kantenTotals, sectionPoints } from '../model/derive'
+import { choiceLabel, kantenTotals, sectionPoints } from '../model/derive'
 import type { Question, Section, Test } from '../model/schema'
 import { longTest } from '../sample/longTest'
 import { sampleTest } from '../sample/sampleTest'
-import { AREA, layoutAnswerSheet, piecesOf, type Unit } from './layout'
+import { answerOverflows, AREA, layoutAnswerSheet, piecesOf, type Unit } from './layout'
 
 const section = (id: string) => sampleTest.sections.find(s => s.id === id)!
 const q = (sid: string, qid: string) => section(sid).questions.find(x => x.id === qid)!
 
 describe('解答欄の大きさ', () => {
   it('記号選択は二マス、項目があれば項目ごと', () => {
-    expect(piecesOf(section('meros'), q('meros', 'q2'))).toEqual([{ rows: 2, cols: 1, grid: false }])
+    expect(piecesOf(section('meros'), q('meros', 'q2'))).toEqual([{ rows: 2, cols: 1, grid: false, answer: 'イ' }])
     expect(piecesOf(section('grammar'), q('grammar', 'g1')).map(p => [p.label, p.rows])).toEqual([['①', 2], ['②', 2], ['③', 2]])
   })
 
@@ -21,14 +21,14 @@ describe('解答欄の大きさ', () => {
   })
 
   it('抜き出し・記述は字数のマス目で、二十マスで折り返す', () => {
-    expect(piecesOf(section('meros'), q('meros', 'q1'))).toEqual([{ rows: 11, cols: 1, grid: true, count: 11 }])
-    expect(piecesOf(section('meros'), q('meros', 'q3'))).toEqual([{ rows: 20, cols: 2, grid: true, count: 40 }])
+    expect(piecesOf(section('meros'), q('meros', 'q1'))).toEqual([{ rows: 11, cols: 1, grid: true, count: 11, answer: q('meros', 'q1').answer }])
+    expect(piecesOf(section('meros'), q('meros', 'q3'))).toEqual([{ rows: 20, cols: 2, grid: true, count: 40, answer: q('meros', 'q3').answer }])
     expect(piecesOf(section('sakubun'), q('sakubun', 'c1'))).toEqual([{ rows: 20, cols: 10, grid: true, count: 200 }])
   })
 
   it('短答は字数の指定があればマス目、なければ答えの字数に二マス足す', () => {
-    expect(piecesOf(section('ougi'), q('ougi', 'o4'))).toEqual([{ rows: 2, cols: 1, grid: true, count: 2 }])
-    expect(piecesOf(section('kanshi'), q('kanshi', 'h2'))).toEqual([{ rows: Math.max(3, [...q('kanshi', 'h2').answer!].length + 2), cols: 1, grid: false }])
+    expect(piecesOf(section('ougi'), q('ougi', 'o4'))).toEqual([{ rows: 2, cols: 1, grid: true, count: 2, answer: '対句' }])
+    expect(piecesOf(section('kanshi'), q('kanshi', 'h2'))).toEqual([{ rows: Math.max(3, [...q('kanshi', 'h2').answer!].length + 2), cols: 1, grid: false, answer: q('kanshi', 'h2').answer }])
     expect(piecesOf(section('kanshi'), q('kanshi', 'h4')).map(p => [p.label, p.rows])).toEqual([['①', 4], ['②', 4]])
   })
 })
@@ -41,21 +41,21 @@ describe('穴埋め文の解答欄', () => {
 
   it('空欄ごとのマス目に、番号の見出しを付ける', () => {
     expect(piecesOf(section('meros'), filled({ answer: '激怒' }, { answer: '邪智暴虐' }))).toEqual([
-      { label: 'Ⅰ', rows: 2, cols: 1, grid: true, count: 2 },
-      { label: 'Ⅱ', rows: 4, cols: 1, grid: true, count: 4 },
+      { label: 'Ⅰ', rows: 2, cols: 1, grid: true, count: 2, answer: '激怒' },
+      { label: 'Ⅱ', rows: 4, cols: 1, grid: true, count: 4, answer: '邪智暴虐' },
     ])
   })
 
   it('空欄が一つなら見出しなしで、字数の上限のマス目にする', () => {
-    expect(piecesOf(section('meros'), filled({ answer: '王を除く', charLimit: 10 }))).toEqual([{ rows: 10, cols: 1, grid: true, count: 10 }])
+    expect(piecesOf(section('meros'), filled({ answer: '王を除く', charLimit: 10 }))).toEqual([{ rows: 10, cols: 1, grid: true, count: 10, answer: '王を除く' }])
   })
 
   it('二十字を超える空欄は列を増やす', () => {
-    expect(piecesOf(section('meros'), filled({ answer: 'あ', charLimit: 25 }))).toEqual([{ rows: 20, cols: 2, grid: true, count: 25 }])
+    expect(piecesOf(section('meros'), filled({ answer: 'あ', charLimit: 25 }))).toEqual([{ rows: 20, cols: 2, grid: true, count: 25, answer: 'あ' }])
   })
 
   it('番号の見出しが付く空欄は、見出しのぶん一マス短く折り返す', () => {
-    expect(piecesOf(section('meros'), filled({ answer: '激怒' }, { answer: 'あ', charLimit: 20 }))[1]).toEqual({ label: 'Ⅱ', rows: 19, cols: 2, grid: true, count: 20 })
+    expect(piecesOf(section('meros'), filled({ answer: '激怒' }, { answer: 'あ', charLimit: 20 }))[1]).toEqual({ label: 'Ⅱ', rows: 19, cols: 2, grid: true, count: 20, answer: 'あ' })
   })
 
   it('穴埋め文の小問を含むテストも、重ならずに一枚に収まる', () => {
@@ -182,5 +182,51 @@ describe('観点の網掛け', () => {
 
   it('作文の見出しは白', () => {
     expect(heads(5, 'question').map(u => [u.label, u.shaded])).toEqual([['作文', false]])
+  })
+})
+
+describe('欄に書き込む模範解答', () => {
+  const sheet = layoutAnswerSheet(sampleTest)
+  // 答えを書く欄（見出しを除く）の答えを、割り付けた順に並べる
+  const answers = (index: number) => sheet.sections[index].units.filter(u => u.kind === 'box' || u.kind === 'grid').map(u => u.answer)
+
+  it('記号選択は正答の記号、マス目の欄は模範解答', () => {
+    expect(answers(2)).toEqual([q('meros', 'q1').answer, 'イ', q('meros', 'q3').answer, choiceLabel(q('meros', 'q4').correct!)])
+  })
+
+  it('項目のある小問は、項目ごとの答え', () => {
+    expect(answers(0).slice(0, 5)).toEqual(['あざむ', 'だくりゅう', 'けいり', 'いそ', 'い'])
+    expect(answers(1).slice(0, 3)).toEqual(['ア', 'イ', 'エ'])
+    expect(answers(3).slice(1, 3)).toEqual(['ゆりすえ', 'ただよえ'])
+  })
+
+  it('作文の欄には答えを持たせない', () => {
+    expect(answers(5)).toEqual([undefined])
+  })
+
+  it('穴埋め文の空欄は、空欄ごとの答え', () => {
+    const fill: Question = {
+      id: 'q-fill', format: 'extract', stem: [], points: 6, kanten: 'thinking', standard: 'C(1)イ',
+      fill: [{ kind: 'text', text: 'メロスは' }, { kind: 'blank', answer: '激怒' }, { kind: 'text', text: 'し、' }, { kind: 'blank', answer: '邪智暴虐' }, { kind: 'text', text: 'の王を除こうと決意した。' }],
+    }
+    const meros = { ...section('meros'), questions: [fill] }
+    const units = layoutAnswerSheet({ ...sampleTest, sections: [meros] }).sections[0].units
+    expect(units.filter(u => u.kind === 'grid').map(u => [u.count, u.answer])).toEqual([[2, '激怒'], [4, '邪智暴虐']])
+  })
+})
+
+describe('マス目に入りきらない模範解答', () => {
+  const withAnswer = (answer: string) => ({
+    ...sampleTest,
+    sections: sampleTest.sections.map(s => (s.id === 'meros' ? { ...s, questions: s.questions.map(x => (x.id === 'q3' ? { ...x, answer } : x)) } : s)),
+  })
+
+  it('答えの字数がマスの数より多いと、どの小問か・字数・マスの数を知らせる', () => {
+    expect(answerOverflows(withAnswer('あ'.repeat(45)))).toEqual([{ label: '【三】問三', chars: 45, cells: 40 }])
+  })
+
+  it('マスの数以内なら知らせない', () => {
+    expect(answerOverflows(withAnswer('あ'.repeat(40)))).toEqual([])
+    expect(answerOverflows(sampleTest)).toEqual([])
   })
 })

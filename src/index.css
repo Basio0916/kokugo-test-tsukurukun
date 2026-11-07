@@ -182,11 +182,15 @@ body {
 .st-fixed { color: #fff; background: #2f8a5b; }
 .st-prop { color: #3a4256; background: #f1f3f7; }
 
-/* 紙のタブ */
-.sheet-tabs { display: inline-flex; margin: 8px 16px 0; overflow: hidden; background: #fff; border: 1px solid #b9c6dd; border-radius: 8px; }
+/* 紙のタブと、開いている紙を PDF で出力するボタン。狭い画面ではボタンをタブの下の行に折り返す */
+.sheet-bar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; margin: 8px 16px 0; }
+.sheet-tabs { display: inline-flex; overflow: hidden; background: #fff; border: 1px solid #b9c6dd; border-radius: 8px; }
 .sheet-tabs button { padding: 6px 14px; font: inherit; font-size: 13px; color: #1b2130; background: none; border: 0; cursor: pointer; }
 .sheet-tabs button + button { border-left: 1px solid #b9c6dd; }
 .sheet-tabs button[aria-selected="true"] { color: #fff; font-weight: 700; background: #1b2130; }
+.sheet-pdf { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.sheet-pdf button { padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; color: #2f5fb3; background: #fff; border: 1px solid #b9c6dd; border-radius: 6px; cursor: pointer; }
+.sheet-pdf small { font-size: 12px; color: #6a7385; }
 
 /* 会話 */
 .chat { display: flex; flex-direction: column; min-height: 0; margin-bottom: 12px; font-size: 14px; background: #fff; border: 1px solid #d2d8e1; border-radius: 10px; overflow: hidden; }

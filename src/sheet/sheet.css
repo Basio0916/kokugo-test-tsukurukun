@@ -28,9 +28,17 @@
 .sheet-question { font-size: calc(var(--cell) * 0.34); }
 .sheet-head.sheet-small { font-size: calc(var(--cell) * 0.26); letter-spacing: -0.1em; }
 .sheet-grid { display: grid; grid-auto-flow: column; direction: rtl; }
-.sheet-grid span { border-bottom: 1px dotted #9a9a9a; border-left: 1px solid #9a9a9a; }
-.sheet-grid .sheet-cell-bottom { border-bottom: 0; }
+/* マスの区切り。縦の実線はマスの左の枠で、横の点線はマスに重ねた要素の下の枠で描く。
+   一つの要素に実線と点線の枠を混ぜると、印刷で実線が消えることがある */
+.sheet-grid > span { position: relative; border-left: 1px solid #9a9a9a; }
+.sheet-grid > span::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; border-bottom: 1px dotted #9a9a9a; }
+.sheet-grid .sheet-cell-bottom::after { content: none; }
 .sheet-grid .sheet-cell-left { border-left: 0; }
+/* 模範解答つき解答用紙の答え。赤字の縦書きで、マス目では一マスに一字ずつ、マスの中央に置く */
+.sheet-answer { color: #c8161d; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.sheet-box > .sheet-answer { position: absolute; inset: 0; display: grid; place-items: center; writing-mode: vertical-rl; line-height: 1; white-space: nowrap; }
+/* マスの字は、マスの大きさの計算に関わらないよう、マスの上に重ねて置く */
+.sheet-grid .sheet-answer { position: absolute; inset: 0; display: grid; place-items: center; direction: ltr; writing-mode: vertical-rl; font-size: calc(var(--cell) * 0.6); line-height: 1; }
 .sheet-waiting { position: absolute; left: 0; right: 0; margin: 0; padding: 2mm 0; writing-mode: vertical-rl; display: grid; place-items: center; color: #777; font-size: 9pt; }
 /* 小計。知・技は上の段、思・判・表は下の段に置き、ない観点の段は空ける */
 .sheet-scores { position: absolute; bottom: 0; left: -1px; right: 0; display: grid; grid-template-rows: repeat(2, var(--cell)); }
@@ -53,6 +61,12 @@
 .key .key-muted { color: #6a7385; }
 .key tfoot td { font-weight: 700; }
 
+/* 表は二ページ以上に続くので、どのページにも余白をとる（紙面のページは余白なしのまま）。名前つきのページが使えないブラウザでは、表の内側の余白で代える */
+@page key { margin: 12mm; }
+
 @media print {
   .key { max-width: none; margin: 0; padding: 12mm; box-shadow: none; font-size: 10pt; }
+  @supports (page: key) {
+    .key { page: key; padding: 0; }
+  }
 }
