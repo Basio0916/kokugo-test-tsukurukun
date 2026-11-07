@@ -48,6 +48,26 @@ test('問一の後にAIのおすすめを足すと問二になる', async ({ pag
   await expect(merosPage(page).locator('.mk')).toHaveText(['①', '②', '③', '④'])
 })
 
+test('七つの選択肢の案は、一覧でキまでの記号が付き、入れると問い文の範囲がア〜キになる', async ({ page }) => {
+  await page.route('/api/draft-question', async route => {
+    const { section } = route.request().postDataJSON()
+    await route.fulfill({ json: { ok: true, ideas: [{
+      section,
+      rationale: '理由',
+      question: {
+        id: 'meros-a1', format: 'choice', kanten: 'thinking', standard: 'C(1)イ', points: 4, correct: 6, choices: ['一', '二', '三', '四', '五', '六', '七'],
+        stem: [{ kind: 'text', text: '当てはまらないものを、次の' }, { kind: 'choiceRange' }, { kind: 'text', text: 'から一つ選びなさい。' }],
+      },
+    }] } })
+  })
+  await openSample(page)
+  await page.getByRole('button', { name: '【三】の問二として小問を追加' }).click()
+  await page.getByRole('button', { name: 'AI のおすすめから選ぶ' }).click()
+  await expect(page.locator('.idea-choices')).toHaveText('ア 一　イ 二　ウ 三　エ 四　オ 五　カ 六　キ 七')
+  await page.getByRole('button', { name: '案1を入れる' }).click()
+  await expect(stems(page).nth(1)).toContainText('当てはまらないものを、次のア〜キから一つ選びなさい。')
+})
+
 test('形式を選んで作ってもらい、入れる前に直す', async ({ page }) => {
   const requests: Array<{ how: unknown }> = []
   await page.route('/api/draft-question', fakeIdeas(1, requests))

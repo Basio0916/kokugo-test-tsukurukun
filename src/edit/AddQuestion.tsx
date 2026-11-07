@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Idea } from '../ai/addQuestion'
 import type { QuestionDraftRequest, QuestionDraftResponse } from '../ai/questionDraft'
 import type { Section } from '../model/schema'
-import { FORMATS, ideaStem, type Format, type OwnFormat } from './addQuestionModel'
+import { FORMATS, ideaChoices, ideaStem, type Format, type OwnFormat } from './addQuestionModel'
 import { Dialog } from './Dialog'
 
 /*
@@ -111,7 +111,7 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
           <li key={i}>
             <button type="button" onClick={() => onPick(idea)} aria-label={`案${i + 1}を入れる`}>
               <span className="idea-stem">{ideaStem(idea)}</span>
-              {idea.question.choices && <span className="idea-choices">{idea.question.choices.map((c, j) => `${'アイウエオ'[j]} ${c}`).join('　')}</span>}
+              {idea.question.choices && <span className="idea-choices">{ideaChoices(idea)}</span>}
               <span className="idea-why">（{idea.question.standard}）{idea.rationale}</span>
             </button>
           </li>

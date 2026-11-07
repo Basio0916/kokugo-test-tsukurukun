@@ -126,6 +126,23 @@ describe('返答から大問を組み立てる', () => {
     expect(r.errors.join('\n')).toContain('問3: 問い文が参照する傍線部Zが marks にない')
     expect(r.errors.join('\n')).toContain('問4: 抜き出しの答え「王を倒す」が本文にない')
   })
+
+  it('問い文に「ア〜キ」と文字で書いた返答は不正', () => {
+    const r = toSection(meros, { marks: [{ key: 'A', quote: '邪智暴虐' }], questions: [q({ stem: '{傍線部:A}の意味を、次のア〜キから一つ選びなさい。' })] }, 1, 24)
+    expect(r.ok === false && r.errors.join('\n')).toContain('問1: 問い文に番号や記号を文字で書いている')
+  })
+
+  const shortAnswer = (answer: string) => q({ format: 'short', stem: '{傍線部:A}について答えなさい。', choices: undefined, correctChoice: undefined, answer })
+
+  it('答えに丸数字を書いた返答は不正（傍線部の番号は振り直されるので）', () => {
+    const r = toSection(meros, { marks: [{ key: 'A', quote: '邪智暴虐' }], questions: [shortAnswer('⑨→⑧→⑦')] }, 1, 24)
+    expect(r.ok === false && r.errors.join('\n')).toContain('問1: 答えに番号')
+  })
+
+  it('語で書いた並べ替えの答えとカタカナの答えは通る', () => {
+    const r = toSection(meros, { marks: [{ key: 'A', quote: '邪智暴虐' }], questions: [shortAnswer('楽しむ者→好む者→知る者'), shortAnswer('イメージ')] }, 1, 24)
+    expect(r.ok && r.section.questions.map(x => x.answer)).toEqual(['楽しむ者→好む者→知る者', 'イメージ'])
+  })
 })
 
 describe('頼み方の例', () => {

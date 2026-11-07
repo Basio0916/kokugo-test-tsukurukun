@@ -1,5 +1,5 @@
 import type { Idea } from '../ai/addQuestion'
-import { markNumbers } from '../model/derive'
+import { choiceLabel, markNumbers } from '../model/derive'
 import type { Question } from '../model/schema'
 import { stemToText } from './stemText'
 
@@ -19,6 +19,11 @@ export type OwnFormat = Format | 'kanji-items' | 'short-items' | 'choice-items'
 export function ideaStem(idea: Idea): string {
   const numbers = markNumbers({ ...idea.section, questions: [...idea.section.questions, idea.question] })
   return stemToText(idea.question.stem, numbers, idea.question.choices?.length ?? 4).replace(/[{}]/g, '')
+}
+
+/** 案の選択肢を、記号を付けた一行にする */
+export function ideaChoices(idea: Idea): string {
+  return (idea.question.choices ?? []).map((c, i) => `${choiceLabel(i)} ${c}`).join('　')
 }
 
 /** 自分で書くときの空の小問のひな形 */

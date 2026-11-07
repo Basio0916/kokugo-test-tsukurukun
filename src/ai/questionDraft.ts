@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { findGroup, standardText } from '../catalog/catalog.js'
 import { Grade } from '../catalog/schema.js'
-import { markNumbers } from '../model/derive.js'
+import { choiceLabel, markNumbers } from '../model/derive.js'
 import { PointStep, Section, type Question } from '../model/schema.js'
 import { circled } from '../paper/kansuji.js'
 import { QuestionIdeas, toIdeas, type Idea } from './addQuestion.js'
@@ -32,7 +32,7 @@ export type QuestionDraftResponse = { ok: true; ideas: Idea[] } | { ok: false; e
 
 // 今ある小問を、紙面と同じ番号で読める一行にする（AI に重複を避けさせるため）
 function questionLine(q: Question, numbers: Map<string, number>, i: number): string {
-  const text = q.stem.map(s => (s.kind === 'text' ? s.text : s.kind === 'choiceRange' ? 'ア〜エ' : `傍線部${circled(numbers.get(s.id) ?? 0)}`)).join('')
+  const text = q.stem.map(s => (s.kind === 'text' ? s.text : s.kind === 'choiceRange' ? `ア〜${choiceLabel(Math.max(q.choices?.length ?? 0, 1) - 1)}` : `傍線部${circled(numbers.get(s.id) ?? 0)}`)).join('')
   return `- 問${i + 1}（${q.standard}）${text}`
 }
 
