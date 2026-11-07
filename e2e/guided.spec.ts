@@ -83,7 +83,7 @@ test('小問を動かして傍線部の順とずれると知らせる。配点�
   await expect(outline(page).getByRole('button', { name: /【四】/ })).toContainText('確定')
 })
 
-test('一覧から大問へ移り、小問のダブルクリックで直す。解答用紙は確定していない大問が破線', async ({ page }) => {
+test('一覧から大問へ移り、小問のダブルクリックで直す', async ({ page }) => {
   await openSample(page)
   await page.getByRole('tab', { name: '解答用紙' }).click()
   await outline(page).getByRole('button', { name: /【四】/ }).click()
@@ -93,9 +93,4 @@ test('一覧から大問へ移り、小問のダブルクリックで直す。�
   await page.locator('.page').filter({ hasText: '走れメロス' }).locator('.blk').filter({ hasText: '問二' }).first().dblclick()
   await expect(page.getByRole('dialog', { name: '【三】問二を直す' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'やめる' }).click()
-
-  await page.getByRole('group', { name: '【一】の操作' }).getByRole('button', { name: '確定する' }).click()
-  await page.getByRole('tab', { name: '解答用紙' }).click()
-  await expect(page.locator('.sheet-sec.sheet-prop')).toHaveCount(5)
-  await expect(page.getByLabel('解答用紙の一', { exact: true })).not.toHaveClass(/sheet-prop/)
 })

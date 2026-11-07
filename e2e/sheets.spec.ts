@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 /* 解答用紙と模範解答・採点基準。問題用紙と同じテストのデータから描かれ、連動する */
 
@@ -63,4 +63,34 @@ test('解答用紙を印刷すると、その一枚だけが出る', async ({ pa
   await expect(page.getByRole('complementary', { name: 'AIと相談' })).toBeHidden()
   await expect(page.locator('.page')).toHaveCount(1)
   await expect(page.locator('.page.sheet')).toBeVisible()
+})
+
+test('知識・技能の見出しと小計の知・技の行を網掛けにし、小計は観点ごとの段に置く', async ({ page }) => {
+  await openSample(page)
+  await page.getByRole('tab', { name: '解答用紙' }).click()
+  const background = (l: Locator) => l.evaluate(e => getComputedStyle(e).backgroundColor)
+  // 三（走れメロス）は問二だけが知識・技能
+  const meros = sheetSection(page, '三')
+  await expect(meros.locator('.sheet-question.sheet-shaded')).toHaveText(['問二'])
+  expect(await background(meros.locator('.sheet-question', { hasText: '問二' }))).not.toBe('rgba(0, 0, 0, 0)')
+  expect(await background(meros.locator('.sheet-question', { hasText: '問一' }))).toBe('rgba(0, 0, 0, 0)')
+  await expect(page.getByLabel('観点別の合計').locator('.sheet-shaded')).toContainText('知・技')
+
+  // 一（漢字）は知・技だけで上の段、六（作文）は思・判・表だけで下の段
+  await expect(sheetSection(page, '一').locator('.sheet-scores p')).toHaveCount(1)
+  await expect(sheetSection(page, '六').locator('.sheet-scores p')).toHaveCount(1)
+  const upper = (await sheetSection(page, '一').locator('.sheet-score-knowledge').boundingBox())!
+  const lower = (await sheetSection(page, '六').locator('.sheet-score-thinking').boundingBox())!
+  expect(Math.abs(upper.y + upper.height - lower.y)).toBeLessThan(1.5)
+  expect(await background(sheetSection(page, '六').locator('.sheet-score-thinking'))).toBe('rgba(0, 0, 0, 0)')
+})
+
+test('名前の欄の文字は欄の幅の中央に並ぶ', async ({ page }) => {
+  await openSample(page)
+  await page.getByRole('tab', { name: '解答用紙' }).click()
+  const box = (await page.locator('.sheet-name').boundingBox())!
+  for (const label of ['組', '番', '氏名']) {
+    const text = (await page.locator('.sheet-name span', { hasText: label }).boundingBox())!
+    expect(Math.abs(text.x + text.width / 2 - (box.x + box.width / 2))).toBeLessThan(1.5)
+  }
 })

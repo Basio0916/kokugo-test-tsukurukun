@@ -773,7 +773,7 @@ export function App() {
               confirmed={confirmed}
             />
           )}
-          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} confirmed={confirmed} />}
+          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} />}
           {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
         </main>}
       </div>
