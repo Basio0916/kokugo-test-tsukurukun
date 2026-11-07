@@ -67,6 +67,8 @@ export type Unit = {
   // 小問の見出し（問一）・項目の見出し（①）・欄・マス目
   kind: 'question' | 'item' | 'box' | 'grid'
   label?: string
+  // 見出しを網掛けにするか。知識・技能の小問の、答えの欄のすぐ上の見出しだけを網掛けにする
+  shaded?: boolean
   rows?: number
   cols?: number
   // マス目のマスの数
@@ -108,6 +110,7 @@ function layoutSection(section: Section, index: number, cell: number, rows: numb
   section.questions.forEach((q, qi) => {
     // 作文の問は「作文」と書く
     const name = q.format === 'composition' ? '作文' : `問${kansuji(qi + 1)}`
+    const knowledge = q.kanten === 'knowledge'
     let headed = false
     for (const piece of piecesOf(section, q, column)) {
       const need = (headed ? 0 : 1) + (piece.label ? 1 : 0) + piece.rows
@@ -118,12 +121,12 @@ function layoutSection(section: Section, index: number, cell: number, rows: numb
       }
       const w = piece.cols * cell
       if (!headed) {
-        units.push({ x: col * cell, y: y * cell, w, h: cell, kind: 'question', label: name })
+        units.push({ x: col * cell, y: y * cell, w, h: cell, kind: 'question', label: name, shaded: knowledge && !piece.label })
         y += 1
         headed = true
       }
       if (piece.label) {
-        units.push({ x: col * cell, y: y * cell, w, h: cell, kind: 'item', label: piece.label })
+        units.push({ x: col * cell, y: y * cell, w, h: cell, kind: 'item', label: piece.label, shaded: knowledge })
         y += 1
       }
       units.push(piece.grid

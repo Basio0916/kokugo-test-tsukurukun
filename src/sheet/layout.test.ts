@@ -155,3 +155,32 @@ describe('解答用紙の割り付け', () => {
     expect(layout.cell).toBe(6)
   })
 })
+
+describe('観点の網掛け', () => {
+  const sheet = layoutAnswerSheet(sampleTest)
+  const heads = (index: number, kind: Unit['kind']) => sheet.sections[index].units.filter(u => u.kind === kind)
+
+  it('項目のない小問は、知識・技能なら問の見出しを網掛けにする', () => {
+    // 三（走れメロス）の問二だけが知識・技能
+    const meros = heads(2, 'question')
+    expect(new Set(meros.map(u => u.label))).toEqual(new Set(['問一', '問二', '問三', '問四']))
+    meros.forEach(u => expect(u.shaded).toBe(u.label === '問二'))
+  })
+
+  it('項目のある小問は、項目の見出しを網掛けにし、問の見出しは列をまたいでも白', () => {
+    const questions = heads(0, 'question')
+    expect(questions.length).toBeGreaterThan(2)
+    questions.forEach(u => expect(u.shaded).toBe(false))
+    expect(heads(0, 'item').length).toBeGreaterThan(0)
+    heads(0, 'item').forEach(u => expect(u.shaded).toBe(true))
+  })
+
+  it('思考・判断・表現の小問は、項目の見出しも白', () => {
+    // 五（漢詩）の問四は、二つの項目を持つ思考・判断・表現の小問
+    expect(heads(4, 'item').map(u => [u.label, u.shaded])).toEqual([['①', false], ['②', false]])
+  })
+
+  it('作文の見出しは白', () => {
+    expect(heads(5, 'question').map(u => [u.label, u.shaded])).toEqual([['作文', false]])
+  })
+})
