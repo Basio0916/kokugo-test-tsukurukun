@@ -63,3 +63,22 @@ test('古文の本文を直してルビが外れたら、直した箇所のル�
   await expect(ougiPage(page).locator('.mk')).toHaveText(['①', '②', '③', '④'])
   expect(bodies[0]).toMatchObject({ kind: 'ruby', lost: ['磯'] })
 })
+
+test('付け直している間は、紙面のその大問の見出しと本文のブロックだけに印が付く', async ({ page }) => {
+  let release: () => void = () => {}
+  const answered = new Promise<void>(resolve => { release = resolve })
+  await page.route('/api/annotate', async route => {
+    await answered
+    await route.fulfill({ json: { ok: true, lines: [{ index: 2, notation: '夜来風雨(ノ)音' }] } })
+  })
+  await openSample(page)
+  await editPassage(page, 4, t => t.replace('夜来風雨声', '夜来風雨音'))
+  const busy = page.locator('.page [aria-busy="true"]')
+  await expect(busy).toHaveCount(1)
+  await expect(busy).toHaveAttribute('data-target', 'kanshi')
+  await expect(busy.locator('.blk-ai-badge')).toHaveText('AI が付け直しています')
+
+  release()
+  await expect(chat(page)).toContainText('直した句の返り点と送り仮名を付け直しました。')
+  await expect(busy).toHaveCount(0)
+})

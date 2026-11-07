@@ -23,6 +23,9 @@ type Props = PaperActions & {
   flagged?: Set<string>
   // 確定した大問。確定していない大問の小問は、画面では薄く描く
   confirmed?: Set<string>
+  // AI が作っている大問（ブロックすべて）と、ルビや返り点を付け直している大問（見出しと本文のブロックだけ）に、作っている間の印を付ける
+  drafting?: Set<string>
+  annotating?: Set<string>
 }
 
 // 大問・小問を紙面の番号で呼ぶ（【三】問二）
@@ -35,7 +38,7 @@ function targetName(test: Test, t: BlockTarget): string {
 const covers = (t: BlockTarget | null | undefined, b: BlockTarget | undefined) =>
   !!t && !!b && t.sectionId === b.sectionId && (!t.questionId || t.questionId === b.questionId)
 
-export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, onOpenQuestion, flagged, confirmed }: Props) {
+export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, onTooWide, selected, changed, onSelect, onOpenQuestion, flagged, confirmed, drafting, annotating }: Props) {
   const blocks = useMemo(() => buildBlocks(test, { allotments, onOpenPassage, onOpenKanji, editing }), [test, allotments, onOpenPassage, onOpenKanji, editing])
   const measureRef = useRef<HTMLDivElement>(null)
   // 割り付けは、測ったときのブロックの並びと組にして持つ（並びが変わったら、測り直すまで前の割り付けは使わない）
@@ -74,7 +77,11 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                   const b = blocks[i]
                   const isFlagged = !!b.target?.questionId && !!flagged?.has(`${b.target.sectionId}/${b.target.questionId}`)
                   const isProp = !!b.target?.questionId && !!confirmed && !confirmed.has(b.target.sectionId)
-                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}${isFlagged ? ' blk-flagged' : ''}${isProp ? ' blk-prop' : ''}`
+                  const isHeader = !!b.target && !b.target.questionId
+                  const isDrafting = !!b.target && !!drafting?.has(b.target.sectionId)
+                  const isAnnotating = isHeader && !!annotating?.has(b.target!.sectionId)
+                  const isAi = isDrafting || isAnnotating
+                  const cls = `blk${covers(selected, b.target) ? ' blk-selected' : ''}${covers(changed, b.target) ? ' blk-changed' : ''}${isFlagged ? ' blk-flagged' : ''}${isProp ? ' blk-prop' : ''}${isAi ? ' blk-ai' : ''}`
                   // キーボードでも選べるように（Enter・Space）。中に操作のボタンがあるので、役割は button でなく group
                   const selectable = !!onSelect && !!b.target
                   const label = b.target && `${targetName(test, b.target)}を選んで相談する`
@@ -86,6 +93,7 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                       tabIndex={selectable ? 0 : undefined}
                       role={selectable ? 'group' : undefined}
                       aria-label={selectable ? label : undefined}
+                      aria-busy={isAi || undefined}
                       onKeyDown={e => {
                         if (selectable && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
                           e.preventDefault()
@@ -100,7 +108,11 @@ export function Paper({ test, allotments, onOpenPassage, onOpenKanji, editing, o
                         if (!onSelect || !b.target || (e.target as Element).closest('button') || !getSelection()?.isCollapsed) return
                         onSelect(b.target)
                       }}
-                    >{b.node}{isFlagged && <span className="blk-flag">要確認</span>}</div>
+                    >
+                      {b.node}
+                      {isFlagged && <span className="blk-flag">要確認</span>}
+                      {isAi && isHeader && <span className="blk-ai-badge">{isDrafting ? 'AI が作っています' : 'AI が付け直しています'}</span>}
+                    </div>
                   )
                 })}
               </div>
