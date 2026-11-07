@@ -1,4 +1,4 @@
-import { blankLabel, blanksOf, markNumbers, questionPoints } from '../model/derive'
+import { blankLabel, blanksOf, choiceLabel, markNumbers, questionPoints } from '../model/derive'
 import { needsPassage, type Kanten, type Question, type Section, type Test } from '../model/schema'
 import { circled, kansuji } from '../paper/kansuji'
 
@@ -24,39 +24,51 @@ const CELL_STEP = 0.5
 const COLUMN = 20
 const GAP = 3
 
-/** 小問の欄の一つ。label は項目の見出し（①・傍線部の番号）。grid はマス目（字数ぶんのマス） */
-export type Piece = { label?: string; rows: number; cols: number; grid: boolean; count?: number }
+/** 小問の欄の一つ。label は項目の見出し（①・傍線部の番号）。grid はマス目（字数ぶんのマス）。answer は模範解答つき解答用紙で欄に書く答え */
+export type Piece = { label?: string; rows: number; cols: number; grid: boolean; count?: number; answer?: string }
 
 const chars = (s: string | undefined) => [...(s ?? '')].length
 
 /** 小問の欄を、解答形式からマスの数で決める。column はマス目の一列のマスの数 */
 export function piecesOf(section: Section, q: Question, column = COLUMN): Piece[] {
   const numbers = markNumbers(section)
-  const box = (rows: number, label?: string): Piece => ({ label, rows, cols: 1, grid: false })
-  const grid = (n: number, height = column): Piece => ({ rows: Math.min(n, height), cols: Math.ceil(n / height), grid: true, count: n })
+  const box = (rows: number, answer: string | undefined, label?: string): Piece => ({ label, rows, cols: 1, grid: false, answer })
+  const grid = (n: number, answer: string | undefined, height = column): Piece => ({ rows: Math.min(n, height), cols: Math.ceil(n / height), grid: true, count: n, answer })
   if (q.fill) {
     const blanks = blanksOf(q)
     return blanks.map((b, i) => {
       const label = blankLabel(i, blanks.length)
       // 番号の見出しが一段使うので、そのぶん短く折り返す
-      return { ...grid(b.charLimit ?? chars(b.answer), label ? column - 1 : column), label }
+      return { ...grid(b.charLimit ?? chars(b.answer), b.answer, label ? column - 1 : column), label }
     })
   }
   const items = q.items?.map((it, i) => ({ it, label: it.markId ? circled(numbers.get(it.markId) ?? 0) : circled(i + 1) }))
   switch (q.format) {
     case 'choice':
-      return items ? items.map(({ label }) => box(2, label)) : [box(2)]
+      return items ? items.map(({ it, label }) => box(2, it.answer, label)) : [box(2, q.correct !== undefined ? choiceLabel(q.correct) : undefined)]
     case 'kanji':
     case 'kana':
-      return (items ?? []).map(({ it, label }) => box(Math.max(3, chars(it.answer) + 1), label))
+      return (items ?? []).map(({ it, label }) => box(Math.max(3, chars(it.answer) + 1), it.answer, label))
     case 'short':
-      if (items) return items.map(({ it, label }) => box(Math.max(3, q.charLimit ?? chars(it.answer) + 2), label))
-      return q.charLimit ? [grid(q.charLimit)] : [box(Math.max(3, chars(q.answer) + 2))]
+      if (items) return items.map(({ it, label }) => box(Math.max(3, q.charLimit ?? chars(it.answer) + 2), it.answer, label))
+      return q.charLimit ? [grid(q.charLimit, q.answer)] : [box(Math.max(3, chars(q.answer) + 2), q.answer)]
     case 'extract':
     case 'description':
+      return [grid(q.charLimit ?? Math.max(10, chars(q.answer)), q.answer)]
+    // 作文は模範解答を持たないので、欄に答えを書かない
     case 'composition':
-      return [grid(q.charLimit ?? Math.max(10, chars(q.answer)))]
+      return [grid(q.charLimit ?? Math.max(10, chars(q.answer)), undefined)]
   }
+}
+
+/** マス目に入りきらない模範解答。label は【三】問三、chars は答えの字数、cells はマスの数 */
+export type Overflow = { label: string; chars: number; cells: number }
+
+/** 模範解答の字数がマス目の数より多い欄を集める。マス目でない欄は字を小さくして収めるので含めない */
+export function answerOverflows(test: Test): Overflow[] {
+  return test.sections.flatMap((s, si) => s.questions.flatMap((q, qi) => piecesOf(s, q)
+    .filter(p => p.grid && chars(p.answer) > (p.count ?? 0))
+    .map(p => ({ label: `【${kansuji(si + 1)}】問${kansuji(qi + 1)}`, chars: chars(p.answer), cells: p.count ?? 0 }))))
 }
 
 export type Unit = {
@@ -70,6 +82,8 @@ export type Unit = {
   label?: string
   // 見出しを網掛けにするか。知識・技能の小問の、答えの欄のすぐ上の見出しだけを網掛けにする
   shaded?: boolean
+  // 欄・マス目に書く模範解答（模範解答つき解答用紙で描く）
+  answer?: string
   rows?: number
   cols?: number
   // マス目のマスの数
@@ -131,8 +145,8 @@ function layoutSection(section: Section, index: number, cell: number, rows: numb
         y += 1
       }
       units.push(piece.grid
-        ? { x: col * cell, y: y * cell, w, h: piece.rows * cell, kind: 'grid', rows: piece.rows, cols: piece.cols, count: piece.count }
-        : { x: col * cell, y: y * cell, w, h: piece.rows * cell, kind: 'box' })
+        ? { x: col * cell, y: y * cell, w, h: piece.rows * cell, kind: 'grid', rows: piece.rows, cols: piece.cols, count: piece.count, answer: piece.answer }
+        : { x: col * cell, y: y * cell, w, h: piece.rows * cell, kind: 'box', answer: piece.answer })
       y += piece.rows
       if (piece.cols > 1) {
         newColumn(piece.cols)

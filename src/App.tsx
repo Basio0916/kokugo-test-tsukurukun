@@ -34,7 +34,7 @@ import { Paper } from './paper/Paper'
 import { useMediaQuery } from './useMediaQuery'
 import { AnswerKey } from './sheet/AnswerKey'
 import { AnswerSheet } from './sheet/AnswerSheet'
-import { layoutAnswerSheet } from './sheet/layout'
+import { answerOverflows, layoutAnswerSheet } from './sheet/layout'
 import { longTest } from './sample/longTest'
 import { sampleTest } from './sample/sampleTest'
 import { findGroup } from './catalog/catalog'
@@ -48,6 +48,10 @@ import { StartScreen, type Skeleton } from './start/StartScreen'
 // ?sample でサンプルのテストを開く（?sample=long は小問の多いサンプル）
 const sample = new URLSearchParams(location.search).get('sample')
 const initialTest = sample === 'long' ? longTest : sample !== null ? sampleTest : null
+
+// 紙の名前。タブ・PDF で出力するボタン・印刷するときのページの題で使う
+const SHEETS = { paper: '問題用紙', answer: '解答用紙', answered: '模範解答つき解答用紙', key: '模範解答・採点基準' } as const
+type SheetKind = keyof typeof SHEETS
 
 // 加えた大問の配点の枠: 同じ種類の大問の配点の枠（なければ十点）
 const DEFAULT_ALLOTMENT = 10
@@ -104,14 +108,37 @@ export function App() {
   const [editingPassage, setEditingPassage] = useState<string | null>(null)
   // 返り点と送り仮名を直している漢文の大問
   const [editingKaeriten, setEditingKaeriten] = useState<string | null>(null)
-  // 開いている紙（問題用紙・解答用紙・模範解答と採点基準）。解答用紙の割り付けは、収まらない知らせにも使う
-  const [sheet, setSheet] = useState<'paper' | 'answer' | 'key'>('paper')
+  // 開いている紙（問題用紙・解答用紙・模範解答つき解答用紙・模範解答と採点基準）。解答用紙の割り付けは、収まらない知らせにも使う
+  const [sheet, setSheet] = useState<SheetKind>('paper')
   const sheetLayout = useMemo(() => test && layoutAnswerSheet(test), [test])
+  const overflows = useMemo(() => (test ? answerOverflows(test) : []), [test])
+  // 印刷の間だけ、ページの題を年度・テストの名前・国語・紙の名前を並べたものにする。PDF に保存するときのファイル名の既定になる
+  useEffect(() => {
+    if (!test) return
+    const title = `${test.info.year}　${test.info.name}　国語　${SHEETS[sheet]}`
+    let saved: string | null = null
+    const before = () => {
+      saved ??= document.title
+      document.title = title
+    }
+    const after = () => {
+      if (saved !== null) document.title = saved
+      saved = null
+    }
+    window.addEventListener('beforeprint', before)
+    window.addEventListener('afterprint', after)
+    return () => {
+      window.removeEventListener('beforeprint', before)
+      window.removeEventListener('afterprint', after)
+      after()
+    }
+  }, [test, sheet])
   const [checking, setChecking] = useState<Set<string>>(new Set())
   // 本文を直して外れた訓読・ルビを AI が付け直している大問
   const [annotating, setAnnotating] = useState<Set<string>>(new Set())
   // 幅の狭い画面では会話と紙面を切り替えて一つずつ出す。会話を見ている間に紙面が変わったら「紙面」に印を付ける
-  const narrow = useMediaQuery('(max-width: 899px)')
+  // 印刷を始めると紙の幅で判定されて狭い画面に当てはまり、紙面の列が消えて白紙になるので、画面のときだけ判定する
+  const narrow = useMediaQuery('screen and (max-width: 899px)')
   // 狭い画面で、紙面で選んだものについて相談しに会話へ移った（会話の入力欄へ移る）
   const [consulting, setConsulting] = useState(false)
   const [view, setView] = useState<'chat' | 'paper'>('chat')
@@ -741,6 +768,7 @@ export function App() {
           alerts={[
             ...tooWide.map(id => `${nameById(id)}の本文が一枚に収まりません。範囲を短くして貼り直してください。`),
             ...(sheetLayout && !sheetLayout.fits ? ['解答用紙が一枚に収まりません。記述や作文の字数を減らしてください。'] : []),
+            ...overflows.map(o => `${o.label}の模範解答（${kansuji(o.chars)}字）が、マス目（${kansuji(o.cells)}字）に入りきりません。`),
           ]}
           busy={chatBusy}
           onSend={text => void ask(text)}
@@ -757,10 +785,17 @@ export function App() {
             onGo={goToSection}
             onAddSection={gradeOf(test) ? () => setAdding(true) : undefined}
           />
-          <div className="sheet-tabs" role="tablist" aria-label="表示する紙">
-            {([['paper', '問題用紙'], ['answer', '解答用紙'], ['key', '模範解答・採点基準']] as const).map(([value, label]) => (
-              <button key={value} type="button" role="tab" aria-selected={sheet === value} onClick={() => setSheet(value)}>{label}</button>
-            ))}
+          <div className="sheet-bar">
+            <div className="sheet-tabs" role="tablist" aria-label="表示する紙">
+              {(Object.entries(SHEETS) as Array<[SheetKind, string]>).map(([value, label]) => (
+                <button key={value} type="button" role="tab" aria-selected={sheet === value} onClick={() => setSheet(value)}>{label}</button>
+              ))}
+            </div>
+            {/* 開いている紙だけをブラウザの印刷で出す。送信先で「PDFに保存」を選ぶと PDF になる */}
+            <div className="sheet-pdf">
+              <button type="button" onClick={() => window.print()}>{SHEETS[sheet]}をPDFで出力</button>
+              <small>印刷の画面で「PDFに保存」を選びます</small>
+            </div>
           </div>
           </div>
           {/* 開いていない紙は描かない（問題用紙は見えない状態で測ると割り付けが崩れる） */}
@@ -773,7 +808,7 @@ export function App() {
               confirmed={confirmed}
             />
           )}
-          {sheet === 'answer' && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} />}
+          {(sheet === 'answer' || sheet === 'answered') && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} answered={sheet === 'answered'} />}
           {sheet === 'key' && <AnswerKey test={test} nameOf={s => nameOf(test, s)} />}
         </main>}
       </div>

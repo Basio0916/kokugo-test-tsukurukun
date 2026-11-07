@@ -38,14 +38,14 @@ test('空欄補充の小問は、問題用紙・解答用紙・模範解答に�
 
   // 問題用紙: 問い文の次に穴埋め文。答えは出ない
   await expect(page.locator('.page .fill')).toHaveText('◎メロスは（Ⅰ　二字）し、（Ⅱ　四字）の王を除こうと決意した。')
-  await page.getByRole('tab', { name: '解答用紙' }).click()
+  await page.getByRole('tab', { name: '解答用紙', exact: true }).click()
   await expect(sheetHeads(page)).toHaveText(['Ⅰ', 'Ⅱ'])
   expect(await sheetCells(page)).toEqual([2, 4])
-  await page.getByRole('tab', { name: '模範解答・採点基準' }).click()
+  await page.getByRole('tab', { name: '模範解答・採点基準', exact: true }).click()
   await expect(keyAnswer(page)).toHaveText('Ⅰ 激怒　Ⅱ 邪智暴虐')
 
   // 直す: 空欄を一つにして字数の上限を全角で書く。小問全体の答えと字数の欄は出ない
-  await page.getByRole('tab', { name: '問題用紙' }).click()
+  await page.getByRole('tab', { name: '問題用紙', exact: true }).click()
   await tools(page, '【三】問一').getByRole('button', { name: '直す' }).click()
   const dialog = page.getByRole('dialog', { name: '【三】問一を直す' })
   await expect(dialog.getByLabel('答え', { exact: true })).toHaveCount(0)
@@ -56,10 +56,10 @@ test('空欄補充の小問は、問題用紙・解答用紙・模範解答に�
   await expect(dialog).toHaveCount(0)
 
   await expect(page.locator('.page .fill')).toHaveText('◎メロスは（十字以内）と決意した。')
-  await page.getByRole('tab', { name: '解答用紙' }).click()
+  await page.getByRole('tab', { name: '解答用紙', exact: true }).click()
   await expect(sheetHeads(page)).toHaveCount(0)
   expect(await sheetCells(page)).toEqual([10])
-  await page.getByRole('tab', { name: '模範解答・採点基準' }).click()
+  await page.getByRole('tab', { name: '模範解答・採点基準', exact: true }).click()
   await expect(keyAnswer(page)).toHaveText('王を除く')
 })
 

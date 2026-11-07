@@ -46,14 +46,14 @@ test('紙面を送っても、合計・一覧・タブの欄は上に残る', as
   const column = await page.locator('.paper-head').evaluate(e => e.parentElement!.getBoundingClientRect().top)
   expect(box).not.toBeNull()
   expect(box!.y).toBeLessThanOrEqual(Math.max(column, 0) + 1)
-  await expect(page.getByRole('tab', { name: '解答用紙' })).toBeInViewport()
+  await expect(page.getByRole('tab', { name: '解答用紙', exact: true })).toBeInViewport()
 })
 
 test('作文の問は、解答用紙と模範解答で「作文」と書く', async ({ page }) => {
   await openSample(page)
-  await page.getByRole('tab', { name: '解答用紙' }).click()
+  await page.getByRole('tab', { name: '解答用紙', exact: true }).click()
   await expect(page.getByLabel('解答用紙の六', { exact: true })).toContainText('作文')
   await expect(page.getByLabel('解答用紙の六', { exact: true })).not.toContainText('問一')
-  await page.getByRole('tab', { name: '模範解答' }).click()
+  await page.getByRole('tab', { name: '模範解答・採点基準', exact: true }).click()
   await expect(page.getByLabel('模範解答・採点基準').getByRole('row').filter({ hasText: '条件に沿って書けている' }).first()).toContainText('作文')
 })
