@@ -8,8 +8,9 @@ import { circled, kansuji } from '../paper/kansuji'
  * 解答欄を並べる場所の右上からの距離で表す。
  */
 
-// B4 横の紙の内側の余白と、右端の題・名前の欄の幅（mm）
-export const SHEET = { width: 364, height: 257, top: 14, right: 15, bottom: 17, left: 15, side: 36 }
+// B4 横の紙の内側の余白と、右端の題・名前の欄の幅（mm）。右端の欄は、題の列 6・すき間 2・名前の欄 12 に、
+// 解答欄までのすき間 3（大問の間のすき間と同じ）を足した幅
+export const SHEET = { width: 364, height: 257, top: 14, right: 15, bottom: 17, left: 15, side: 23 }
 export const AREA = {
   width: SHEET.width - SHEET.left - SHEET.right - SHEET.side,
   height: SHEET.height - SHEET.top - SHEET.bottom,

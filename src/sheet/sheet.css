@@ -7,7 +7,7 @@
 /* 右端。上に題（右）と名前の欄（左）を並べ、その二つの下に合計の欄を置く */
 .sheet-side { position: absolute; display: flex; flex-direction: column; gap: 3mm; }
 .sheet-heading { flex: 1; min-height: 0; display: flex; flex-direction: row-reverse; gap: 2mm; }
-.sheet-title { margin: 0; writing-mode: vertical-rl; font-size: 15pt; font-weight: 700; letter-spacing: 0.12em; white-space: nowrap; }
+.sheet-title { display: flex; align-items: center; width: 6mm; margin: 0; writing-mode: vertical-rl; font-size: 15pt; font-weight: 700; letter-spacing: 0.12em; white-space: nowrap; }
 /* 名前の欄。学年・組・番を上に詰め、組と番の前に数字を書くすき間をとる。氏名の下は名前を書く場所 */
 .sheet-name { display: flex; align-items: center; width: 12mm; margin: 0; padding: 4mm 0; box-sizing: border-box; writing-mode: vertical-rl; font-size: 12pt; border: 1px solid currentColor; }
 .sheet-name-gap { margin-top: 12mm; }
