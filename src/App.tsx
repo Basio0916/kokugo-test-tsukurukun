@@ -806,6 +806,7 @@ export function App() {
               onOpenQuestion={t => t.questionId && setEditingQuestion({ sectionId: t.sectionId, questionId: t.questionId })}
               flagged={new Set(Object.keys(liveFlags(test, flags)))}
               confirmed={confirmed}
+              drafting={drafting} annotating={annotating}
             />
           )}
           {(sheet === 'answer' || sheet === 'answered') && sheetLayout && <AnswerSheet test={test} layout={sheetLayout} answered={sheet === 'answered'} />}
