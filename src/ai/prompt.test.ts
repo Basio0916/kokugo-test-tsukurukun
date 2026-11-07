@@ -37,6 +37,18 @@ describe('問いの作り方の指示', () => {
   })
 })
 
+describe('空欄補充の作り方の指示', () => {
+  it.each(Object.entries(prompts))('%s: 記法と問い文の書き方を指示する', (_, prompt) => {
+    for (const word of ['fillText', '[[答え｜', '次の文の空欄に']) expect(prompt).toContain(word)
+  })
+
+  it('本文を写さず要約にし、抜き出しと考えて答える形を使い分けるよう指示する', () => {
+    expect(SYSTEM_PROMPT).toContain('要約')
+    expect(SYSTEM_PROMPT).toContain('本文から抜き出す空欄は extract')
+    expect(SYSTEM_PROMPT).toContain('考えて答える空欄は short')
+  })
+})
+
 describe('小問の数の目安', () => {
   const unit = { grade: 3 as const, material: '教材', standards: [], instruction: '指示文', subtotal: 30, pointStep: 1 as const }
 

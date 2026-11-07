@@ -6,13 +6,14 @@ import { PointStep, Section, type Question } from '../model/schema.js'
 import { circled } from '../paper/kansuji.js'
 import { QuestionIdeas, toIdeas, type Idea } from './addQuestion.js'
 import { lineNotation, lineText } from '../model/kanbun.js'
+import { fillToText } from '../model/notation.js'
 import { plainText } from './anchor.js'
 import { draftWithRetry, jsonHandler } from './claude.js'
 import { ADD_QUESTION_PROMPT, formatPrompt, markPrompt, suggestPrompt, type AddQuestionContext } from './prompt.js'
 
 /* サーバー側で、小問を一つ足す案を Claude に作ってもらう。足し方（おすすめ・形式・線を引く）は判別付きの要求で分ける */
 
-const FORMAT_NAMES = { choice: '記号選択', extract: '本文からの抜き出し', description: '記述', short: '短答' } as const
+const FORMAT_NAMES = { choice: '記号選択', extract: '本文からの抜き出し', description: '記述', short: '短答', fill: '空欄補充' } as const
 
 export const QuestionDraftRequest = z.object({
   grade: Grade,
@@ -22,7 +23,7 @@ export const QuestionDraftRequest = z.object({
   section: Section,
   how: z.discriminatedUnion('kind', [
     z.object({ kind: z.literal('suggest') }),
-    z.object({ kind: z.literal('format'), format: z.enum(['choice', 'extract', 'description', 'short']), aim: z.string().optional() }),
+    z.object({ kind: z.literal('format'), format: z.enum(['choice', 'extract', 'description', 'short', 'fill']), aim: z.string().optional() }),
     // 線を引いて作る。format・charLimit は、入れる前に直す画面で選び直したときの解答形式と字数
     z.object({ kind: z.literal('mark'), quote: z.string().min(1), before: z.string().optional(), wish: z.string().min(1), format: z.enum(['choice', 'extract', 'description', 'short']).optional(), charLimit: z.number().int().positive().optional() }),
   ]),
@@ -33,7 +34,7 @@ export type QuestionDraftResponse = { ok: true; ideas: Idea[] } | { ok: false; e
 // 今ある小問を、紙面と同じ番号で読める一行にする（AI に重複を避けさせるため）
 function questionLine(q: Question, numbers: Map<string, number>, i: number): string {
   const text = q.stem.map(s => (s.kind === 'text' ? s.text : s.kind === 'choiceRange' ? `ア〜${choiceLabel(Math.max(q.choices?.length ?? 0, 1) - 1)}` : `傍線部${circled(numbers.get(s.id) ?? 0)}`)).join('')
-  return `- 問${i + 1}（${q.standard}）${text}`
+  return `- 問${i + 1}（${q.standard}）${text}${q.fill ? ` 穴埋め文: ${fillToText(q.fill)}` : ''}`
 }
 
 export async function draftQuestion(request: QuestionDraftRequest): Promise<QuestionDraftResponse> {
@@ -65,7 +66,7 @@ export async function draftQuestion(request: QuestionDraftRequest): Promise<Ques
     convert: proposal => toIdeas(section, how.kind === 'mark'
       // 線を引いた箇所は、先生が選んだ位置（直前の文字）で決める
       ? { ideas: proposal.ideas.map(idea => ({ ...idea, marks: idea.marks.map(m => (m.quote === how.quote && how.before ? { ...m, before: how.before } : m)) })) }
-      : proposal, { pointStep, subtotal, quote: how.kind === 'mark' ? how.quote : undefined }),
+      : proposal, { pointStep, subtotal, quote: how.kind === 'mark' ? how.quote : undefined, needsFill: how.kind === 'format' && how.format === 'fill' }),
   })
 }
 

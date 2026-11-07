@@ -139,6 +139,73 @@ describe('返答から大問を組み立てる', () => {
     expect(r.ok === false && r.errors.join('\n')).toContain('問1: 答えに番号')
   })
 
+  it('抜き出しの字数を AI が付け忘れたら、答えの字数にする', () => {
+    const extract = (over: Partial<ProposedQuestion>) => q({ format: 'extract', stem: '{傍線部:A}について、本文から抜き出しなさい。', choices: undefined, correctChoice: undefined, answer: '王を除かなければならぬ', ...over })
+    const marks = [{ key: 'A', quote: '邪智暴虐' }]
+    const r = toSection(meros, { marks, questions: [extract({}), extract({ charLimit: 20 })] }, 1, 24)
+    expect(r.ok && r.section.questions.map(x => x.charLimit)).toEqual([11, 20])
+  })
+
+  describe('空欄補充の小問', () => {
+    const filled = (over: Partial<ProposedQuestion>) => q({
+      format: 'extract', stem: '次の文の空欄に当てはまる言葉を、本文からそれぞれ抜き出しなさい。', choices: undefined, correctChoice: undefined,
+      fillText: 'メロスは[[激怒]]し、[[邪智暴虐]]の王を除こうと決意した。', ...over,
+    })
+    const convert = (over: Partial<ProposedQuestion> = {}) => toSection(meros, { marks: [], questions: [filled(over)] }, 1, 6)
+    const errorsOf = (over: Partial<ProposedQuestion>) => {
+      const r = convert(over)
+      return r.ok ? '' : r.errors.join('\n')
+    }
+
+    it('本文から抜き出す穴埋め文は小問に組み立てられ、配点は枠の中で割り振られる', () => {
+      const r = convert()
+      expect(r.ok && r.section.questions[0]).toMatchObject({
+        format: 'extract', points: 6,
+        fill: [{ kind: 'text', text: 'メロスは' }, { kind: 'blank', answer: '激怒' }, { kind: 'text', text: 'し、' }, { kind: 'blank', answer: '邪智暴虐' }, { kind: 'text', text: 'の王を除こうと決意した。' }],
+      })
+    })
+
+    it('考えて答える短答の空欄は、本文になくても通る', () => {
+      expect(convert({ format: 'short', fillText: 'メロスは[[人を信じる心｜10]]を持っている。' }).ok).toBe(true)
+    })
+
+    it('字数の上限つきの抜き出しは通る', () => {
+      expect(convert({ fillText: 'メロスは[[激怒｜10]]した。' }).ok).toBe(true)
+    })
+
+    it('AI が小問全体の答えと字数も書いてきたときは、穴埋め文を使う', () => {
+      const r = convert({ answer: '激怒', charLimit: 2 })
+      expect(r.ok).toBe(true)
+      expect(r.ok && r.section.questions[0].answer).toBeUndefined()
+      expect(r.ok && r.section.questions[0].charLimit).toBeUndefined()
+    })
+
+    it('抜き出しの答えが本文にない返答は不正', () => {
+      expect(errorsOf({ fillText: 'メロスは[[大激怒]]した。' })).toContain('問1: 抜き出しの空欄の答え「大激怒」が本文にない')
+    })
+
+    it('記述の形式、空欄なし、字数の誤りは不正', () => {
+      expect(errorsOf({ format: 'description' })).toContain('穴埋め文を持てるのは抜き出しと短答の小問だけ')
+      expect(errorsOf({ fillText: 'メロスは激怒した。' })).toContain('穴埋め文に空欄がない')
+      expect(errorsOf({ fillText: 'メロスは[[激怒｜十]]した。' })).toContain('字数は数字で書く')
+      expect(errorsOf({ format: 'short', fillText: 'メロスは[[激しく怒る｜3]]した。' })).toContain('字数の上限3字を超えている')
+    })
+
+    it('問い文と穴埋め文に番号を書いた返答は不正', () => {
+      expect(errorsOf({ stem: '次の文のⅠ〜Ⅲに当てはまる言葉を抜き出しなさい。' })).toContain('問1: 問い文に番号や記号を文字で書いている')
+      expect(errorsOf({ fillText: 'メロスはⅠ[[激怒]]した。' })).toContain('問1: 穴埋め文に番号や記号を文字で書いている')
+    })
+
+    it('二字以上の答えが地の文にも出ていれば不正。一字の答えは別の語に含まれていても通る', () => {
+      expect(errorsOf({ fillText: 'メロスは[[激怒]]し、激怒のまま走った。' })).toContain('問1: 空欄の答え「激怒」が穴埋め文の地の文にも書かれている')
+      expect(convert({ format: 'short', fillText: '孔子は[[仁]]を説き、仁義を重んじた。' }).ok).toBe(true)
+    })
+
+    it('空欄の答えに丸数字を書いた返答は不正', () => {
+      expect(errorsOf({ format: 'short', fillText: '順は[[⑨→⑧]]である。' })).toContain('問1: 答えに番号')
+    })
+  })
+
   it('語で書いた並べ替えの答えとカタカナの答えは通る', () => {
     const r = toSection(meros, { marks: [{ key: 'A', quote: '邪智暴虐' }], questions: [shortAnswer('楽しむ者→好む者→知る者'), shortAnswer('イメージ')] }, 1, 24)
     expect(r.ok && r.section.questions.map(x => x.answer)).toEqual(['楽しむ者→好む者→知る者', 'イメージ'])

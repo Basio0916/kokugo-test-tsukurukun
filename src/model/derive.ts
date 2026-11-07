@@ -1,4 +1,4 @@
-import type { Passage, Question, Section, Test } from './schema'
+import type { FillSegment, Passage, Question, Section, Test } from './schema'
 
 /* 番号と配点の合計は保存せず、テストのデータから計算する */
 
@@ -6,6 +6,17 @@ const CHOICE_LABELS = 'アイウエオカキクケコ'
 
 export function choiceLabel(index: number): string {
   return CHOICE_LABELS[index]
+}
+
+const BLANK_LABELS = 'ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ'
+
+/** 空欄の番号。空欄が一つなら付けない */
+export function blankLabel(index: number, count: number): string | undefined {
+  return count > 1 ? BLANK_LABELS[index] : undefined
+}
+
+export function blanksOf(question: Question): Array<Extract<FillSegment, { kind: 'blank' }>> {
+  return (question.fill ?? []).flatMap(s => (s.kind === 'blank' ? [s] : []))
 }
 
 export function questionNumberOf(section: Section, questionId: string): number {

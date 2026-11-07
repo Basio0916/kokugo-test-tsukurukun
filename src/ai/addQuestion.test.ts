@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ideaChoices } from '../edit/addQuestionModel'
+import { blankQuestion, ideaChoices, ideaFill } from '../edit/addQuestionModel'
 import { insertQuestion } from '../edit/operations'
 import { markNumbers, questionNumberOf } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
@@ -73,6 +73,24 @@ describe('小問を足す AI の案', () => {
     expect(r.ok && r.ideas.length).toBe(1)
   })
 
+  describe('空欄補充の案', () => {
+    const fillIdea = {
+      marks: [],
+      question: { format: 'short' as const, stem: '次の文の空欄に当てはまる言葉を書きなさい。', fillText: 'メロスは[[激怒]]した。', kanten: 'thinking' as const, standard: 'C(1)イ', weight: 1, rationale: '理由' },
+    }
+
+    it('案の一覧に、穴埋め文を答えを出さない形で示す', () => {
+      const r = toIdeas(meros(), { ideas: [fillIdea] }, { pointStep: 1, subtotal: 24 })
+      expect(r.ok && ideaFill(r.ideas[0])).toBe('◎メロスは（二字）した。')
+    })
+
+    it('空欄補充を頼んだのに穴埋め文のない案は不正', () => {
+      const r = toIdeas(meros(), { ideas: [idea('邪智暴虐', '{傍線部:A}の意味は。')] }, { pointStep: 1, subtotal: 24, needsFill: true })
+      expect(r.ok === false && r.errors[0]).toContain('穴埋め文（fillText）がない')
+      expect(toIdeas(meros(), { ideas: [fillIdea] }, { pointStep: 1, subtotal: 24, needsFill: true }).ok).toBe(true)
+    })
+  })
+
   it('案の一覧の選択肢は、七つでもアからキまでの記号が付く', () => {
     const question = { ...meros().questions[0], format: 'choice' as const, choices: ['一', '二', '三', '四', '五', '六', '七'], correct: 6 }
     expect(ideaChoices({ section: meros(), question, rationale: '理由' })).toBe('ア 一　イ 二　ウ 三　エ 四　オ 五　カ 六　キ 七')
@@ -89,6 +107,13 @@ describe('漢文の小問の案', () => {
     expect(r.ideas[0].section.passage.lines[3][0]).toMatchObject({ kind: 'mark', id: 'a' })
     const bad = toIdeas(kanshi, { ideas: [{ marks: [{ key: 'A', quote: '聞(ク)' }], question: { format: 'short', stem: '{傍線部:A}を書き下しなさい。', answer: '聞く', kanten: 'knowledge', standard: '(3)ア', weight: 1, rationale: '理由' } }] }, { pointStep: 1, subtotal: 12 })
     expect(bad.ok).toBe(false)
+  })
+})
+
+describe('自分で書く空の小問', () => {
+  it('空欄補充は、本文から抜き出す形と考えて答える形で、穴埋め文の欄を持つ', () => {
+    expect(blankQuestion('fill-extract', 'a', 4, 'C(1)イ', 'thinking')).toMatchObject({ format: 'extract', fill: [], points: 4 })
+    expect(blankQuestion('fill-short', 'a', 4, 'C(1)イ', 'thinking')).toMatchObject({ format: 'short', fill: [], points: 4 })
   })
 })
 

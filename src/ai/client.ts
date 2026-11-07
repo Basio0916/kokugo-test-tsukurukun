@@ -73,9 +73,9 @@ export function requestComposition(test: Test, section: Section, subtotal: numbe
   return post('/api/draft-composition', body)
 }
 
-/** words は先生が決めた語、candidates は本文から拾った候補 */
-export function requestKanji(test: Test, section: Section, subtotal: number, words: string[], candidates: string[]): Promise<DraftResponse> {
-  const body: KanjiDraftRequest = { grade: gradeOf(test)!, words, candidates, pointStep: test.info.pointStep, subtotal, section }
+/** words は先生が決めた語 */
+export function requestKanji(test: Test, section: Section, subtotal: number, words: string[]): Promise<DraftResponse> {
+  const body: KanjiDraftRequest = { grade: gradeOf(test)!, words, pointStep: test.info.pointStep, subtotal, section }
   return post('/api/draft-kanji', body)
 }
 

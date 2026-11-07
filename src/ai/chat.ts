@@ -4,6 +4,7 @@ import { choiceLabel, markNumbers, questionPoints, sectionPoints, totalPoints } 
 import { needsPassage, Section, Test, type Question, type StemSegment } from '../model/schema.js'
 import { reorderQuestions, reorderSections } from '../edit/operations.js'
 import { addKanbunMarks, lineNotation, lineText } from '../model/kanbun.js'
+import { fillToText } from '../model/notation.js'
 import { circled, kansuji } from '../paper/kansuji.js'
 import { freshIds } from './addQuestion.js'
 import { addMarks, plainText } from './anchor.js'
@@ -92,6 +93,7 @@ function questionText(q: Question, i: number, numbers: Map<string, number>): str
   const points = q.pointsEach !== undefined ? `各${pt(q.pointsEach)}×${q.items?.length ?? 0}項目` : pt(questionPoints(q))
   const head = `### 問${kansuji(i + 1)}（識別子 ${q.id}、${FORMAT_NAMES[q.format]}${q.charLimit ? ` ${q.charLimit}字` : ''}、${points}、${q.kanten === 'knowledge' ? '知識・技能' : '思考・判断・表現'}、${q.standard}）`
   const lines = [head, stemText(q.stem, numbers, q.choices?.length ?? 0)].filter(Boolean)
+  if (q.fill) lines.push(`穴埋め文: ${fillToText(q.fill)}`)
   if (q.conditions) lines.push(`条件: ${q.conditions.join('／')}`)
   if (q.items) {
     lines.push(`項目: ${q.items.map((it, j) => {

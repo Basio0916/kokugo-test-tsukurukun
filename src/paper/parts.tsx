@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { choiceLabel, questionPoints, sectionPoints } from '../model/derive'
 import { needsPassage, type Item, type KanbunChar, type KanbunPassage, type ProsePassage, type ProseSegment, type Question, type Section, type StemSegment, type Test } from '../model/schema'
+import { fillDisplay } from './fill'
 import { circled, kansuji } from './kansuji'
 
 /* 紙面の部品。番号は呼び出し側で計算した傍線部の番号を受け取って描く */
@@ -161,6 +162,7 @@ export function QuestionView({ question, index, numbers }: { question: Question;
   return (
     <>
       <p className="stem"><b>問{kansuji(index + 1)}</b>　{stemText(question.stem, question, numbers)}<span className="pt">（{points}点）</span></p>
+      {question.fill && <p className="fill">◎{fillDisplay(question.fill)}</p>}
       {shown.length > 0 && (inlineItems
         ? <p className="item">{shown.map((it, i) => <span key={i}>{i > 0 && '　　'}{circled(i + 1)}　<ItemText item={it} /></span>)}</p>
         : shown.map((it, i) => <p className="item" key={i}>{circled(i + 1)}　<ItemText item={it} /></p>))}

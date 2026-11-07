@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react'
 import { choiceLabel } from '../model/derive'
-import { itemSegments } from '../model/notation'
+import { fillToText, itemSegments, parseFill } from '../model/notation'
 import type { Item, Question } from '../model/schema'
 import { circled } from '../paper/kansuji'
 import { Dialog } from './Dialog'
@@ -8,7 +8,7 @@ import { stemToText, textToStem } from './stemText'
 
 /*
  * 小問を直すポップアップ。問い文は紙面と同じ番号の印（{傍線部①}・{①}・{ア〜エ}）で、
- * 項目は一行に「例文｜答え」（傍線は [[ ]]）で、選択肢・採点の観点・作文の条件は一行に一つで直す。
+ * 項目は一行に「例文｜答え」（傍線は [[ ]]）で、穴埋め文は空欄を [[答え]] で、選択肢・採点の観点・作文の条件は一行に一つで直す。
  */
 
 const lines = (text: string) => text.split('\n').map(l => l.trim()).filter(Boolean)
@@ -53,6 +53,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
   const [answer, setAnswer] = useState(q.answer ?? '')
   const [rubric, setRubric] = useState((q.rubric ?? []).join('\n'))
   const [conditions, setConditions] = useState((q.conditions ?? []).join('\n'))
+  const [fill, setFill] = useState(fillToText(q.fill ?? []))
   const [charLimit, setCharLimit] = useState(q.charLimit?.toString() ?? '')
   const [points, setPoints] = useState(String(q.pointsEach ?? q.points ?? ''))
   const [kanten, setKanten] = useState(q.kanten)
@@ -60,6 +61,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
   const [errors, setErrors] = useState<string[]>([])
 
   const hasItems = q.items !== undefined
+  const hasFill = q.fill !== undefined
   const choiceList = lines(choices)
 
   // 選択肢の数を変えたら、範囲の外になった正答はアに戻す
@@ -76,6 +78,8 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
     const idOf = new Map([...numbers].map(([id, n]) => [n, id]))
     const newItems = hasItems ? lines(items).map(l => lineToItem(l, idOf)) : undefined
     newItems?.forEach(it => typeof it === 'string' && problems.push(it))
+    const parsedFill = hasFill ? parseFill(fill.trim()) : undefined
+    if (parsedFill && !parsedFill.ok) problems.push(...parsedFill.errors)
     const value = Number(points)
     if (!(value > 0)) problems.push('配点を入れてください')
     if (problems.length) return setErrors(problems)
@@ -87,6 +91,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
       ...(q.choices !== undefined || q.format === 'choice' ? { choices: choiceList } : {}),
       ...(q.correct !== undefined ? { correct } : {}),
       ...(hasItems ? { items: newItems as Item[] } : {}),
+      ...(parsedFill?.ok ? { fill: parsedFill.fill } : {}),
       ...(q.answer !== undefined || answer.trim() ? { answer: answer.trim() || undefined } : {}),
       ...(q.rubric !== undefined ? { rubric: lines(rubric) } : {}),
       ...(q.conditions !== undefined ? { conditions: lines(conditions) } : {}),
@@ -126,12 +131,17 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
             <textarea rows={5} value={items} onChange={e => setItems(e.target.value)} aria-label="項目" />
           </label>
         )}
+        {hasFill && (
+          <label>穴埋め文<span className="edit-hint">空欄の場所に答えを [[答え]] と書きます。◯字以内にするときは [[答え｜10]] と書きます</span>
+            <textarea rows={3} value={fill} onChange={e => setFill(e.target.value)} aria-label="穴埋め文" />
+          </label>
+        )}
         {q.conditions !== undefined && (
           <label>条件（一行に一つ）
             <textarea rows={3} value={conditions} onChange={e => setConditions(e.target.value)} aria-label="条件" />
           </label>
         )}
-        {(q.answer !== undefined || (q.format !== 'choice' && !hasItems && q.format !== 'composition')) && (
+        {(q.answer !== undefined || (q.format !== 'choice' && !hasItems && !hasFill && q.format !== 'composition')) && (
           <label>答え・模範解答
             <textarea rows={2} value={answer} onChange={e => setAnswer(e.target.value)} aria-label="答え" />
           </label>
@@ -143,7 +153,7 @@ export function QuestionEditor({ title, question: q, numbers, onSubmit, onClose,
         )}
         <div className="edit-row">
           <label>{q.pointsEach !== undefined ? '配点（各）' : '配点'}<input type="number" step="0.5" min="0.5" value={points} onChange={e => setPoints(e.target.value)} aria-label="配点" /></label>
-          <label>字数<input type="number" min="1" value={charLimit} onChange={e => setCharLimit(e.target.value)} aria-label="字数" /></label>
+          {!hasFill && <label>字数<input type="number" min="1" value={charLimit} onChange={e => setCharLimit(e.target.value)} aria-label="字数" /></label>}
           <label>観点
             <select value={kanten} onChange={e => setKanten(e.target.value as Question['kanten'])} aria-label="観点">
               <option value="knowledge">知識・技能</option>

@@ -3,7 +3,7 @@ import { catalog } from '../catalog/catalog'
 import { Test } from '../model/schema'
 import { itemPlan } from '../ai/items'
 import { CLASSIFIED_NAMES, grammarMaterialsOf, kanjiStandardOf, kantenOfStandard, materialsOf } from './kinds'
-import { kanjiCandidates, splitWords } from './kanjiCandidates'
+import { splitWords } from './splitWords'
 import { pastedKanbun, pastedPassage, workOf } from './passage'
 import { blankComposition, buildSkeleton } from './skeleton'
 
@@ -115,11 +115,7 @@ describe('項目ごとの配点と項目の数', () => {
   })
 })
 
-describe('本文からの候補と、先生が貼った語', () => {
-  it('中学校で習う漢字を含む、漢字の続く部分を本文の順に拾う', () => {
-    expect(kanjiCandidates(['必ず、かの邪智暴虐の王を除かなければならぬと決意した。', '邪智暴虐の王は、人を欺く。'])).toEqual(['邪智暴虐', '欺'])
-  })
-
+describe('先生が貼った語', () => {
   it('改行・読点・空白で区切り、同じ語はまとめる', () => {
     expect(splitWords('約束、信頼　名誉\n疲労,漂う 約束')).toEqual(['約束', '信頼', '名誉', '疲労', '漂う'])
   })

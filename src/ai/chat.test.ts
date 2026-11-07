@@ -18,6 +18,36 @@ const revised: Extract<ChatAnswer['change'], { kind: 'reviseQuestion' }> = {
 }
 const answer = (change: ChatAnswer['change']): ChatAnswer => ({ reply: '直しました。', change })
 
+describe('穴埋め文の小問を会話で直す', () => {
+  const fillStem = '次の文の空欄に当てはまる言葉を、本文から抜き出しなさい。'
+  const filled = (fillText: string) => ({ format: 'extract' as const, stem: fillStem, fillText, kanten: 'thinking' as const, standard: 'C(1)イ', rationale: '理由' })
+  const withFill = (): typeof sampleTest => ({
+    ...sampleTest,
+    sections: sampleTest.sections.map(s => (s.id !== 'meros' ? s : {
+      ...s,
+      questions: s.questions.map(q => (q.id !== 'q2' ? q : {
+        id: 'q2', format: 'extract' as const, stem: [{ kind: 'text' as const, text: fillStem }], points: 4, kanten: 'thinking' as const, standard: 'C(1)イ',
+        fill: [{ kind: 'text' as const, text: 'メロスは' }, { kind: 'blank' as const, answer: '激怒' }, { kind: 'text' as const, text: 'し、' }, { kind: 'blank' as const, answer: '邪智暴虐' }, { kind: 'text' as const, text: 'の王を除こうとした。' }],
+      })),
+    })),
+  })
+  const questionOf = (r: ReturnType<typeof toChatResult>) => (r.ok && r.change.kind === 'reviseQuestion' ? r.change.section.questions.find(q => q.id === 'q2') : undefined)
+
+  it('小問を空欄補充に直しても、識別子と配点はそのまま', () => {
+    const r = toChatResult(sampleTest, answer({ ...revised, marks: [], question: filled('メロスは[[激怒]]した。') }))
+    expect(questionOf(r)).toMatchObject({ id: 'q2', points: 4, format: 'extract', fill: [{ kind: 'text', text: 'メロスは' }, { kind: 'blank', answer: '激怒' }, { kind: 'text', text: 'した。' }] })
+  })
+
+  it('穴埋め文の小問も直せる', () => {
+    const r = toChatResult(withFill(), answer({ ...revised, marks: [], question: filled('メロスは[[激怒]]した。') }))
+    expect(questionOf(r)?.fill?.filter(s => s.kind === 'blank')).toHaveLength(1)
+  })
+
+  it('今の穴埋め文は、答えの入った記法で AI に見せる', () => {
+    expect(describeTest(withFill())).toContain('穴埋め文: メロスは[[激怒]]し、[[邪智暴虐]]の王を除こうとした。')
+  })
+})
+
 describe('AI に読ませるテストの文', () => {
   const text = describeTest(sampleTest)
 

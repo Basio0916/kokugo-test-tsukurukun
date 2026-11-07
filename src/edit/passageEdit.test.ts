@@ -10,6 +10,33 @@ const segs = (s: Section) => (s.passage?.kind === 'prose' ? s.passage.segments :
 const withText = (s: Section, text: string): Section => ({ ...s, passage: { ...(s.passage as Extract<Section['passage'], { kind: 'prose' }>), segments: rebuildPassage(segs(s), text)!.segments } })
 const marks = (segments: ProseSegment[]) => segments.flatMap(s => (s.kind === 'mark' ? [[s.id, passageToText(s.children)]] : []))
 
+describe('穴埋め文の答えの確かめ', () => {
+  const fillSection = (format: 'extract' | 'short'): Section => ({
+    ...meros(),
+    questions: [{
+      id: 'f', format, stem: [{ kind: 'text', text: '次の文の空欄に当てはまる言葉を書きなさい。' }], points: 4, kanten: 'thinking', standard: 'C(1)イ',
+      fill: [{ kind: 'blank', answer: '激怒' }, { kind: 'text', text: 'し、' }, { kind: 'blank', answer: '邪智暴虐' }, { kind: 'text', text: 'の王を除こうとした。' }],
+    }],
+  })
+  const text = () => passageToText(segs(meros()))
+
+  it('抜き出しの空欄の答えを本文から消すと、その小問が要確認になる', () => {
+    const s = fillSection('extract')
+    const issues = passageIssues(s, withText(s, text().replace('邪智暴虐', '邪悪')))
+    expect(issues.f).toEqual([{ key: 'answer:邪智暴虐', text: '空欄の答え「邪智暴虐」が本文に見当たりません' }])
+  })
+
+  it('考えて答える短答の空欄は確かめない', () => {
+    const s = fillSection('short')
+    expect(passageIssues(s, withText(s, text().replace('邪智暴虐', '邪悪')))).toEqual({})
+  })
+
+  it('「このままにする」とした空欄の答えは、もう知らせない', () => {
+    const s = fillSection('extract')
+    expect(passageIssues(s, withText(s, text().replace('邪智暴虐', '邪悪')), { f: ['answer:邪智暴虐'] })).toEqual({})
+  })
+})
+
 describe('文字の差分', () => {
   it('残った文字の位置を返す', () => {
     expect(charMap('あいうえお', 'あいXうえお')).toEqual([0, 1, 3, 4, 5])

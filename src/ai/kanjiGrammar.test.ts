@@ -36,7 +36,64 @@ describe('漢字の大問', () => {
     expect(all).toContain('読み2: 例文の傍線部（[[ ]]）が 2 か所')
     expect(all).toContain('書き1: 傍線部「やくそく」はかたかなだけで書く')
     // 「約束」を頼んで「約定」が返ると、語の単位で照らし合わせて見つかる
-    expect(all).toContain('書き2: 答え「約定」が、先生が決めた語にも候補にもない')
+    expect(all).toContain('書き2: 「約定」は先生が決めた語になく、中学校で習う漢字を含まない')
+  })
+
+  it('先生の語で足りるのに、ほかの語を使うと不正', () => {
+    const r = toKanjiSection(base('kanji', 'kanji'), {
+      ...good,
+      writing: [good.writing[0], { sentence: '[[アラシ]]が来る。', answer: '嵐' }],
+    }, plan, ['濁流', '欺く', '約束', '漂う'])
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors).toContain('先生が決めた語が 3 個しか使われていない（4 個使う）')
+  })
+
+  describe('先生の語が項目の数より少ないとき', () => {
+    const short: KanjiProposal = {
+      ...good,
+      writing: [good.writing[0], { sentence: '[[アラシ]]が来る。', answer: '嵐' }],
+    }
+
+    it('先生の語をすべて使い、残りを中学校で習う漢字を含む語で補えば通り、補った語を理由に書き添える', () => {
+      const r = toKanjiSection(base('kanji', 'kanji'), short, plan, ['濁流', '約束'])
+      expect(r.ok).toBe(true)
+      if (!r.ok) return
+      expect(r.rationales.map(x => x.rationale)).toEqual(['理由　AI が補った語: 欺く', '理由　AI が補った語: 嵐'])
+    })
+
+    it('補った語に中学校で習う漢字がなければ不正', () => {
+      const r = toKanjiSection(base('kanji', 'kanji'), {
+        ...short,
+        writing: [good.writing[0], { sentence: '[[ヤクジョウ]]を結ぶ。', answer: '約定' }],
+      }, plan, ['濁流', '約束'])
+      expect(r.ok).toBe(false)
+      if (r.ok) return
+      expect(r.errors.join('\n')).toContain('書き2: 「約定」は先生が決めた語になく、中学校で習う漢字を含まない（補う語は中学校で習う漢字を含める）')
+    })
+
+    it('漢字を含まない語は数えない', () => {
+      expect(toKanjiSection(base('kanji', 'kanji'), short, plan, ['濁流', '約束', 'ほほえむ']).ok).toBe(true)
+    })
+  })
+
+  it('同じ語を二つの項目で出すと不正', () => {
+    const r = toKanjiSection(base('kanji', 'kanji'), {
+      ...good,
+      reading: [good.reading[0], { sentence: '友との[[約束]]を守る。', answer: 'やくそく' }],
+    }, plan, words)
+    expect(r.ok).toBe(false)
+    if (r.ok) return
+    expect(r.errors.join('\n')).toContain('書き1: 「約束」をほかの項目でも出している（同じ語は一度だけ出す）')
+  })
+
+  it('送り仮名だけが違う語は同じ語として数える', () => {
+    const r = toKanjiSection(base('kanji', 'kanji'), {
+      ...good,
+      reading: [{ sentence: '本を[[著す]]。', answer: 'あらわす' }, good.reading[0]],
+      writing: [good.writing[0], { sentence: '[[アラシ]]が来る。', answer: '嵐' }],
+    }, plan, ['著す', '著しい', '濁流', '約束'])
+    expect(r.ok).toBe(true)
   })
 })
 
