@@ -8,16 +8,23 @@ import './sheet.css'
 /* 解答用紙。割り付け（layoutAnswerSheet）の結果を、B4 横の一枚に mm で置いて描く */
 
 const mm = (n: number) => `${n}mm`
+// 枠の線の太さ（1px）だけ広げた長さ。隣り合う欄の枠の線を同じ場所に重ねて、二本並んで太く見えないようにする
+const edge = (n: number) => `calc(${n}mm + 1px)`
 const KANTEN = { knowledge: '知・技', thinking: '思・判・表' } as const
 
 function UnitView({ unit, top }: { unit: Unit; top: number }) {
-  const style: CSSProperties = { right: mm(unit.x), top: mm(top + unit.y), width: mm(unit.w), height: mm(unit.h) }
+  const style: CSSProperties = { right: mm(unit.x), top: mm(top + unit.y), width: edge(unit.w), height: edge(unit.h) }
   // 三字の見出し（問十二）は、一マスに入るよう字を小さくする
   if (unit.kind === 'question' || unit.kind === 'item') return <div className={`sheet-head sheet-${unit.kind}${(unit.label?.length ?? 0) >= 3 ? ' sheet-small' : ''}${unit.shaded ? ' sheet-shaded' : ''}`} style={style}>{unit.label}</div>
   if (unit.kind === 'box') return <div className="sheet-box" style={style} />
   return (
     <div className="sheet-box sheet-grid" style={{ ...style, gridTemplateRows: `repeat(${unit.rows}, 1fr)`, gridTemplateColumns: `repeat(${unit.cols}, 1fr)` }}>
-      {Array.from({ length: unit.count ?? 0 }, (_, i) => <span key={i} />)}
+      {/* 外枠に接するマスの区切りは描かない（外枠と二本並ばないように） */}
+      {Array.from({ length: unit.count ?? 0 }, (_, i) => {
+        const rows = unit.rows ?? 1
+        const end = `${i % rows === rows - 1 ? ' sheet-cell-bottom' : ''}${Math.floor(i / rows) === (unit.cols ?? 1) - 1 ? ' sheet-cell-left' : ''}`
+        return <span key={i} className={end.trim() || undefined} />
+      })}
     </div>
   )
 }
@@ -49,7 +56,7 @@ export function AnswerSheet({ test, layout }: { test: Test; layout: SheetLayout 
             <div className="sheet-area" style={{ top: mm(SHEET.top), right: mm(SHEET.right + SHEET.side), width: mm(AREA.width), height: mm(AREA.height) }}>
               {layout.sections.map(s => (
                 <div key={s.id} className="sheet-sec" style={{ right: mm(s.x), width: mm(s.w) }} aria-label={`解答用紙の${s.label}`}>
-                  <div className="sheet-sec-h" style={{ height: mm(cell) }}>{s.label}</div>
+                  <div className="sheet-sec-h" style={{ height: edge(cell) }}>{s.label}</div>
                   {s.waiting
                     ? <p className="sheet-waiting" style={{ top: mm(cell) }}>{s.waiting}</p>
                     : s.units.map((u, i) => <UnitView key={i} unit={u} top={cell} />)}

@@ -94,3 +94,22 @@ test('名前の欄の文字は欄の幅の中央に並ぶ', async ({ page }) => 
     expect(Math.abs(text.x + text.width / 2 - (box.x + box.width / 2))).toBeLessThan(1.5)
   }
 })
+
+test('隣り合う欄の枠の線は、二本並ばずに重なって一本になる', async ({ page }) => {
+  await openSample(page)
+  await page.getByRole('tab', { name: '解答用紙' }).click()
+  const overlaps = await sheetSection(page, '三').evaluate(sec => {
+    const scale = Number(getComputedStyle(sec.closest('.paper-pages')!).getPropertyValue('--s')) || 1
+    const units = [...sec.querySelectorAll('.sheet-head, .sheet-box')].map(e => e.getBoundingClientRect())
+    const near = (a: number, b: number) => Math.abs(a - b) < 0.5
+    // 問二の見出しと、そのすぐ下の欄。問一の見出しと、その左の列の見出し
+    const head = sec.querySelector('.sheet-question.sheet-shaded')!.getBoundingClientRect()
+    const below = units.filter(u => near(u.left, head.left) && u.top > head.top + 1).sort((a, b) => a.top - b.top)[0]
+    const tops = units.filter(u => near(u.top, units[0].top)).sort((a, b) => b.left - a.left)
+    const title = sec.querySelector('.sheet-sec-h')!.getBoundingClientRect()
+    return { line: scale, vertical: head.bottom - below.top, horizontal: tops[1].right - tops[0].left, titleToHead: title.bottom - units[0].top }
+  })
+  expect(overlaps.vertical).toBeCloseTo(overlaps.line, 1)
+  expect(overlaps.horizontal).toBeCloseTo(overlaps.line, 1)
+  expect(overlaps.titleToHead).toBeCloseTo(overlaps.line, 1)
+})
