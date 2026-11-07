@@ -28,6 +28,21 @@ describe('小問の描き方', () => {
   })
 })
 
+describe('穴埋め文を描く', () => {
+  const filled: Question = {
+    id: 'q', format: 'extract', stem: stem('次の文の空欄に当てはまる言葉を抜き出しなさい。'), points: 6, kanten: 'thinking', standard: 'C(1)イ',
+    fill: [{ kind: 'text', text: 'メロスは' }, { kind: 'blank', answer: '激怒' }, { kind: 'text', text: 'し、' }, { kind: 'blank', answer: '邪智暴虐' }, { kind: 'text', text: 'の王を除こうと決意した。' }],
+  }
+
+  it('問い文の次に◎と穴埋め文を描き、答えの文字は描かない', () => {
+    const html = renderToStaticMarkup(<QuestionView question={filled} index={0} numbers={new Map()} />)
+    expect(html.indexOf('次の文の空欄に')).toBeLessThan(html.indexOf('◎メロスは（Ⅰ　二字）し、（Ⅱ　四字）の王を除こうと決意した。'))
+    expect(html).toContain('◎メロスは（Ⅰ　二字）し、（Ⅱ　四字）の王を除こうと決意した。')
+    expect(html).not.toContain('激怒')
+    expect(html).not.toContain('邪智暴虐')
+  })
+})
+
 describe('AI の返答を紙面に描く', () => {
   const seventh: ProposedQuestion = {
     format: 'choice', stem: '当てはまらないものを、次の{範囲}から一つ選び、記号で答えなさい。', choices: ['一', '二', '三', '四', '五', '六', '七'], correctChoice: '七',

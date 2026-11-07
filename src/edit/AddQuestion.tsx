@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Idea } from '../ai/addQuestion'
 import type { QuestionDraftRequest, QuestionDraftResponse } from '../ai/questionDraft'
 import type { Section } from '../model/schema'
-import { FORMATS, ideaChoices, ideaStem, type Format, type OwnFormat } from './addQuestionModel'
+import { AI_FORMATS, OWN_FORMATS, ideaChoices, ideaFill, ideaStem, type AiFormat, type OwnFormat } from './addQuestionModel'
 import { Dialog } from './Dialog'
 
 /*
@@ -35,10 +35,16 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
     ? [{ value: 'kanji-items', label: '漢字の読み書き（項目のある問い）' }]
     : section.kind === 'grammar'
       ? [{ value: 'choice-items', label: '記号選択（項目のある問い）' }, { value: 'short-items', label: '短答（項目のある問い）' }]
-      : FORMATS
+      : OWN_FORMATS
   const [state, setState] = useState<Step>({ step: 'menu' })
-  const [format, setFormat] = useState<OwnFormat>(ownFormats[0].value)
+  const [format, setFormat] = useState<OwnFormat | AiFormat>(ownFormats[0].value)
   const [aim, setAim] = useState('')
+
+  // AI と自分で書くでは形式の一覧が違うので、開くたびにその一覧の先頭を選ぶ
+  function openFormats(own: boolean) {
+    setFormat((own ? ownFormats : AI_FORMATS)[0].value)
+    setState({ step: 'format', own })
+  }
 
   async function ask(how: QuestionDraftRequest['how'], review: boolean) {
     setState({ step: 'waiting' })
@@ -53,8 +59,8 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
       <Dialog title={title} errors={[]} onSubmit={() => {}} onClose={onClose}>
         <div className="add-menu">
           <button type="button" disabled={!aiAvailable} onClick={() => void ask({ kind: 'suggest' }, false)}>AI のおすすめから選ぶ</button>
-          <button type="button" disabled={!aiAvailable} onClick={() => setState({ step: 'format', own: false })}>形式を選んで AI に作ってもらう</button>
-          <button type="button" onClick={() => setState({ step: 'format', own: true })}>自分で書く</button>
+          <button type="button" disabled={!aiAvailable} onClick={() => openFormats(false)}>形式を選んで AI に作ってもらう</button>
+          <button type="button" onClick={() => openFormats(true)}>自分で書く</button>
           {!aiAvailable && <p className="edit-hint">AI に作ってもらう足し方は、本文を持つ文章・古文・漢文の大問で使えます。この大問では「自分で書く」で足せます。</p>}
           <p className="edit-hint">本文に線を引いて作るときは、紙面の本文の一部を選んでください。</p>
         </div>
@@ -63,13 +69,13 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
   }
 
   if (state.step === 'format') {
-    const formats = state.own ? ownFormats : FORMATS
+    const formats = state.own ? ownFormats : AI_FORMATS
     return (
       <Dialog
         title={state.own ? `${title}（自分で書く）` : `${title}（形式を選ぶ）`}
         submitLabel={state.own ? '空の小問を開く' : 'AI に作ってもらう'}
         errors={[]}
-        onSubmit={() => (state.own ? onOwn(format) : void ask({ kind: 'format', format: format as Format, ...(aim.trim() && { aim: aim.trim() }) }, true))}
+        onSubmit={() => (state.own ? onOwn(format as OwnFormat) : void ask({ kind: 'format', format: format as AiFormat, ...(aim.trim() && { aim: aim.trim() }) }, true))}
         onClose={onClose}
       >
         <fieldset className="kanji-candidates">
@@ -111,6 +117,7 @@ export function AddQuestion({ title, section, aiAvailable, request, onPick, onRe
           <li key={i}>
             <button type="button" onClick={() => onPick(idea)} aria-label={`案${i + 1}を入れる`}>
               <span className="idea-stem">{ideaStem(idea)}</span>
+              {idea.question.fill && <span className="idea-choices">{ideaFill(idea)}</span>}
               {idea.question.choices && <span className="idea-choices">{ideaChoices(idea)}</span>}
               <span className="idea-why">（{idea.question.standard}）{idea.rationale}</span>
             </button>

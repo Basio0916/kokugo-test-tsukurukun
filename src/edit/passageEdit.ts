@@ -1,4 +1,4 @@
-import { markNumbers, markRefsOf } from '../model/derive.js'
+import { blanksOf, markNumbers, markRefsOf } from '../model/derive.js'
 import { lineText } from '../model/kanbun.js'
 import type { ProseSegment, Section } from '../model/schema.js'
 import { circled } from '../paper/kansuji.js'
@@ -224,6 +224,11 @@ export function passageIssues(before: Section, after: Section, acked: Record<str
     }
     if (q.format === 'extract' && q.answer && oldText.includes(q.answer) && !newText.includes(q.answer)) {
       issues.push({ key: `answer:${q.answer}`, text: `抜き出しの答え「${q.answer}」が本文に見当たりません` })
+    }
+    if (q.format === 'extract') {
+      for (const { answer } of blanksOf(q)) {
+        if (oldText.includes(answer) && !newText.includes(answer)) issues.push({ key: `answer:${answer}`, text: `空欄の答え「${answer}」が本文に見当たりません` })
+      }
     }
     const stemText = q.stem.map(s => (s.kind === 'text' ? s.text : '')).join('')
     for (const [, quote] of stemText.matchAll(/「([^」]{2,})」/g)) {

@@ -1,4 +1,4 @@
-import { markNumbers, questionPoints } from '../model/derive'
+import { blankLabel, blanksOf, markNumbers, questionPoints } from '../model/derive'
 import { needsPassage, type Kanten, type Question, type Section, type Test } from '../model/schema'
 import { circled, kansuji } from '../paper/kansuji'
 
@@ -32,7 +32,15 @@ const chars = (s: string | undefined) => [...(s ?? '')].length
 export function piecesOf(section: Section, q: Question, column = COLUMN): Piece[] {
   const numbers = markNumbers(section)
   const box = (rows: number, label?: string): Piece => ({ label, rows, cols: 1, grid: false })
-  const grid = (n: number): Piece => ({ rows: Math.min(n, column), cols: Math.ceil(n / column), grid: true, count: n })
+  const grid = (n: number, height = column): Piece => ({ rows: Math.min(n, height), cols: Math.ceil(n / height), grid: true, count: n })
+  if (q.fill) {
+    const blanks = blanksOf(q)
+    return blanks.map((b, i) => {
+      const label = blankLabel(i, blanks.length)
+      // 番号の見出しが一段使うので、そのぶん短く折り返す
+      return { ...grid(b.charLimit ?? chars(b.answer), label ? column - 1 : column), label }
+    })
+  }
   const items = q.items?.map((it, i) => ({ it, label: it.markId ? circled(numbers.get(it.markId) ?? 0) : circled(i + 1) }))
   switch (q.format) {
     case 'choice':

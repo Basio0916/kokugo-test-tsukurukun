@@ -40,7 +40,7 @@ export function freshIds(used: Set<string>, prefix: string) {
   }
 }
 
-type Options = { pointStep: number; subtotal: number; quote?: string }
+type Options = { pointStep: number; subtotal: number; quote?: string; needsFill?: boolean }
 
 export function toIdeas(base: Section, proposal: QuestionIdeas, options: Options): Checked<{ ideas: Idea[] }> {
   const passage = base.passage
@@ -53,6 +53,10 @@ export function toIdeas(base: Section, proposal: QuestionIdeas, options: Options
     const label = `案${i + 1}`
     if (options.quote && !idea.marks.some(m => m.quote === options.quote)) {
       errors.push(`${label}: 先生が線を引いた「${options.quote}」を marks にそのまま引用していない`)
+      return
+    }
+    if (options.needsFill && !idea.question.fillText?.trim()) {
+      errors.push(`${label}: 空欄補充を頼まれたのに穴埋め文（fillText）がない`)
       return
     }
     const markId = freshIds(new Set(usedMarkIds), `${base.id}-n`)

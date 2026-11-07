@@ -18,6 +18,7 @@ export const ProposedQuestion = z.object({
   correctChoice: z.string().optional().describe('記号選択の正答。choices のうち正しいものを、一字も変えずにそのまま書く'),
   charLimit: z.number().int().optional().describe('抜き出し・記述・短答の字数'),
   answer: z.string().optional().describe('正答または模範解答。抜き出しは本文のとおりに書く'),
+  fillText: z.string().optional().describe('空欄補充の穴埋め文。空欄の場所に答えを [[答え]] と書く。「◯字以内」で答えさせるときは [[答え｜10]] と字数の上限を添える。番号は書かない。空欄補充のときは answer と charLimit を書かない'),
   rubric: z.array(z.string().min(1)).optional().describe('記述の採点の観点'),
   kanten: z.enum(['knowledge', 'thinking']).describe('観点。知識・技能は knowledge、思考・判断・表現は thinking'),
   standard: z.string().min(1).describe('指導事項の記号。C(1)イ、(1)エ のように書く'),

@@ -1,4 +1,4 @@
-import { choiceLabel, markNumbers } from '../model/derive'
+import { blankLabel, blanksOf, choiceLabel, markNumbers } from '../model/derive'
 import type { Question, Section } from '../model/schema'
 import { circled, kansuji } from '../paper/kansuji'
 
@@ -19,6 +19,10 @@ const KANTEN = { knowledge: '知識・技能', thinking: '思考・判断・表�
 
 function answerOf(section: Section, q: Question): string {
   const numbers = markNumbers(section)
+  if (q.fill) {
+    const blanks = blanksOf(q)
+    return blanks.map((b, i) => [blankLabel(i, blanks.length), b.answer].filter(Boolean).join(' ')).join('　')
+  }
   if (q.items) return q.items.map((it, i) => `${it.markId ? circled(numbers.get(it.markId) ?? 0) : circled(i + 1)} ${it.answer}`).join('　')
   if (q.format === 'choice') return q.correct !== undefined ? choiceLabel(q.correct) : ''
   return q.answer ?? '—'

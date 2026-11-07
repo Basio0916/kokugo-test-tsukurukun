@@ -64,6 +64,15 @@ export const Item = z.object({
   answer: z.string().min(1),
 })
 
+/* 穴埋め文。空欄は答えをその場所に持つ。字数の上限は「◯字以内」のときだけ持ち、ないときの字数は答えの字数 */
+const Blank = z.object({
+  kind: z.literal('blank'),
+  answer: z.string().min(1),
+  charLimit: z.number().int().positive().max(400, '空欄の字数の上限は四百字まで').optional(),
+})
+export const FillSegment = z.discriminatedUnion('kind', [Text, Blank])
+const MAX_BLANKS = 10
+
 export const Kanten = z.enum(['knowledge', 'thinking'])
 export const AnswerFormat = z.enum(['choice', 'extract', 'description', 'kanji', 'short', 'kana', 'composition'])
 
@@ -72,6 +81,7 @@ export const Question = z
     id: z.string().min(1),
     format: AnswerFormat,
     stem: z.array(StemSegment),
+    fill: z.array(FillSegment).optional(),
     conditions: z.array(z.string().min(1)).optional(),
     charLimit: z.number().int().positive().optional(),
     choices: z.array(z.string().min(1)).min(2).optional(),
@@ -90,6 +100,16 @@ export const Question = z
     if (q.format === 'choice' && !q.choices) ctx.addIssue({ code: 'custom', message: '記号選択の小問は選択肢を持つ' })
     if (q.choices && q.correct !== undefined && q.correct >= q.choices.length) ctx.addIssue({ code: 'custom', message: '正答が選択肢の範囲外' })
     if (q.format === 'composition' && !q.conditions) ctx.addIssue({ code: 'custom', message: '作文の問は条件を持つ' })
+    if (q.fill) {
+      const blanks = q.fill.flatMap(s => (s.kind === 'blank' ? [s] : []))
+      if (q.format !== 'extract' && q.format !== 'short') ctx.addIssue({ code: 'custom', message: '穴埋め文を持てるのは抜き出しと短答の小問だけ' })
+      if (blanks.length === 0) ctx.addIssue({ code: 'custom', message: '穴埋め文に空欄がない（空欄は [[答え]] と書く）' })
+      if (blanks.length > MAX_BLANKS) ctx.addIssue({ code: 'custom', message: '穴埋め文の空欄は十個まで' })
+      for (const b of blanks) {
+        if (b.charLimit !== undefined && [...b.answer].length > b.charLimit) ctx.addIssue({ code: 'custom', message: `空欄の答え「${b.answer}」が字数の上限${b.charLimit}字を超えている` })
+      }
+      if (q.choices || q.items || q.answer !== undefined || q.charLimit !== undefined) ctx.addIssue({ code: 'custom', message: '穴埋め文を持つ小問は、選択肢・項目・小問全体の答えと字数を持たない' })
+    }
   })
 
 export const SectionKind = z.enum(['kanji', 'grammar', 'literary', 'expository', 'classical', 'kanbun', 'composition'])
@@ -142,6 +162,7 @@ export type KanbunToken = z.infer<typeof KanbunToken>
 export type KanbunPassage = z.infer<typeof KanbunPassage>
 export type Passage = z.infer<typeof Passage>
 export type StemSegment = z.infer<typeof StemSegment>
+export type FillSegment = z.infer<typeof FillSegment>
 export type Item = z.infer<typeof Item>
 export type Kanten = z.infer<typeof Kanten>
 export type Question = z.infer<typeof Question>

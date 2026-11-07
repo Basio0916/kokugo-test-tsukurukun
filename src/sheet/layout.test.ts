@@ -33,6 +33,38 @@ describe('解答欄の大きさ', () => {
   })
 })
 
+describe('穴埋め文の解答欄', () => {
+  const filled = (...blanks: Array<{ answer: string; charLimit?: number }>): Question => ({
+    id: 'q-fill', format: 'extract', stem: [], points: 6, kanten: 'thinking', standard: 'C(1)イ',
+    fill: blanks.flatMap(b => [{ kind: 'text' as const, text: 'あ' }, { kind: 'blank' as const, ...b }]),
+  })
+
+  it('空欄ごとのマス目に、番号の見出しを付ける', () => {
+    expect(piecesOf(section('meros'), filled({ answer: '激怒' }, { answer: '邪智暴虐' }))).toEqual([
+      { label: 'Ⅰ', rows: 2, cols: 1, grid: true, count: 2 },
+      { label: 'Ⅱ', rows: 4, cols: 1, grid: true, count: 4 },
+    ])
+  })
+
+  it('空欄が一つなら見出しなしで、字数の上限のマス目にする', () => {
+    expect(piecesOf(section('meros'), filled({ answer: '王を除く', charLimit: 10 }))).toEqual([{ rows: 10, cols: 1, grid: true, count: 10 }])
+  })
+
+  it('二十字を超える空欄は列を増やす', () => {
+    expect(piecesOf(section('meros'), filled({ answer: 'あ', charLimit: 25 }))).toEqual([{ rows: 20, cols: 2, grid: true, count: 25 }])
+  })
+
+  it('番号の見出しが付く空欄は、見出しのぶん一マス短く折り返す', () => {
+    expect(piecesOf(section('meros'), filled({ answer: '激怒' }, { answer: 'あ', charLimit: 20 }))[1]).toEqual({ label: 'Ⅱ', rows: 19, cols: 2, grid: true, count: 20 })
+  })
+
+  it('穴埋め文の小問を含むテストも、重ならずに一枚に収まる', () => {
+    const meros = { ...section('meros'), questions: [...section('meros').questions, filled({ answer: '激怒' }, { answer: 'あ', charLimit: 25 })] }
+    const layout = checkLayout({ ...sampleTest, sections: sampleTest.sections.map(s => (s.id === 'meros' ? meros : s)) })
+    expect(layout.sections[2].units.filter(u => u.kind === 'item').map(u => u.label)).toEqual(['Ⅰ', 'Ⅱ'])
+  })
+})
+
 const overlaps = (a: Unit, b: Unit) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
 
 function checkLayout(test: Test) {

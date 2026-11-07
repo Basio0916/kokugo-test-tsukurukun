@@ -107,6 +107,7 @@
 
 /* 小問 */
 .cond { padding-inline-start: 1em; }
+.fill { padding-inline-start: 2em; text-indent: -1em; }
 .end { font-size: 0.85em; margin-block-start: 0.6em; }
 
 /* 印刷は紙面だけを実寸で、一ページずつ */

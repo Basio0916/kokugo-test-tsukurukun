@@ -19,6 +19,16 @@ describe('模範解答・採点基準の行', () => {
     expect(rows('grammar')[0]).toMatchObject({ answer: '① ア　② イ　③ エ', rubric: ['記号が合っていれば正答'] })
   })
 
+  it('穴埋め文は空欄の番号と答えを並べ、配点は小問全体。空欄が一つなら答えだけ', () => {
+    const meros = sampleTest.sections.find(s => s.id === 'meros')!
+    const base = { id: 'f', format: 'extract' as const, stem: [], points: 6, kanten: 'thinking' as const, standard: 'C(1)イ' }
+    const two = { ...base, fill: [{ kind: 'blank' as const, answer: '激怒' }, { kind: 'blank' as const, answer: '邪智暴虐' }] }
+    const one = { ...base, id: 'g', fill: [{ kind: 'blank' as const, answer: '王を除く', charLimit: 10 }] }
+    const [first, second] = keyRows({ ...meros, questions: [two, one] })
+    expect(first).toMatchObject({ answer: 'Ⅰ 激怒　Ⅱ 邪智暴虐', points: '六点', rubric: ['答えが合っていれば正答'] })
+    expect(second.answer).toBe('王を除く')
+  })
+
   it('作文は条件に沿って書けているかを採点基準にする', () => {
     expect(rows('sakubun')[0].label).toBe('作文')
     expect(rows('sakubun')[0].rubric).toEqual(['条件に沿って書けている', expect.stringContaining('二段落'), '百六十字以上、二百字以内で書くこと。'])
