@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { isJuniorHighKanji } from '../catalog/kanji.js'
 import { itemSegments, stem } from '../model/notation.js'
 import { Section, type Question } from '../model/schema.js'
 import type { Converted } from './toSection.js'
@@ -32,12 +33,28 @@ export const kanjiPart = (word: string) => [...word].filter(c => KANJI.test(c)).
 
 export type KanjiPlan = { each: number; reading: number; writing: number; standard: string }
 
-/** words は先生が決めた語と本文からの候補。読みの傍線部と書きの答えは、この中の語と漢字の部分が一致しなければならない */
+/**
+ * words は先生が決めた語。出題した語（読みの傍線部、書きの答え）は漢字の部分で照らし合わせ、
+ * 先生の語を項目の数まで使い切っているか、補った語が中学校で習う漢字を含むかを確かめる
+ */
 export function toKanjiSection(base: Section, proposal: KanjiProposal, plan: KanjiPlan, words: string[]): Converted {
   const errors: string[] = []
   const allowed = new Set(words.map(kanjiPart).filter(Boolean))
+  const used = new Set<string>()
+  const seen = new Set<string>()
+  const supplied = { 読み: [] as string[], 書き: [] as string[] }
   if (proposal.reading.length !== plan.reading) errors.push(`読みの項目が ${proposal.reading.length} 個（${plan.reading} 個ちょうどにする）`)
   if (proposal.writing.length !== plan.writing) errors.push(`書きの項目が ${proposal.writing.length} 個（${plan.writing} 個ちょうどにする）`)
+
+  const tally = (kind: '読み' | '書き', label: string, word: string) => {
+    const part = kanjiPart(word)
+    if (!part) return
+    if (seen.has(part)) errors.push(`${label}: 「${word}」をほかの項目でも出している（同じ語は一度だけ出す）`)
+    seen.add(part)
+    if (allowed.has(part)) used.add(part)
+    else if (![...part].some(isJuniorHighKanji)) errors.push(`${label}: 「${word}」は先生が決めた語になく、中学校で習う漢字を含まない（補う語は中学校で習う漢字を含める）`)
+    else supplied[kind].push(word)
+  }
 
   const check = (kind: '読み' | '書き', i: number, item: { sentence: string; answer: string }) => {
     const label = `${kind}${i + 1}`
@@ -47,15 +64,17 @@ export function toKanjiSection(base: Section, proposal: KanjiProposal, plan: Kan
     if (kind === '読み') {
       if (!KANJI.test(target)) errors.push(`${label}: 傍線部「${target}」に漢字がない`)
       if (!HIRAGANA_ONLY.test(item.answer)) errors.push(`${label}: 答え「${item.answer}」はひらがなだけで書く`)
-      if (!allowed.has(kanjiPart(target))) errors.push(`${label}: 傍線部「${target}」が、先生が決めた語にも候補にもない`)
+      tally(kind, label, target)
     } else {
       if (!KATAKANA_ONLY.test(target)) errors.push(`${label}: 傍線部「${target}」はかたかなだけで書く`)
       if (!KANJI.test(item.answer)) errors.push(`${label}: 答え「${item.answer}」に漢字がない`)
-      if (!allowed.has(kanjiPart(item.answer))) errors.push(`${label}: 答え「${item.answer}」が、先生が決めた語にも候補にもない`)
+      tally(kind, label, item.answer)
     }
   }
   proposal.reading.forEach((item, i) => check('読み', i, item))
   proposal.writing.forEach((item, i) => check('書き', i, item))
+  const need = Math.min(allowed.size, plan.reading + plan.writing)
+  if (used.size < need) errors.push(`先生が決めた語が ${used.size} 個しか使われていない（${need} 個使う）`)
 
   const question = (id: string, text: string, items: KanjiProposal['reading']): Question => ({
     id, format: 'kanji', stem: stem(text), kanten: 'knowledge', standard: plan.standard, pointsEach: plan.each,
@@ -68,12 +87,14 @@ export function toKanjiSection(base: Section, proposal: KanjiProposal, plan: Kan
   const parsed = Section.safeParse({ ...base, questions })
   if (!parsed.success) errors.push(...parsed.error.issues.map(issue => issue.message))
   if (errors.length || !parsed.success) return { ok: false, errors }
+  // どの語を AI が補ったかはシステムが確実に分かるので、AI に書かせずに書き添える
+  const withSupplied = (rationale: string, list: string[]) => (list.length ? `${rationale}　AI が補った語: ${list.join('、')}` : rationale)
   return {
     ok: true,
     section: parsed.data,
     rationales: [
-      { questionId: questions[0].id, rationale: proposal.readingRationale, standard: plan.standard },
-      { questionId: questions[1].id, rationale: proposal.writingRationale, standard: plan.standard },
+      { questionId: questions[0].id, rationale: withSupplied(proposal.readingRationale, supplied.読み), standard: plan.standard },
+      { questionId: questions[1].id, rationale: withSupplied(proposal.writingRationale, supplied.書き), standard: plan.standard },
     ],
   }
 }
