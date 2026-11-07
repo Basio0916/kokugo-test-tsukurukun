@@ -18,10 +18,9 @@ export function Cover({ test }: { test: Test }) {
         <p>（{info.grade}）　時間　{kansuji(info.minutes)}分</p>
         <div className="c-notes">
           <p>《注意》</p>
-          <p>一、先生の合図があるまで、この問題用紙を開いてはいけません。</p>
-          <p>二、答えは、すべて解答用紙に記入しなさい。</p>
-          <p>三、字は、ていねいに、はっきりと書きなさい。</p>
-          <p>四、{kansuji(info.fullMarks)}点満点です。配点は各問題のはじめに示してあります。</p>
+          <p>一、答えは、すべて解答用紙に記入しなさい。</p>
+          <p>二、字は、ていねいに、はっきりと書きなさい。</p>
+          <p>三、{kansuji(info.fullMarks)}点満点です。配点は各問題のはじめに示してあります。</p>
         </div>
       </div>
       <div className="rule" />
