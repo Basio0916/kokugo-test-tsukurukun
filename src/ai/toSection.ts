@@ -16,7 +16,9 @@ export type Converted =
   | { ok: false; errors: string[] }
 
 // 問い文に番号・記号を文字で書いた印（記法を使っていない）
-export const WRITTEN_NUMBER = /[①-⑳]|[ア-オ][〜～-][イ-カ]|傍線部[0-9０-９一二三四五六七八九]/
+export const WRITTEN_NUMBER = /[①-⑳]|[ア-オ][〜～-][イ-コ]|傍線部[0-9０-９一二三四五六七八九]/
+// 答えに書いた傍線部の番号。番号は振り直されるので、答えに残すと模範解答だけが古くなる
+const CIRCLED_NUMBER = /[①-⑳]/
 
 /** subtotal は大問の配点の枠。小問の配点は、この合計になるように割り振る */
 export function toSection(base: Section, proposal: SectionProposal, pointStep: number, subtotal: number): Converted {
@@ -74,6 +76,7 @@ export function buildQuestion(p: ProposedQuestion, id: string, label: string, id
   if (p.format === 'choice' && correct === -1) errors.push(`${label}: 正答（correctChoice）が選択肢のどれとも一致しない（選択肢の文をそのまま書く）`)
   if (p.format === 'extract' && p.answer && !passageText.includes(p.answer)) errors.push(`${label}: 抜き出しの答え「${p.answer}」が本文にない`)
   if (p.format !== 'choice' && !p.answer) errors.push(`${label}: 正答・模範解答（answer）がない`)
+  if (p.answer && CIRCLED_NUMBER.test(p.answer)) errors.push(`${label}: 答えに番号（①など）を文字で書いている（番号は振り直されるので、語そのもので書く）`)
   return {
     errors,
     question: {

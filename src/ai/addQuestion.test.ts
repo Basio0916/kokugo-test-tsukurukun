@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ideaChoices } from '../edit/addQuestionModel'
 import { insertQuestion } from '../edit/operations'
 import { markNumbers, questionNumberOf } from '../model/derive'
 import { sampleTest } from '../sample/sampleTest'
@@ -70,6 +71,11 @@ describe('小問を足す AI の案', () => {
   it('おすすめの一部が通らなければ、通った案だけを返す', () => {
     const r = toIdeas(meros(), { ideas: [idea('メロスは怒った', '{傍線部:A}について。'), idea('村の牧人', '{傍線部:A}とは何ですか。')] }, { pointStep: 1, subtotal: 24 })
     expect(r.ok && r.ideas.length).toBe(1)
+  })
+
+  it('案の一覧の選択肢は、七つでもアからキまでの記号が付く', () => {
+    const question = { ...meros().questions[0], format: 'choice' as const, choices: ['一', '二', '三', '四', '五', '六', '七'], correct: 6 }
+    expect(ideaChoices({ section: meros(), question, rationale: '理由' })).toBe('ア 一　イ 二　ウ 三　エ 四　オ 五　カ 六　キ 七')
   })
 })
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { removeQuestion } from '../edit/operations'
 import { kantenTotals, sectionPoints } from '../model/derive'
-import type { Test } from '../model/schema'
+import type { Question, Section, Test } from '../model/schema'
 import { longTest } from '../sample/longTest'
 import { sampleTest } from '../sample/sampleTest'
 import { AREA, layoutAnswerSheet, piecesOf, type Unit } from './layout'
@@ -70,6 +70,21 @@ describe('解答用紙の割り付け', () => {
 
   it('小問の多いサンプルも、すべての小問が重ならずに一枚に収まる', () => {
     checkLayout(longTest)
+  })
+
+  it.each([7, 8])('漢字と文法、各%i問（記述を含む）の文章の大問三つ、作文のテストも一枚に収まる', count => {
+    const answer = (n: number) => 'あ'.repeat(n)
+    const base = { kanten: 'thinking' as const, standard: 'C(1)イ', points: 4, stem: [] }
+    const choice = { ...base, format: 'choice' as const, choices: ['あ', 'い', 'う', 'え'], correct: 0 }
+    const written: Array<Omit<Question, 'id'>> = [
+      { ...base, format: 'extract', charLimit: 13, answer: answer(13) },
+      { ...base, format: 'extract', charLimit: 22, answer: answer(22) },
+      { ...base, format: 'description', charLimit: 50, answer: answer(50) },
+      { ...base, format: 'description', charLimit: 60, answer: answer(60) },
+    ]
+    const questions = [...written, ...Array<Omit<Question, 'id'>>(count - written.length).fill(choice)]
+    const reading = (id: string): Section => ({ ...section('meros'), id, questions: questions.map((q, i) => ({ ...q, id: `${id}-q${i + 1}` })) })
+    checkLayout({ ...sampleTest, sections: [section('kanji'), section('grammar'), reading('a'), reading('b'), reading('c'), section('sakubun')] })
   })
 
   it('入らなければマスを小さくして収まる大きさを選ぶ', () => {
