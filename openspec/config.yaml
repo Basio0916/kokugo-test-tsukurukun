@@ -3,7 +3,7 @@ schema: spec-driven
 # Project context (optional)
 # This is shown to AI when creating artifacts.
 context: |
-  # 国語テストつくるくん（仮称。リポジトリ名は mondai-tsukurukun）
+  # 国語テストつくるくん（仮称。リポジトリ名は kokugo-test-tsukurukun。Vercel のプロジェクト名と本番 URL は mondai-tsukurukun のまま）
 
   ## 何を作るか
   日本の中学校の国語の先生が、定期テスト一式（問題用紙・解答用紙・模範解答・採点基準）を
