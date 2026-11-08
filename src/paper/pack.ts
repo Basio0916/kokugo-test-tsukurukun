@@ -11,7 +11,8 @@ export function pack(items: PackItem[], capacity: number): number[][] {
   const pages: number[][] = [[]]
   let used = 0
   items.forEach((item, i) => {
-    const next = item.keepWithNext ? items[i + 1] : undefined
+    // 次のブロックが新しいページから始まるなら、同じページには来ないので幅を見ない
+    const next = item.keepWithNext && !items[i + 1]?.newPage ? items[i + 1] : undefined
     const need = item.width + (next ? next.width : 0)
     if (pages[pages.length - 1].length > 0 && (item.newPage || used + need > capacity)) {
       pages.push([])

@@ -20,6 +20,11 @@ describe('ページの割り付け', () => {
     expect(pack([item(60), item(20, { keepWithNext: true }), item(30)], 100)).toEqual([[0], [1, 2]])
   })
 
+  it('次のブロックが新しいページから始まるなら、その幅は見ずに見出しをこのページに置く', () => {
+    // 表紙・小問のまだない漢字の見出し・本文を貼った文章の大問の見出し
+    expect(pack([item(20), item(10, { keepWithNext: true }), item(80, { newPage: true })], 100)).toEqual([[0, 1], [2]])
+  })
+
   it('一つで一ページを超えるブロックも、そのページに置く', () => {
     expect(pack([item(150), item(10)], 100)).toEqual([[0], [1]])
   })
