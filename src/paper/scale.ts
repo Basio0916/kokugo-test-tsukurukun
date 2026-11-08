@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 /* B4 横（JIS）の紙を、置く場所の幅に合わせて縮めて描く */
 
@@ -9,10 +9,13 @@ const PAGE_W = 364 * MM
 export function usePageScale() {
   const ref = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
-  useEffect(() => {
+  // 最初に描く前に一度測る。ResizeObserver の知らせを待つと、一コマだけ縮める前の大きさで描いてしまう
+  useLayoutEffect(() => {
     const el = ref.current
     if (!el) return
-    const ro = new ResizeObserver(() => setScale(Math.min(1, (el.clientWidth - 32) / PAGE_W)))
+    const fit = () => setScale(Math.min(1, (el.clientWidth - 32) / PAGE_W))
+    fit()
+    const ro = new ResizeObserver(fit)
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
