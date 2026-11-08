@@ -95,6 +95,25 @@ test('名前の欄の文字は欄の幅の中央に並ぶ', async ({ page }) => 
   }
 })
 
+test('解答用紙に切り替えると、最初に描いたときから紙を置き場所の幅に収めて描く', async ({ page }) => {
+  await openSample(page)
+  // 解答用紙が現れたあとの最初のコマで、紙の幅と置き場所の幅を測る
+  await page.evaluate(() => {
+    const observer = new MutationObserver(() => {
+      const sheet = document.querySelector('.page.sheet')
+      if (!sheet) return
+      observer.disconnect()
+      requestAnimationFrame(() => {
+        (window as unknown as { firstFrame: unknown }).firstFrame = { sheet: sheet.getBoundingClientRect().width, paper: sheet.closest('.paper')!.clientWidth }
+      })
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+  })
+  await page.getByRole('tab', { name: '解答用紙', exact: true }).click()
+  const first = await (await page.waitForFunction(() => (window as unknown as { firstFrame?: { sheet: number; paper: number } }).firstFrame)).jsonValue()
+  expect(first!.sheet).toBeLessThanOrEqual(first!.paper)
+})
+
 test('隣り合う欄の枠の線は、二本並ばずに重なって一本になる', async ({ page }) => {
   await openSample(page)
   await page.getByRole('tab', { name: '解答用紙', exact: true }).click()
